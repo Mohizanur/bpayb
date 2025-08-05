@@ -50,7 +50,8 @@ try {
   services = [];
 }
 
-// Add middleware AFTER i18n loading but BEFORE handlers
+// Add middleware IMMEDIATELY after i18n loading
+console.log("🔄 Registering middleware...");
 bot.use(async (ctx, next) => {
   try {
     console.log("🔄 MIDDLEWARE: Processing message:", ctx.message?.text || "callback query");
@@ -74,6 +75,7 @@ bot.use(async (ctx, next) => {
     await next();
   }
 });
+console.log("🔄 Middleware registered successfully!");
 
 // Now register handlers AFTER middleware
 console.log("Registering handlers...");
@@ -98,6 +100,15 @@ adminHandler(bot);
 console.log("Registering help handler...");
 helpHandler(bot);
 console.log("All handlers registered successfully!");
+
+// Direct test command to verify handler registration
+bot.command("direct_test", async (ctx) => {
+  console.log("📝 DIRECT TEST COMMAND TRIGGERED!");
+  console.log("User ID:", ctx.from?.id);
+  console.log("User language:", ctx.userLang);
+  console.log("i18n available:", !!ctx.i18n);
+  await ctx.reply("✅ Direct test command working! This proves handlers can be triggered.");
+});
 
 // Test commands for debugging
 bot.command("test", async (ctx) => {
