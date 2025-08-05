@@ -3,6 +3,7 @@ import { escapeMarkdownV2 } from "../utils/i18n.js";
 export default function helpHandler(bot) {
   bot.command("help", async (ctx) => {
     try {
+      console.log("Help command triggered!");
       const lang = ctx.userLang;
 
       const helpText =
@@ -50,7 +51,9 @@ Send any message for support (admin will review)
 /admin_active - አካት መዋቅሮችን ይመልከቱ
 /admin_help - የአስተዳዳሪ እርዳታ`;
 
+      console.log("Sending help response...");
       await ctx.reply(helpText);
+      console.log("Help response sent successfully!");
     } catch (error) {
       console.error("Error in help handler:", error);
       await ctx.reply("Sorry, something went wrong. Please try again.");

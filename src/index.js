@@ -15,6 +15,7 @@ import adminHandler from "./handlers/admin.js";
 import helpHandler from "./handlers/help.js";
 
 console.log("Starting bot initialization...");
+console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN, {
   handlerTimeout: 9000,
@@ -41,6 +42,7 @@ try {
 bot.use(async (ctx, next) => {
   try {
     console.log("Processing message:", ctx.message?.text || "callback query");
+    console.log("Message type:", ctx.message ? "message" : "callback_query");
     ctx.i18n = i18n;
     ctx.services = services;
     ctx.userLang = await getUserLang(ctx);
@@ -83,15 +85,21 @@ firestoreListener(bot);
 adminHandler(bot);
 helpHandler(bot);
 
-// Add a catch-all handler for unhandled messages
-bot.on("message", async (ctx) => {
+// Add a catch-all handler for unhandled messages (only for non-commands)
+bot.on("text", async (ctx) => {
   try {
+    // Skip if it's a command (starts with /)
+    if (ctx.message.text.startsWith("/")) {
+      console.log("Command not handled:", ctx.message.text);
+      return;
+    }
+
     console.log("Catch-all handler triggered for:", ctx.message?.text);
     const lang = ctx.userLang || "en";
     const helpText =
       lang === "en"
-        ? "I don't understand that command. Use /help to see available commands."
-        : "ያ ትዕዛዝ አልገባኝም። የሚገኙ ትዕዛዞችን ለማየት /help ይጠቀሙ።";
+        ? "I don't understand that message. Use /help to see available commands."
+        : "ያ መልእክት አልገባኝም። የሚገኙ ትዕዛዞችን ለማየት /help ይጠቀሙ።";
     await ctx.reply(helpText);
   } catch (error) {
     console.error("Error in catch-all handler:", error);
@@ -101,6 +109,7 @@ bot.on("message", async (ctx) => {
 fastify.post("/telegram", async (req, reply) => {
   try {
     console.log("Received webhook update");
+    console.log("Update body:", JSON.stringify(req.body, null, 2));
     await bot.handleUpdate(req.body);
     reply.send({ ok: true });
   } catch (error) {

@@ -1,6 +1,7 @@
 export default function faqHandler(bot) {
   bot.command("faq", async (ctx) => {
     try {
+      console.log("FAQ command triggered!");
       const lang = ctx.userLang;
       const faqs = [
         { q: ctx.i18n.faq_1_q[lang], a: ctx.i18n.faq_1_a[lang] },
@@ -11,9 +12,11 @@ export default function faqHandler(bot) {
       const keyboard = faqs.map((f, i) => [
         { text: f.q, callback_data: `faq_${i}` },
       ]);
+      console.log("Sending FAQ response...");
       await ctx.reply(ctx.i18n.faq_title[lang], {
         reply_markup: { inline_keyboard: keyboard },
       });
+      console.log("FAQ response sent successfully!");
     } catch (error) {
       console.error("Error in faq handler:", error);
       await ctx.reply("Sorry, something went wrong. Please try again.");
