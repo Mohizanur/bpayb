@@ -65,6 +65,12 @@ bot.command("test", async (ctx) => {
   await ctx.reply("Test command works! 🎉");
 });
 
+// Add a simple help command directly here
+bot.command("help", async (ctx) => {
+  console.log("Help command triggered directly!");
+  await ctx.reply("Help command works! 🎉");
+});
+
 // Add error handling for all handlers
 bot.catch((err, ctx) => {
   console.error("Bot error:", err);
@@ -102,13 +108,19 @@ firestoreListener(bot);
 console.log("Registering admin handler...");
 adminHandler(bot);
 console.log("Registering help handler...");
-helpHandler(bot);
+// helpHandler(bot); // Commented out to test direct handler
 
 console.log("All handlers registered successfully!");
 
 // Debug: List all registered commands
 console.log("Bot handlers:", Object.keys(bot.context || {}));
 console.log("Bot middleware:", bot.middleware?.length || 0);
+
+// Add a simple test command AFTER other handlers to see if it works
+bot.command("test2", async (ctx) => {
+  console.log("Test2 command triggered!");
+  await ctx.reply("Test2 command works! 🎉");
+});
 
 // Add a simple text handler for non-command messages (AFTER all command handlers)
 bot.on("text", async (ctx) => {
