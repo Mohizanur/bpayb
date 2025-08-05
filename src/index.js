@@ -108,13 +108,24 @@ firestoreListener(bot);
 console.log("Registering admin handler...");
 adminHandler(bot);
 console.log("Registering help handler...");
-// helpHandler(bot); // Commented out to test direct handler
+helpHandler(bot); // Uncommented to test
 
 console.log("All handlers registered successfully!");
 
 // Debug: List all registered commands
 console.log("Bot handlers:", Object.keys(bot.context || {}));
 console.log("Bot middleware:", bot.middleware?.length || 0);
+
+// Add direct implementations for commands that aren't working
+bot.command("faq", async (ctx) => {
+  console.log("FAQ command triggered directly!");
+  await ctx.reply("FAQ command works! 🎉");
+});
+
+bot.command("lang", async (ctx) => {
+  console.log("Lang command triggered directly!");
+  await ctx.reply("Lang command works! 🎉");
+});
 
 // Add a simple test command AFTER other handlers to see if it works
 bot.command("test2", async (ctx) => {
