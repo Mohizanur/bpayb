@@ -50,7 +50,32 @@ try {
   services = [];
 }
 
-// Now register handlers AFTER i18n is loaded
+// Add middleware AFTER i18n loading but BEFORE handlers
+bot.use(async (ctx, next) => {
+  try {
+    console.log("🔄 MIDDLEWARE: Processing message:", ctx.message?.text || "callback query");
+    console.log("🔄 MIDDLEWARE: Message type:", ctx.message ? "message" : "callback_query");
+    console.log("🔄 MIDDLEWARE: Is command:", ctx.message?.text?.startsWith("/"));
+    console.log("🔄 MIDDLEWARE: Setting context properties...");
+    ctx.i18n = i18n;
+    ctx.services = services;
+    ctx.userLang = await getUserLang(ctx);
+    console.log("🔄 MIDDLEWARE: User language set to:", ctx.userLang);
+    console.log("🔄 MIDDLEWARE: Calling next()...");
+    await next();
+    console.log("🔄 MIDDLEWARE: next() completed");
+  } catch (error) {
+    console.error("⚠️ MIDDLEWARE ERROR:", error);
+    // Fallback to English if there's an error
+    ctx.userLang = "en";
+    ctx.i18n = i18n;
+    ctx.services = services;
+    console.log("🔄 MIDDLEWARE: Fallback applied, calling next()...");
+    await next();
+  }
+});
+
+// Now register handlers AFTER middleware
 console.log("Registering handlers...");
 console.log("Registering start handler...");
 startHandler(bot);
@@ -73,55 +98,6 @@ adminHandler(bot);
 console.log("Registering help handler...");
 helpHandler(bot);
 console.log("All handlers registered successfully!");
-
-// Now add middleware AFTER handlers
-bot.use(async (ctx, next) => {
-  try {
-    console.log("🔄 MIDDLEWARE: Processing message:", ctx.message?.text || "callback query");
-    console.log("🔄 MIDDLEWARE: Message type:", ctx.message ? "message" : "callback_query");
-    console.log("🔄 MIDDLEWARE: Is command:", ctx.message?.text?.startsWith("/"));
-    console.log("🔄 MIDDLEWARE: Setting context properties...");
-    ctx.i18n = i18n;
-    ctx.services = services;
-    ctx.userLang = await getUserLang(ctx);
-    console.log("🔄 MIDDLEWARE: User language set to:", ctx.userLang);
-    console.log("🔄 MIDDLEWARE: Calling next()...");
-    await next();
-    console.log("🔄 MIDDLEWARE: next() completed");
-  } catch (error) {
-    console.error("⚠️ MIDDLEWARE ERROR:", error);
-    // Fallback to English if there's an error
-    ctx.userLang = "en";
-    ctx.i18n = i18n;
-    ctx.services = services;
-    console.log("🔄 MIDDLEWARE: Fallback applied, calling next()...");
-    await next();
-  }
-});
-
-bot.use(async (ctx, next) => {
-  try {
-    console.log("🔄 MIDDLEWARE: Processing message:", ctx.message?.text || "callback query");
-    console.log("🔄 MIDDLEWARE: Message type:", ctx.message ? "message" : "callback_query");
-    console.log("🔄 MIDDLEWARE: Is command:", ctx.message?.text?.startsWith("/"));
-    console.log("🔄 MIDDLEWARE: Setting context properties...");
-    ctx.i18n = i18n;
-    ctx.services = services;
-    ctx.userLang = await getUserLang(ctx);
-    console.log("🔄 MIDDLEWARE: User language set to:", ctx.userLang);
-    console.log("🔄 MIDDLEWARE: Calling next()...");
-    await next();
-    console.log("🔄 MIDDLEWARE: next() completed");
-  } catch (error) {
-    console.error("⚠️ MIDDLEWARE ERROR:", error);
-    // Fallback to English if there's an error
-    ctx.userLang = "en";
-    ctx.i18n = i18n;
-    ctx.services = services;
-    console.log("🔄 MIDDLEWARE: Fallback applied, calling next()...");
-    await next();
-  }
-});
 
 // Test commands for debugging
 bot.command("test", async (ctx) => {
