@@ -11,6 +11,12 @@ export async function loadI18n() {
   return i18nCache;
 }
 
+// Function to escape MarkdownV2 text
+export function escapeMarkdownV2(text) {
+  if (!text) return text;
+  return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, "\\$&").replace(/\\/g, "\\\\");
+}
+
 export async function getUserLang(ctx) {
   try {
     // Try Firestore, fallback to Telegram language_code, then 'en'

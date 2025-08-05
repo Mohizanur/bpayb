@@ -1,4 +1,5 @@
 import { firestore } from "../utils/firestore.js";
+import { escapeMarkdownV2 } from "../utils/i18n.js";
 
 export default function adminHandler(bot) {
   // Admin commands - only accessible to ADMIN_TELEGRAM_ID
@@ -13,7 +14,7 @@ export default function adminHandler(bot) {
   bot.command("admin_pending", async (ctx) => {
     try {
       if (!isAdmin(ctx)) {
-        await ctx.reply("❌ Access denied. Admin only.");
+        await ctx.reply("❌ Access denied\\. Admin only\\.");
         return;
       }
 
@@ -23,7 +24,7 @@ export default function adminHandler(bot) {
         .get();
 
       if (pendingSubs.empty) {
-        await ctx.reply("✅ No pending subscriptions.");
+        await ctx.reply("✅ No pending subscriptions\\.");
         return;
       }
 
@@ -55,7 +56,7 @@ export default function adminHandler(bot) {
   bot.command("admin_support", async (ctx) => {
     try {
       if (!isAdmin(ctx)) {
-        await ctx.reply("❌ Access denied. Admin only.");
+        await ctx.reply("❌ Access denied\\. Admin only\\.");
         return;
       }
 
@@ -67,7 +68,7 @@ export default function adminHandler(bot) {
         .get();
 
       if (supportMessages.empty) {
-        await ctx.reply("✅ No unhandled support messages.");
+        await ctx.reply("✅ No unhandled support messages\\.");
         return;
       }
 
@@ -76,7 +77,9 @@ export default function adminHandler(bot) {
 
       supportMessages.forEach((doc) => {
         const data = doc.data();
-        message += `From User ${data.telegramUserID}:\n${data.messageText}\n\n`;
+        message += `From User ${data.telegramUserID}:\n${escapeMarkdownV2(
+          data.messageText
+        )}\n\n`;
         keyboard.push([
           {
             text: `✅ Mark as handled`,
@@ -99,7 +102,7 @@ export default function adminHandler(bot) {
   bot.command("admin_active", async (ctx) => {
     try {
       if (!isAdmin(ctx)) {
-        await ctx.reply("❌ Access denied. Admin only.");
+        await ctx.reply("❌ Access denied\\. Admin only\\.");
         return;
       }
 
@@ -109,14 +112,14 @@ export default function adminHandler(bot) {
         .get();
 
       if (activeSubs.empty) {
-        await ctx.reply("✅ No active subscriptions.");
+        await ctx.reply("✅ No active subscriptions\\.");
         return;
       }
 
       let message = "📊 **Active Subscriptions:**\n\n";
       activeSubs.forEach((doc) => {
         const data = doc.data();
-        message += `• ${data.serviceID} - User ${data.telegramUserID}\n`;
+        message += `• ${data.serviceID} \\- User ${data.telegramUserID}\n`;
       });
 
       await ctx.reply(message, { parse_mode: "MarkdownV2" });
@@ -130,7 +133,7 @@ export default function adminHandler(bot) {
   bot.action(/admin_approve_(.+)/, async (ctx) => {
     try {
       if (!isAdmin(ctx)) {
-        await ctx.answerCbQuery("❌ Access denied.");
+        await ctx.answerCbQuery("❌ Access denied\\.");
         return;
       }
 
@@ -141,7 +144,7 @@ export default function adminHandler(bot) {
         .get();
 
       if (!subDoc.exists) {
-        await ctx.answerCbQuery("❌ Subscription not found.");
+        await ctx.answerCbQuery("❌ Subscription not found\\.");
         return;
       }
 
@@ -178,8 +181,10 @@ export default function adminHandler(bot) {
         console.log("Could not notify user:", error);
       }
 
-      await ctx.answerCbQuery("✅ Subscription approved!");
-      await ctx.editMessageText("✅ Subscription approved and user notified.");
+      await ctx.answerCbQuery("✅ Subscription approved\\!");
+      await ctx.editMessageText(
+        "✅ Subscription approved and user notified\\."
+      );
     } catch (error) {
       console.error("Error in admin_approve action:", error);
       await ctx.answerCbQuery("Sorry, something went wrong.");
@@ -190,7 +195,7 @@ export default function adminHandler(bot) {
   bot.action(/admin_handled_(.+)/, async (ctx) => {
     try {
       if (!isAdmin(ctx)) {
-        await ctx.answerCbQuery("❌ Access denied.");
+        await ctx.answerCbQuery("❌ Access denied\\.");
         return;
       }
 
@@ -201,8 +206,8 @@ export default function adminHandler(bot) {
         handledAt: new Date(),
       });
 
-      await ctx.answerCbQuery("✅ Marked as handled!");
-      await ctx.editMessageText("✅ Support message marked as handled.");
+      await ctx.answerCbQuery("✅ Marked as handled\\!");
+      await ctx.editMessageText("✅ Support message marked as handled\\.");
     } catch (error) {
       console.error("Error in admin_handled action:", error);
       await ctx.answerCbQuery("Sorry, something went wrong.");
@@ -213,7 +218,7 @@ export default function adminHandler(bot) {
   bot.action(/admin_cancel_(.+)/, async (ctx) => {
     try {
       if (!isAdmin(ctx)) {
-        await ctx.answerCbQuery("❌ Access denied.");
+        await ctx.answerCbQuery("❌ Access denied\\.");
         return;
       }
 
@@ -224,7 +229,7 @@ export default function adminHandler(bot) {
         .get();
 
       if (!subDoc.exists) {
-        await ctx.answerCbQuery("❌ Subscription not found.");
+        await ctx.answerCbQuery("❌ Subscription not found\\.");
         return;
       }
 
@@ -240,15 +245,17 @@ export default function adminHandler(bot) {
       try {
         await bot.telegram.sendMessage(
           subData.telegramUserID,
-          "❌ Your subscription has been cancelled by admin.",
+          "❌ Your subscription has been cancelled by admin\\.",
           { parse_mode: "MarkdownV2" }
         );
       } catch (error) {
         console.log("Could not notify user:", error);
       }
 
-      await ctx.answerCbQuery("✅ Subscription cancelled!");
-      await ctx.editMessageText("✅ Subscription cancelled and user notified.");
+      await ctx.answerCbQuery("✅ Subscription cancelled\\!");
+      await ctx.editMessageText(
+        "✅ Subscription cancelled and user notified\\."
+      );
     } catch (error) {
       console.error("Error in admin_cancel action:", error);
       await ctx.answerCbQuery("Sorry, something went wrong.");
@@ -259,16 +266,16 @@ export default function adminHandler(bot) {
   bot.command("admin_help", async (ctx) => {
     try {
       if (!isAdmin(ctx)) {
-        await ctx.reply("❌ Access denied. Admin only.");
+        await ctx.reply("❌ Access denied\\. Admin only\\.");
         return;
       }
 
       const helpText = `🔧 **Admin Commands:**
 
-/admin_pending - View pending subscriptions
-/admin_support - View unhandled support messages  
-/admin_active - View active subscriptions
-/admin_help - Show this help
+/admin\\_pending \\- View pending subscriptions
+/admin\\_support \\- View unhandled support messages  
+/admin\\_active \\- View active subscriptions
+/admin\\_help \\- Show this help
 
 **Admin ID:** ${ADMIN_ID}`;
 

@@ -1,29 +1,31 @@
+import { escapeMarkdownV2 } from "../utils/i18n.js";
+
 export default function startHandler(bot) {
   bot.start(async (ctx) => {
     try {
       const lang = ctx.userLang;
-      await ctx.reply(
-        ctx.i18n.hero_title[lang] + "\n" + ctx.i18n.hero_subtitle[lang],
-        {
-          parse_mode: "MarkdownV2",
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: lang === "en" ? "Manage Plans" : "የአገልግሎት እቅዶች",
-                  callback_data: "manage_plans",
-                },
-              ],
-              [
-                {
-                  text: lang === "en" ? "Support" : "ድጋፍ",
-                  callback_data: "support",
-                },
-              ],
+      const title = escapeMarkdownV2(ctx.i18n.hero_title[lang]);
+      const subtitle = escapeMarkdownV2(ctx.i18n.hero_subtitle[lang]);
+
+      await ctx.reply(title + "\n" + subtitle, {
+        parse_mode: "MarkdownV2",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: lang === "en" ? "Manage Plans" : "የአገልግሎት እቅዶች",
+                callback_data: "manage_plans",
+              },
             ],
-          },
-        }
-      );
+            [
+              {
+                text: lang === "en" ? "Support" : "ድጋፍ",
+                callback_data: "support",
+              },
+            ],
+          ],
+        },
+      });
     } catch (error) {
       console.error("Error in start handler:", error);
       await ctx.reply("Welcome! Please try again.");
@@ -40,13 +42,13 @@ export default function startHandler(bot) {
           callback_data: `subscribe_${s.serviceID}`,
         },
       ]);
-      await ctx.editMessageText(
-        lang === "en" ? "Available Services:" : "የሚገኙ አገልግሎቶች:",
-        {
-          reply_markup: { inline_keyboard: keyboard },
-          parse_mode: "MarkdownV2",
-        }
+      const message = escapeMarkdownV2(
+        lang === "en" ? "Available Services:" : "የሚገኙ አገልግሎቶች:"
       );
+      await ctx.editMessageText(message, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: "MarkdownV2",
+      });
       await ctx.answerCbQuery();
     } catch (error) {
       console.error("Error in manage_plans action:", error);
@@ -61,7 +63,7 @@ export default function startHandler(bot) {
         lang === "en"
           ? `💬 **Support Information:**
 
-📧 **Contact:** support@admin.birr‑pay
+📧 **Contact:** support@admin\\.birr‑pay
 
 📱 **How to get help:**
 • Send any message to this bot
@@ -69,13 +71,13 @@ export default function startHandler(bot) {
 • You'll get a confirmation when message is received
 
 🔧 **Other commands:**
-/help - Show all commands
-/faq - Frequently asked questions
-/lang en - Switch to English
-/lang am - Switch to Amharic`
+/help \\- Show all commands
+/faq \\- Frequently asked questions
+/lang en \\- Switch to English
+/lang am \\- Switch to Amharic`
           : `💬 **የድጋፍ መረጃ:**
 
-📧 **አድራሻ:** support@admin.birr‑pay
+📧 **አድራሻ:** support@admin\\.birr‑pay
 
 📱 **እርዳታ እንዴት እንደሚያገኙ:**
 • ለዚህ ቦት ማንኛውንም መልእክት ይላኩ
@@ -83,10 +85,10 @@ export default function startHandler(bot) {
 • መልእክቱ እንደተቀበለ ማረጋገጫ ያገኛሉ
 
 🔧 **ሌሎች ትዕዛዞች:**
-/help - ሁሉንም ትዕዛዞች ያሳዩ
-/faq - በተደጋጋሚ የሚጠየቁ ጥያቄዎች
-/lang en - ወደ እንግሊዝኛ ቀይር
-/lang am - ወደ አማርኛ ቀይር`;
+/help \\- ሁሉንም ትዕዛዞች ያሳዩ
+/faq \\- በተደጋጋሚ የሚጠየቁ ጥያቄዎች
+/lang en \\- ወደ እንግሊዝኛ ቀይር
+/lang am \\- ወደ አማርኛ ቀይር`;
 
       await ctx.editMessageText(supportText, { parse_mode: "MarkdownV2" });
       await ctx.answerCbQuery();
