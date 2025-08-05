@@ -1,9 +1,11 @@
 import { escapeMarkdownV2 } from "../utils/i18n.js";
 
 export default function helpHandler(bot) {
+  console.log("🔧 Registering help command handler");
   bot.command("help", async (ctx) => {
     try {
-      console.log("Help command triggered!");
+      console.log("🚀 HELP COMMAND TRIGGERED!");
+      console.log("User ID:", ctx.from?.id);
       console.log("User language:", ctx.userLang);
       console.log("i18n available:", !!ctx.i18n);
       

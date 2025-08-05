@@ -1,9 +1,11 @@
 import { setUserLang } from "../utils/i18n.js";
 
 export default function langHandler(bot) {
+  console.log("🌍 Registering lang command handler");
   bot.command("lang", async (ctx) => {
     try {
-      console.log("Lang command triggered!");
+      console.log("🚀 LANG COMMAND TRIGGERED!");
+      console.log("User ID:", ctx.from?.id);
       console.log("User language:", ctx.userLang);
       console.log("i18n available:", !!ctx.i18n);
       

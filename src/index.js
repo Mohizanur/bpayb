@@ -51,19 +51,25 @@ try {
 
 bot.use(async (ctx, next) => {
   try {
-    console.log("Processing message:", ctx.message?.text || "callback query");
-    console.log("Message type:", ctx.message ? "message" : "callback_query");
-    console.log("Is command:", ctx.message?.text?.startsWith("/"));
+    console.log("🔄 MIDDLEWARE: Processing message:", ctx.message?.text || "callback query");
+    console.log("🔄 MIDDLEWARE: Message type:", ctx.message ? "message" : "callback_query");
+    console.log("🔄 MIDDLEWARE: Is command:", ctx.message?.text?.startsWith("/"));
+    console.log("🔄 MIDDLEWARE: Setting context properties...");
     ctx.i18n = i18n;
     ctx.services = services;
     ctx.userLang = await getUserLang(ctx);
-    console.log("User language set to:", ctx.userLang);
-    return next();
+    console.log("🔄 MIDDLEWARE: User language set to:", ctx.userLang);
+    console.log("🔄 MIDDLEWARE: Calling next()...");
+    await next();
+    console.log("🔄 MIDDLEWARE: next() completed");
   } catch (error) {
-    console.error("Error in middleware:", error);
+    console.error("⚠️ MIDDLEWARE ERROR:", error);
     // Fallback to English if there's an error
     ctx.userLang = "en";
-    return next();
+    ctx.i18n = i18n;
+    ctx.services = services;
+    console.log("🔄 MIDDLEWARE: Fallback applied, calling next()...");
+    await next();
   }
 });
 

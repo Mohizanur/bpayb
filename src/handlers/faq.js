@@ -1,7 +1,9 @@
 export default function faqHandler(bot) {
+  console.log("❓ Registering FAQ command handler");
   bot.command("faq", async (ctx) => {
     try {
-      console.log("FAQ command triggered!");
+      console.log("🚀 FAQ COMMAND TRIGGERED!");
+      console.log("User ID:", ctx.from?.id);
       console.log("User language:", ctx.userLang);
       console.log("i18n available:", !!ctx.i18n);
       
