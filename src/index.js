@@ -110,6 +110,131 @@ bot.command("direct_test", async (ctx) => {
   await ctx.reply("✅ Direct test command working! This proves handlers can be triggered.");
 });
 
+// Inline help command to test direct registration
+bot.command("help", async (ctx) => {
+  try {
+    console.log("🚀 INLINE HELP COMMAND TRIGGERED!");
+    console.log("User ID:", ctx.from?.id);
+    console.log("User language:", ctx.userLang);
+    console.log("i18n available:", !!ctx.i18n);
+    
+    const lang = ctx.userLang || "en";
+    const helpText = lang === "am" 
+      ? "🔧 BirrPay የብር የደግፍ መረጃ\n\nየተጣታት ትዕዛዞች:\n• /start - ዋና ምንዩ\n• /help - የእርዳታ ምንዩ\n• /faq - በተደጋጋሚ የሚጣዩ ጥያቄዎች\n• /lang - የቋንቃ መረጥ\n• /mysubs - የእርስዎ መዋቅሮች\n• /support - የተጠቃሚ ድጋፍ"
+      : "🔧 BirrPay Help & Support\n\nAvailable Commands:\n• /start - Main menu and services\n• /help - Show this help message\n• /faq - Frequently asked questions\n• /lang - Change language settings\n• /mysubs - View your subscriptions\n• /support - Contact customer support";
+    
+    await ctx.reply(helpText);
+    console.log("✅ Inline help response sent successfully!");
+  } catch (error) {
+    console.error("⚠️ Error in inline help:", error);
+    await ctx.reply("Sorry, something went wrong. Please try again.");
+  }
+});
+
+// Inline FAQ command to test direct registration
+bot.command("faq", async (ctx) => {
+  try {
+    console.log("🚀 INLINE FAQ COMMAND TRIGGERED!");
+    console.log("User ID:", ctx.from?.id);
+    console.log("User language:", ctx.userLang);
+    
+    const lang = ctx.userLang || "en";
+    const faqData = {
+      en: {
+        title: "❓ Frequently Asked Questions",
+        questions: [
+          { q: "How do I subscribe to a service?", a: "Use /start to browse services, select one, and follow the subscription instructions." },
+          { q: "How do I cancel my subscription?", a: "Use /mysubs to view your subscriptions and click the cancel button." },
+          { q: "What payment methods do you accept?", a: "We accept various payment methods including mobile money and bank transfers." },
+          { q: "How do I get support?", a: "Use /support to contact our customer service team." }
+        ]
+      },
+      am: {
+        title: "❓ በተደጋጋሚ የሚጠየቁ ጥያቄዎች",
+        questions: [
+          { q: "አገልግሎት እንዴት እመዘገባለሁ?", a: "/start ን ተጠቅመው አገልግሎቶችን ይመልከቱ፣ አንዱን ይምረጡ እና የምዝገባ መመሪያዎችን ይከተሉ።" },
+          { q: "ምዝገባዬን እንዴት እሰርዛለሁ?", a: "/mysubs ን ተጠቅመው ምዝገባዎችዎን ይመልከቱ እና የሰርዝ ቁልፍን ይጫኑ።" },
+          { q: "ምን አይነት የክፍያ ዘዴዎችን ይቀበላሉ?", a: "የተለያዩ የክፍያ ዘዴዎችን እንቀበላለን፣ የሞባይል ገንዘብ እና የባንክ ዝውውርን ጨምሮ።" },
+          { q: "ድጋፍ እንዴት አገኛለሁ?", a: "/support ን ተጠቅመው የደንበኞች አገልግሎት ቡድናችንን ያግኙ።" }
+        ]
+      }
+    };
+    
+    const data = faqData[lang] || faqData["en"];
+    const keyboard = data.questions.map((f, i) => [
+      { text: f.q, callback_data: `faq_${i}` },
+    ]);
+    
+    await ctx.reply(data.title, {
+      reply_markup: { inline_keyboard: keyboard },
+    });
+    console.log("✅ Inline FAQ response sent successfully!");
+  } catch (error) {
+    console.error("⚠️ Error in inline FAQ:", error);
+    await ctx.reply("Sorry, something went wrong. Please try again.");
+  }
+});
+
+// Inline callback handlers
+bot.action(/faq_(\d+)/, async (ctx) => {
+  try {
+    console.log("🚀 INLINE FAQ CALLBACK TRIGGERED!");
+    const index = parseInt(ctx.match[1]);
+    const lang = ctx.userLang || "en";
+    
+    const faqData = {
+      en: {
+        questions: [
+          { q: "How do I subscribe to a service?", a: "Use /start to browse services, select one, and follow the subscription instructions." },
+          { q: "How do I cancel my subscription?", a: "Use /mysubs to view your subscriptions and click the cancel button." },
+          { q: "What payment methods do you accept?", a: "We accept various payment methods including mobile money and bank transfers." },
+          { q: "How do I get support?", a: "Use /support to contact our customer service team." }
+        ]
+      },
+      am: {
+        questions: [
+          { q: "አገልግሎት እንዴት እመዘገባለሁ?", a: "/start ን ተጠቅመው አገልግሎቶችን ይመልከቱ፣ አንዱን ይምረጡ እና የምዝገባ መመሪያዎችን ይከተሉ።" },
+          { q: "ምዝገባዬን እንዴት እሰርዛለሁ?", a: "/mysubs ን ተጠቅመው ምዝገባዎችዎን ይመልከቱ እና የሰርዝ ቁልፍን ይጪኑ።" },
+          { q: "ምን አይነት የክፍያ ዘዴዎችን ይቀበላሉ?", a: "የተለያዩ የክፍያ ዘዴዎችን እንቀበላለን፣ የሞባይል ገንዘብ እና የባንክ ዝውውርን ጨምሮ።" },
+          { q: "ድጋፍ እንዴት አገኛለሁ?", a: "/support ን ተጠቅመው የደንበኞች አገልግሎት ቡድናችንን ያግኙ።" }
+        ]
+      }
+    };
+    
+    const data = faqData[lang] || faqData["en"];
+    const faq = data.questions[index];
+    
+    if (faq) {
+      await ctx.answerCbQuery();
+      await ctx.reply(`❓ ${faq.q}\n\n✅ ${faq.a}`);
+      console.log("✅ FAQ answer sent successfully!");
+    } else {
+      await ctx.answerCbQuery("FAQ not found");
+    }
+  } catch (error) {
+    console.error("⚠️ Error in FAQ callback:", error);
+    await ctx.answerCbQuery("Error occurred");
+  }
+});
+
+bot.action("support", async (ctx) => {
+  try {
+    console.log("🚀 INLINE SUPPORT CALLBACK TRIGGERED!");
+    const lang = ctx.userLang || "en";
+    
+    const supportText = lang === "am"
+      ? "📞 የደንበኞች አገልግሎት\n\nየእርዳታ አገልግሎት አትፈልግዎት?\n\nየተለያዩ የደጋፍ አገልግሎቶች:\n• የምዝገባ እርዳታ\n• የክፍያ ጥያቄዎች\n• ተክኒካዊ ድጋፍ\n• የመረጃ ጥያቄዎች\n\nየተጠቃሚ ድጋፍዎ መረጃ: @BirrPaySupport"
+      : "📞 Customer Support\n\nNeed help with your account?\n\nOur support team can help with:\n• Subscription management\n• Payment issues\n• Technical support\n• Account questions\n\nContact our support team: @BirrPaySupport";
+    
+    await ctx.answerCbQuery();
+    await ctx.reply(supportText);
+    console.log("✅ Support message sent successfully!");
+  } catch (error) {
+    console.error("⚠️ Error in support callback:", error);
+    await ctx.answerCbQuery("Error occurred");
+  }
+});
+
 // Test commands for debugging
 bot.command("test", async (ctx) => {
   console.log("Test command triggered!");
