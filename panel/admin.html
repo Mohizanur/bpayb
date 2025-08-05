@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>BirrPay Admin Panel</title>
+  </head>
+  <body>
+    <h1>Pending Subscriptions</h1>
+    <div id="subs"></div>
+    <script>
+      const admin = prompt("Enter admin Telegram ID:");
+      async function load() {
+        const res = await fetch("/api/pending?admin=" + admin);
+        const subs = await res.json();
+        document.getElementById("subs").innerHTML = subs
+          .map(
+            (s) =>
+              `<div>
+          <b>${s.serviceID}</b> by ${s.telegramUserID}
+          <input type="date" id="date_${s.id}">
+          <button onclick="approve('${s.id}')">Approve</button>
+        </div>`
+          )
+          .join("");
+      }
+      async function approve(id) {
+        const nextBillingDate = document.getElementById("date_" + id).value;
+        await fetch("/api/approve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, nextBillingDate, admin }),
+        });
+        load();
+      }
+      load();
+    </script>
+  </body>
+</html>

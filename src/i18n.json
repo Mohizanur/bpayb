@@ -1,0 +1,74 @@
+{
+  "hero_title": {
+    "en": "Ethiopia’s Premier Subscription Hub",
+    "am": "የኢትዮጵያ ዋና የማስተካል አገልግሎት"
+  },
+  "hero_subtitle": {
+    "en": "Manage all your digital subscriptions in one secure place. Access Netflix, Amazon Prime, and more with ease through our localized platform.",
+    "am": "የዲጂታል ማስተካል ሁሉንም በአንድ የደህንነት ቦታ በማስተዋል ይቆጥቡ። Netflix፣ Amazon Prime እና የተመረጡትን አገልግሎቶች በአግዳሚ መልክ በቀል ቦታ ይጠቀሙ።"
+  },
+  "faq_title": {
+    "en": "Frequently Asked Questions",
+    "am": "በተደጋጋሚ ተየትተው የሚታይ ጥያቄዎች"
+  },
+  "faq_1_q": {
+    "en": "How does Birr Pay work?",
+    "am": "Birr Pay እንዴት እንደሚሰራ መረዳትን ያሳያል?"
+  },
+  "faq_2_q": {
+    "en": "What payment methods do you accept?",
+    "am": "ምን ዓይነት የክፍያ መንገዶችን ትቀበራለች?"
+  },
+  "faq_3_q": {
+    "en": "How long does it take to activate my subscription?",
+    "am": "በትንሽ ጊዜ አባርከዋል? በሚመለከተው ሂደት፣ የመዋቅር ፈቃድ ማግኘት ስንት ጊዜ ይወስዳል፧"
+  },
+  "faq_4_q": {
+    "en": "Can I manage my subscriptions anytime?",
+    "am": "መዋቅሮቼን በማንም ጊዜ መቆጣጠር እችላለሁ?"
+  },
+  "faq_1_a": {
+    "en": "Birr Pay lets you manage and pay for all your digital subscriptions in one place. Choose a service, submit your request, and our admin will activate your subscription after payment confirmation.",
+    "am": "Birr Pay የዲጂታል ማስተካል ሁሉንም በአንድ ቦታ ማቆጣጠርና መክፈል ያስችላል። አገልግሎት ይምረጡ፣ ጥያቄዎን ያቅርቡ፣ ክፍያዎ ከተረጋገጠ በኋላ አስተዳዳሪው መዋቅሩን ያነቃቃል።"
+  },
+  "faq_2_a": {
+    "en": "We accept bank transfer, TeleBirr, and other local payment methods. You will receive instructions after placing your order.",
+    "am": "የባንክ ማስተላለፊያ፣ ቴሌብር፣ እና ሌሎች የአካባቢ የክፍያ መንገዶችን እንቀበላለን። ትዕዛዝዎን ከጨረሱ በኋላ መመሪያዎችን ይቀበላሉ።"
+  },
+  "faq_3_a": {
+    "en": "Most subscriptions are activated within a few minutes after payment is confirmed. Some services may take up to 24 hours.",
+    "am": "አብዛኛዎቹ መዋቅሮች ክፍያዎ ከተረጋገጠ በኋላ በጥቂት ደቂቃዎች ውስጥ ይነቃቃሉ። አንዳንድ አገልግሎቶች እስከ 24 ሰዓታት ሊወስዱ ይችላሉ።"
+  },
+  "faq_4_a": {
+    "en": "Yes, you can view, renew, or cancel your subscriptions at any time through our platform.",
+    "am": "አዎን፣ መዋቅሮችዎን በማንኛውም ጊዜ ማየት፣ ማደስ ወይም መሰረዝ ይችላሉ።"
+  },
+  "contact": {
+    "en": "Contact us: support@admin.birr‑pay",
+    "am": "አግኙን፡ support@admin.birr‑pay"
+  },
+  "pending_request": {
+    "en": "Your request has been recorded and is awaiting approval by our admin. You will be notified once approved.",
+    "am": "ጥያቄዎ ተመዝግቧል። ማስተካከያ ሲደርስ ይወዳድሩ።"
+  },
+  "approved": {
+    "en": "✔️ Your subscription for **{service}** has been approved and is now active. Next renewal: *{date}*",
+    "am": "✔️ ለ**{service}** የተደረገው መዋቅር ተፈቅዷል። ቀጣዩ ክፍያ: *{date}*"
+  },
+  "cancel_tip": {
+    "en": "✅ To cancel anytime, tap the ‘Cancel’ button below each active item.",
+    "am": "✅ እባክዎን የመዋቅሩን ሁሉ የማፋን አዝራር በተጠቃሚ ይጠቀሙ።"
+  },
+  "support_received": {
+    "en": "Thank you! Your message has been received. We will reply shortly (admin manually reviews).",
+    "am": "አመሰግናለሁ! መልእክትዎን ተቀብለናል። በቅርቡ እናስተላልፋለን (አስተዳዳሪ በእጅ ይመርምራል።)"
+  },
+  "lang_switched_en": {
+    "en": "Language switched to English",
+    "am": "ቋንቋ ወደ እንግሊዝኛ ተቀይሯል"
+  },
+  "lang_switched_am": {
+    "en": "Language switched to Amharic",
+    "am": "ቋንቋ ወደ አማርኛ ተቀይሯል"
+  }
+}
