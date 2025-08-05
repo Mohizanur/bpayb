@@ -1,5 +1,5 @@
 import fs from "fs/promises";
-import { firestore } from "./firestore.js";
+import { firestore, isFirebaseConnected } from "./firestore.js";
 
 let i18nCache = null;
 export async function loadI18n() {
@@ -20,6 +20,13 @@ export function escapeMarkdownV2(text) {
 
 export async function getUserLang(ctx) {
   try {
+    // If Firebase is not connected, use fallback immediately
+    if (!isFirebaseConnected) {
+      const lang = ctx.from?.language_code === "am" ? "am" : "en";
+      console.log(`Using fallback language: ${lang} (Firebase not connected)`);
+      return lang;
+    }
+
     // Try Firestore, fallback to Telegram language_code, then 'en'
     const userDoc = await firestore
       .collection("users")
@@ -29,21 +36,34 @@ export async function getUserLang(ctx) {
     if (ctx.from.language_code === "am") return "am";
     return "en";
   } catch (error) {
-    console.error("Error getting user language:", error);
+    // Only log error once, not repeatedly
+    if (error.code === 16) {
+      console.log(`Firebase auth error - using fallback language`);
+    } else {
+      console.error("Error getting user language:", error.message);
+    }
     // Fallback to Telegram language_code or 'en'
-    if (ctx.from?.language_code === "am") return "am";
-    return "en";
+    const lang = ctx.from?.language_code === "am" ? "am" : "en";
+    return lang;
   }
 }
 
-export async function setUserLang(userID, lang) {
+export async function setUserLang(ctx, lang) {
   try {
-    await firestore
-      .collection("users")
-      .doc(String(userID))
-      .set({ language: lang }, { merge: true });
+    if (!isFirebaseConnected) {
+      console.log(`Mock: Setting user ${ctx.from.id} language to ${lang}`);
+      return;
+    }
+
+    await firestore.collection("users").doc(String(ctx.from.id)).set({
+      telegramUserID: ctx.from.id,
+      language: lang,
+      firstName: ctx.from.first_name,
+      lastName: ctx.from.last_name,
+      username: ctx.from.username,
+    });
+    console.log(`User ${ctx.from.id} language set to ${lang}`);
   } catch (error) {
-    console.error("Error setting user language:", error);
-    // Don't throw - this is not critical for bot operation
+    console.error("Error setting user language:", error.message);
   }
 }
