@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { Telegraf } from "telegraf";
 import Fastify from "fastify";
-import { loadI18n, getUserLang } from "./utils/i18n.js";
+import { loadI18n, getUserLang, setUserLang } from "./utils/i18n.js";
 import { loadServices } from "./utils/loadServices.js";
 import startHandler from "./handlers/start.js";
 import subscribeHandler from "./handlers/subscribe.js";
@@ -96,9 +96,9 @@ subscribeHandler(bot);
 console.log("Registering support handler...");
 supportHandler(bot);
 console.log("Registering lang handler...");
-langHandler(bot);
+// langHandler(bot); // Commented out - using direct implementation
 console.log("Registering faq handler...");
-faqHandler(bot);
+// faqHandler(bot); // Commented out - using direct implementation
 console.log("Registering mySubscriptions handler...");
 mySubscriptionsHandler(bot);
 console.log("Registering cancelSubscription handler...");
@@ -108,7 +108,7 @@ firestoreListener(bot);
 console.log("Registering admin handler...");
 adminHandler(bot);
 console.log("Registering help handler...");
-helpHandler(bot); // Uncommented to test
+helpHandler(bot);
 
 console.log("All handlers registered successfully!");
 
@@ -119,12 +119,51 @@ console.log("Bot middleware:", bot.middleware?.length || 0);
 // Add direct implementations for commands that aren't working
 bot.command("faq", async (ctx) => {
   console.log("FAQ command triggered directly!");
-  await ctx.reply("FAQ command works! 🎉");
+  try {
+    const lang = ctx.userLang;
+    const faqs = [
+      { q: ctx.i18n.faq_1_q[lang], a: ctx.i18n.faq_1_a[lang] },
+      { q: ctx.i18n.faq_2_q[lang], a: ctx.i18n.faq_2_a[lang] },
+      { q: ctx.i18n.faq_3_q[lang], a: ctx.i18n.faq_3_a[lang] },
+      { q: ctx.i18n.faq_4_q[lang], a: ctx.i18n.faq_4_a[lang] },
+    ];
+    const keyboard = faqs.map((f, i) => [
+      { text: f.q, callback_data: `faq_${i}` },
+    ]);
+    console.log("Sending FAQ response...");
+    await ctx.reply(ctx.i18n.faq_title[lang], {
+      reply_markup: { inline_keyboard: keyboard },
+    });
+    console.log("FAQ response sent successfully!");
+  } catch (error) {
+    console.error("Error in FAQ command:", error);
+    await ctx.reply("Sorry, something went wrong. Please try again.");
+  }
 });
 
 bot.command("lang", async (ctx) => {
   console.log("Lang command triggered directly!");
-  await ctx.reply("Lang command works! 🎉");
+  try {
+    const arg = ctx.message.text.split(" ")[1];
+    console.log("Lang argument:", arg);
+    if (arg === "en" || arg === "am") {
+      await setUserLang(ctx.from.id, arg);
+      console.log("Sending lang response...");
+      await ctx.reply(
+        arg === "en"
+          ? ctx.i18n.lang_switched_en.en
+          : ctx.i18n.lang_switched_am.am
+      );
+      console.log("Lang response sent successfully!");
+    } else {
+      console.log("Invalid lang argument, sending usage message...");
+      await ctx.reply("Usage: /lang en or /lang am");
+      console.log("Usage message sent successfully!");
+    }
+  } catch (error) {
+    console.error("Error in lang command:", error);
+    await ctx.reply("Sorry, something went wrong. Please try again.");
+  }
 });
 
 // Add a simple test command AFTER other handlers to see if it works
