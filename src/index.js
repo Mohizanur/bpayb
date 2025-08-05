@@ -50,94 +50,28 @@ try {
   services = [];
 }
 
-// Add middleware IMMEDIATELY after i18n loading
-console.log("🔄 Registering middleware...");
-bot.use(async (ctx, next) => {
-  try {
-    console.log("🔄 MIDDLEWARE: Processing message:", ctx.message?.text || "callback query");
-    console.log("🔄 MIDDLEWARE: Message type:", ctx.message ? "message" : "callback_query");
-    console.log("🔄 MIDDLEWARE: Is command:", ctx.message?.text?.startsWith("/"));
-    console.log("🔄 MIDDLEWARE: Setting context properties...");
-    ctx.i18n = i18n;
-    ctx.services = services;
-    ctx.userLang = await getUserLang(ctx);
-    console.log("🔄 MIDDLEWARE: User language set to:", ctx.userLang);
-    console.log("🔄 MIDDLEWARE: Calling next()...");
-    await next();
-    console.log("🔄 MIDDLEWARE: next() completed");
-  } catch (error) {
-    console.error("⚠️ MIDDLEWARE ERROR:", error);
-    // Fallback to English if there's an error
-    ctx.userLang = "en";
-    ctx.i18n = i18n;
-    ctx.services = services;
-    console.log("🔄 MIDDLEWARE: Fallback applied, calling next()...");
-    await next();
-  }
-});
-console.log("🔄 Middleware registered successfully!");
+// CRITICAL FIX: Register ALL handlers BEFORE middleware
+console.log("🚀 REGISTERING ALL HANDLERS FIRST...");
 
-// Now register handlers AFTER middleware
-console.log("Registering handlers...");
-console.log("Registering start handler...");
-startHandler(bot);
-console.log("Registering subscribe handler...");
-subscribeHandler(bot);
-console.log("Registering support handler...");
-supportHandler(bot);
-console.log("Registering lang handler...");
-langHandler(bot);
-console.log("Registering faq handler...");
-faqHandler(bot);
-console.log("Registering mySubscriptions handler...");
-mySubscriptionsHandler(bot);
-console.log("Registering cancelSubscription handler...");
-cancelSubscriptionHandler(bot);
-console.log("Registering firestoreListener...");
-firestoreListener(bot);
-console.log("Registering admin handler...");
-adminHandler(bot);
-console.log("Registering help handler...");
-helpHandler(bot);
-console.log("All handlers registered successfully!");
-
-// Direct test command to verify handler registration
-bot.command("direct_test", async (ctx) => {
-  console.log("📝 DIRECT TEST COMMAND TRIGGERED!");
-  console.log("User ID:", ctx.from?.id);
-  console.log("User language:", ctx.userLang);
-  console.log("i18n available:", !!ctx.i18n);
-  await ctx.reply("✅ Direct test command working! This proves handlers can be triggered.");
-});
-
-// Inline help command to test direct registration
+// Direct command handlers
 bot.command("help", async (ctx) => {
   try {
-    console.log("🚀 INLINE HELP COMMAND TRIGGERED!");
-    console.log("User ID:", ctx.from?.id);
-    console.log("User language:", ctx.userLang);
-    console.log("i18n available:", !!ctx.i18n);
-    
+    console.log("🚀 HELP COMMAND TRIGGERED!");
     const lang = ctx.userLang || "en";
     const helpText = lang === "am" 
       ? "🔧 BirrPay የብር የደግፍ መረጃ\n\nየተጣታት ትዕዛዞች:\n• /start - ዋና ምንዩ\n• /help - የእርዳታ ምንዩ\n• /faq - በተደጋጋሚ የሚጣዩ ጥያቄዎች\n• /lang - የቋንቃ መረጥ\n• /mysubs - የእርስዎ መዋቅሮች\n• /support - የተጠቃሚ ድጋፍ"
       : "🔧 BirrPay Help & Support\n\nAvailable Commands:\n• /start - Main menu and services\n• /help - Show this help message\n• /faq - Frequently asked questions\n• /lang - Change language settings\n• /mysubs - View your subscriptions\n• /support - Contact customer support";
-    
     await ctx.reply(helpText);
-    console.log("✅ Inline help response sent successfully!");
+    console.log("✅ Help response sent!");
   } catch (error) {
-    console.error("⚠️ Error in inline help:", error);
+    console.error("⚠️ Error in help:", error);
     await ctx.reply("Sorry, something went wrong. Please try again.");
   }
 });
 
-// Inline FAQ command to test direct registration
 bot.command("faq", async (ctx) => {
   try {
-    console.log("🚀 INLINE FAQ COMMAND TRIGGERED!");
-    console.log("User ID:", ctx.from?.id);
-    console.log("User language:", ctx.userLang);
-    
+    console.log("🚀 FAQ COMMAND TRIGGERED!");
     const lang = ctx.userLang || "en";
     const faqData = {
       en: {
@@ -159,29 +93,43 @@ bot.command("faq", async (ctx) => {
         ]
       }
     };
-    
     const data = faqData[lang] || faqData["en"];
     const keyboard = data.questions.map((f, i) => [
       { text: f.q, callback_data: `faq_${i}` },
     ]);
-    
     await ctx.reply(data.title, {
       reply_markup: { inline_keyboard: keyboard },
     });
-    console.log("✅ Inline FAQ response sent successfully!");
+    console.log("✅ FAQ response sent!");
   } catch (error) {
-    console.error("⚠️ Error in inline FAQ:", error);
+    console.error("⚠️ Error in FAQ:", error);
     await ctx.reply("Sorry, something went wrong. Please try again.");
   }
 });
 
-// Inline callback handlers
+bot.command("lang", async (ctx) => {
+  try {
+    console.log("🚀 LANG COMMAND TRIGGERED!");
+    const keyboard = [
+      [{ text: "🇺🇸 English", callback_data: "lang_en" }],
+      [{ text: "🇪🇹 አማርኛ", callback_data: "lang_am" }]
+    ];
+    await ctx.reply("🌐 Choose your language / ቋንቃዎን ይምረጡ:", {
+      reply_markup: { inline_keyboard: keyboard }
+    });
+    console.log("✅ Language selection sent!");
+  } catch (error) {
+    console.error("⚠️ Error in lang:", error);
+    await ctx.reply("Sorry, something went wrong. Please try again.");
+  }
+});
+
+// Callback handlers
 bot.action(/faq_(\d+)/, async (ctx) => {
   try {
-    console.log("🚀 INLINE FAQ CALLBACK TRIGGERED!");
+    console.log("🚀 FAQ CALLBACK TRIGGERED!");
     const index = parseInt(ctx.match[1]);
     const lang = ctx.userLang || "en";
-    
     const faqData = {
       en: {
         questions: [
@@ -194,20 +142,18 @@ bot.action(/faq_(\d+)/, async (ctx) => {
       am: {
         questions: [
           { q: "አገልግሎት እንዴት እመዘገባለሁ?", a: "/start ን ተጠቅመው አገልግሎቶችን ይመልከቱ፣ አንዱን ይምረጡ እና የምዝገባ መመሪያዎችን ይከተሉ።" },
-          { q: "ምዝገባዬን እንዴት እሰርዛለሁ?", a: "/mysubs ን ተጠቅመው ምዝገባዎችዎን ይመልከቱ እና የሰርዝ ቁልፍን ይጪኑ።" },
+          { q: "ምዝገባዬን እንዴት እሰርዛለሁ?", a: "/mysubs ን ተጠቅመው ምዝገባዎችዎን ይመልከቱ እና የሰርዝ ቁልፍን ይጫኑ።" },
           { q: "ምን አይነት የክፍያ ዘዴዎችን ይቀበላሉ?", a: "የተለያዩ የክፍያ ዘዴዎችን እንቀበላለን፣ የሞባይል ገንዘብ እና የባንክ ዝውውርን ጨምሮ።" },
           { q: "ድጋፍ እንዴት አገኛለሁ?", a: "/support ን ተጠቅመው የደንበኞች አገልግሎት ቡድናችንን ያግኙ።" }
         ]
       }
     };
-    
     const data = faqData[lang] || faqData["en"];
     const faq = data.questions[index];
-    
     if (faq) {
       await ctx.answerCbQuery();
       await ctx.reply(`❓ ${faq.q}\n\n✅ ${faq.a}`);
-      console.log("✅ FAQ answer sent successfully!");
+      console.log("✅ FAQ answer sent!");
     } else {
       await ctx.answerCbQuery("FAQ not found");
     }
@@ -219,20 +165,91 @@ bot.action(/faq_(\d+)/, async (ctx) => {
 
 bot.action("support", async (ctx) => {
   try {
-    console.log("🚀 INLINE SUPPORT CALLBACK TRIGGERED!");
+    console.log("🚀 SUPPORT CALLBACK TRIGGERED!");
     const lang = ctx.userLang || "en";
-    
     const supportText = lang === "am"
       ? "📞 የደንበኞች አገልግሎት\n\nየእርዳታ አገልግሎት አትፈልግዎት?\n\nየተለያዩ የደጋፍ አገልግሎቶች:\n• የምዝገባ እርዳታ\n• የክፍያ ጥያቄዎች\n• ተክኒካዊ ድጋፍ\n• የመረጃ ጥያቄዎች\n\nየተጠቃሚ ድጋፍዎ መረጃ: @BirrPaySupport"
       : "📞 Customer Support\n\nNeed help with your account?\n\nOur support team can help with:\n• Subscription management\n• Payment issues\n• Technical support\n• Account questions\n\nContact our support team: @BirrPaySupport";
-    
     await ctx.answerCbQuery();
     await ctx.reply(supportText);
-    console.log("✅ Support message sent successfully!");
+    console.log("✅ Support message sent!");
   } catch (error) {
     console.error("⚠️ Error in support callback:", error);
     await ctx.answerCbQuery("Error occurred");
   }
+});
+
+bot.action(/lang_(en|am)/, async (ctx) => {
+  try {
+    console.log("🚀 LANGUAGE CALLBACK TRIGGERED!");
+    const newLang = ctx.match[1];
+    // Save to Firestore if available
+    try {
+      await firestore.collection("users").doc(String(ctx.from.id)).set(
+        { language: newLang },
+        { merge: true }
+      );
+    } catch (firestoreError) {
+      console.log("Firestore not available, language change temporary");
+    }
+    const confirmText = newLang === "am"
+      ? "✅ ቋንቃ ወደ አማርኛ ተቀይሯል!"
+      : "✅ Language changed to English!";
+    await ctx.answerCbQuery();
+    await ctx.reply(confirmText);
+    console.log("✅ Language changed!");
+  } catch (error) {
+    console.error("⚠️ Error in language callback:", error);
+    await ctx.answerCbQuery("Error occurred");
+  }
+});
+
+console.log("✅ ALL HANDLERS REGISTERED!");
+
+// NOW add middleware AFTER handlers
+console.log("🔄 Registering middleware...");
+bot.use(async (ctx, next) => {
+  try {
+    console.log("🔄 MIDDLEWARE: Processing message:", ctx.message?.text || "callback query");
+    ctx.i18n = i18n;
+    ctx.services = services;
+    ctx.userLang = await getUserLang(ctx);
+    console.log("🔄 MIDDLEWARE: User language set to:", ctx.userLang);
+    await next();
+    console.log("🔄 MIDDLEWARE: next() completed");
+  } catch (error) {
+    console.error("⚠️ MIDDLEWARE ERROR:", error);
+    ctx.userLang = "en";
+    ctx.i18n = i18n;
+    ctx.services = services;
+    await next();
+  }
+});
+console.log("🔄 Middleware registered successfully!");
+
+// Register remaining handlers that aren't duplicated above
+console.log("Registering remaining handlers...");
+console.log("Registering start handler...");
+startHandler(bot);
+console.log("Registering subscribe handler...");
+subscribeHandler(bot);
+console.log("Registering mySubscriptions handler...");
+mySubscriptionsHandler(bot);
+console.log("Registering cancelSubscription handler...");
+cancelSubscriptionHandler(bot);
+console.log("Registering firestoreListener...");
+firestoreListener(bot);
+console.log("Registering admin handler...");
+adminHandler(bot);
+console.log("All remaining handlers registered successfully!");
+
+// Test command for debugging
+bot.command("direct_test", async (ctx) => {
+  console.log("📝 DIRECT TEST COMMAND TRIGGERED!");
+  console.log("User ID:", ctx.from?.id);
+  console.log("User language:", ctx.userLang);
+  console.log("i18n available:", !!ctx.i18n);
+  await ctx.reply("✅ Direct test command working! This proves handlers can be triggered.");
 });
 
 // Test commands for debugging
