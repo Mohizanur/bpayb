@@ -461,29 +461,21 @@ bot.catch((err, ctx) => {
   }
 });
 
-console.log("Registering handlers...");
+// Note: Main command handlers (help, faq, lang, support, admin, mysubs) are registered above
+// Only register handlers that aren't duplicated
+console.log("Registering additional handlers...");
 console.log("Registering start handler...");
 startHandler(bot);
 console.log("Registering subscribe handler...");
 subscribeHandler(bot);
-console.log("Registering support handler...");
-supportHandler(bot);
-console.log("Registering lang handler...");
-langHandler(bot);
-console.log("Registering faq handler...");
-faqHandler(bot);
 console.log("Registering mySubscriptions handler...");
 mySubscriptionsHandler(bot);
 console.log("Registering cancelSubscription handler...");
 cancelSubscriptionHandler(bot);
 console.log("Registering firestoreListener...");
 firestoreListener(bot);
-console.log("Registering admin handler...");
-adminHandler(bot);
-console.log("Registering help handler...");
-helpHandler(bot);
 
-console.log("All handlers registered successfully!");
+console.log("All additional handlers registered successfully!");
 
 // Debug: List all registered commands
 console.log("Bot handlers:", Object.keys(bot.context || {}));
@@ -758,7 +750,7 @@ fastify.post("/telegram", async (req, reply) => {
 });
 
 const PORT = process.env.PORT || 3000;
-fastify.listen({ port: PORT, host: "0.0.0.0" }, (err) => {
+fastify.listen({ port: PORT, host: "0.0.0.0" }, async (err, address) => {
   if (err) {
     console.error("Error starting server:", err);
     process.exit(1);
@@ -769,6 +761,10 @@ fastify.listen({ port: PORT, host: "0.0.0.0" }, (err) => {
   console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID}`);
   
   // Set up bot menu after server starts
-  await setupBotMenu();
-  console.log(`📝 Bot menu commands configured!`);
+  try {
+    await setupBotMenu();
+    console.log(`📝 Bot menu commands configured!`);
+  } catch (error) {
+    console.error("⚠️ Error setting up bot menu:", error);
+  }
 });
