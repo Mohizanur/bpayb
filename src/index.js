@@ -223,6 +223,157 @@ bot.action(/lang_(en|am)/, async (ctx) => {
 
 console.log("✅ ALL HANDLERS REGISTERED!");
 
+// Set up Telegram Bot Menu (persistent menu buttons)
+const setupBotMenu = async () => {
+  try {
+    await bot.telegram.setMyCommands([
+      { command: 'start', description: '🏠 Main menu and services' },
+      { command: 'help', description: '🔧 Help and support information' },
+      { command: 'faq', description: '❓ Frequently asked questions' },
+      { command: 'lang', description: '🌐 Change language settings' },
+      { command: 'mysubs', description: '📊 My active subscriptions' },
+      { command: 'support', description: '📞 Contact customer support' },
+      { command: 'admin', description: '🔑 Admin panel (admin only)' }
+    ]);
+    console.log("✅ Bot menu commands set successfully!");
+  } catch (error) {
+    console.error("⚠️ Error setting bot menu:", error);
+  }
+};
+
+// Add admin command
+bot.command("admin", async (ctx) => {
+  try {
+    console.log("🚀 ADMIN COMMAND TRIGGERED!");
+    console.log("Admin command - User ID:", ctx.from?.id);
+    console.log("Admin command - Expected Admin ID:", process.env.ADMIN_TELEGRAM_ID);
+    
+    // Check if user is admin
+    const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
+    console.log("Is admin:", isAdmin);
+    
+    if (!isAdmin) {
+      await ctx.reply("⚠️ Access denied. This command is for administrators only.");
+      return;
+    }
+    
+    const adminMenu = {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "📊 View Statistics", callback_data: "admin_stats" },
+            { text: "💰 Revenue Report", callback_data: "admin_revenue" }
+          ],
+          [
+            { text: "👥 User Management", callback_data: "admin_users" },
+            { text: "📦 Subscription Management", callback_data: "admin_subs" }
+          ],
+          [
+            { text: "📢 Send Broadcast", callback_data: "admin_broadcast" },
+            { text: "⚙️ System Settings", callback_data: "admin_settings" }
+          ],
+          [
+            { text: "🌐 Admin Panel", url: "https://bpayb.onrender.com/panel" }
+          ]
+        ]
+      }
+    };
+    
+    await ctx.reply("🔑 **Admin Control Panel**\n\nWelcome, Administrator! Choose an option:", adminMenu);
+    console.log("✅ Admin menu sent successfully!");
+  } catch (error) {
+    console.error("⚠️ Error in admin command:", error);
+    await ctx.reply("Sorry, something went wrong. Please try again.");
+  }
+});
+
+// Add admin callback handlers
+bot.action("admin_stats", async (ctx) => {
+  try {
+    const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
+    if (!isAdmin) {
+      await ctx.answerCbQuery("Access denied");
+      return;
+    }
+    
+    await ctx.answerCbQuery();
+    await ctx.reply("📊 **System Statistics**\n\n👥 Total Users: Loading...\n📦 Active Subscriptions: Loading...\n💰 Monthly Revenue: Loading...\n\n*Statistics are being calculated...*");
+  } catch (error) {
+    console.error("Error in admin stats:", error);
+    await ctx.answerCbQuery("Error occurred");
+  }
+});
+
+bot.action("admin_users", async (ctx) => {
+  try {
+    const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
+    if (!isAdmin) {
+      await ctx.answerCbQuery("Access denied");
+      return;
+    }
+    
+    await ctx.answerCbQuery();
+    await ctx.reply("👥 **User Management**\n\n🔍 Recent Users:\n• Loading user data...\n\n📊 User Activity:\n• New registrations today: Loading...\n• Active users: Loading...");
+  } catch (error) {
+    console.error("Error in admin users:", error);
+    await ctx.answerCbQuery("Error occurred");
+  }
+});
+
+bot.action("admin_broadcast", async (ctx) => {
+  try {
+    const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
+    if (!isAdmin) {
+      await ctx.answerCbQuery("Access denied");
+      return;
+    }
+    
+    await ctx.answerCbQuery();
+    await ctx.reply("📢 **Broadcast Message**\n\nTo send a broadcast message to all users, please use the admin panel:\n\n🌐 https://bpayb.onrender.com/panel\n\nFrom there you can compose and send messages to all subscribers.");
+  } catch (error) {
+    console.error("Error in admin broadcast:", error);
+    await ctx.answerCbQuery("Error occurred");
+  }
+});
+
+// Add support command (direct command, not just callback)
+bot.command("support", async (ctx) => {
+  try {
+    console.log("🚀 SUPPORT COMMAND TRIGGERED!");
+    const lang = ctx.from?.language_code === "am" ? "am" : "en";
+    
+    const supportText = lang === "am"
+      ? "📞 የደንበኞች አገልግሎት\n\nየእርዳታ አገልግሎት አትፈልግዎት?\n\nየተለያዩ የደጋፍ አገልግሎቶች:\n• የምዝገባ እርዳታ\n• የክፍያ ጥያቄዎች\n• ተክኒካዊ ድጋፍ\n• የመረጃ ጥያቄዎች\n\nየተጠቃሚ ድጋፍዎ መረጃ: @BirrPaySupport"
+      : "📞 Customer Support\n\nNeed help with your account?\n\nOur support team can help with:\n• Subscription management\n• Payment issues\n• Technical support\n• Account questions\n\nContact our support team: @BirrPaySupport";
+    
+    await ctx.reply(supportText);
+    console.log("✅ Support command response sent!");
+  } catch (error) {
+    console.error("⚠️ Error in support command:", error);
+    await ctx.reply("Sorry, something went wrong. Please try again.");
+  }
+});
+
+// Add mysubs command
+bot.command("mysubs", async (ctx) => {
+  try {
+    console.log("🚀 MYSUBS COMMAND TRIGGERED!");
+    const lang = ctx.from?.language_code === "am" ? "am" : "en";
+    
+    const mySubsText = lang === "am"
+      ? "📊 የእርስዎ ምዝገባዎች\n\nአሁን የምዝገባ አገልግሎቶች የለትም...\n\nየምዝገባ አገልግሎቶችን ለመመልከት /start ይጠቁቱ።"
+      : "📊 My Subscriptions\n\nLoading your active subscriptions...\n\nTo manage your subscriptions, use /start";
+    
+    await ctx.reply(mySubsText);
+    console.log("✅ MySubs command response sent!");
+  } catch (error) {
+    console.error("⚠️ Error in mysubs command:", error);
+    await ctx.reply("Sorry, something went wrong. Please try again.");
+  }
+});
+
+console.log("✅ Admin commands and bot menu setup completed!");
+
 // NOW add middleware AFTER handlers
 console.log("🔄 Registering middleware...");
 bot.use(async (ctx, next) => {
@@ -256,8 +407,6 @@ console.log("Registering cancelSubscription handler...");
 cancelSubscriptionHandler(bot);
 console.log("Registering firestoreListener...");
 firestoreListener(bot);
-console.log("Registering admin handler...");
-adminHandler(bot);
 console.log("All remaining handlers registered successfully!");
 
 // Test command for debugging
@@ -618,4 +767,8 @@ fastify.listen({ port: PORT, host: "0.0.0.0" }, (err) => {
   console.log(`📱 Telegram Bot: Webhook ready at /telegram`);
   console.log(`🔧 Admin Panel: http://localhost:${PORT}/panel`);
   console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID}`);
+  
+  // Set up bot menu after server starts
+  await setupBotMenu();
+  console.log(`📝 Bot menu commands configured!`);
 });
