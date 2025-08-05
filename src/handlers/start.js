@@ -4,11 +4,10 @@ export default function startHandler(bot) {
   bot.start(async (ctx) => {
     try {
       const lang = ctx.userLang;
-      const title = escapeMarkdownV2(ctx.i18n.hero_title[lang]);
-      const subtitle = escapeMarkdownV2(ctx.i18n.hero_subtitle[lang]);
+      const title = ctx.i18n.hero_title[lang];
+      const subtitle = ctx.i18n.hero_subtitle[lang];
 
-      await ctx.reply(title + "\n" + subtitle, {
-        parse_mode: "MarkdownV2",
+      await ctx.reply(title + "\n\n" + subtitle, {
         reply_markup: {
           inline_keyboard: [
             [
@@ -42,12 +41,9 @@ export default function startHandler(bot) {
           callback_data: `subscribe_${s.serviceID}`,
         },
       ]);
-      const message = escapeMarkdownV2(
-        lang === "en" ? "Available Services:" : "የሚገኙ አገልግሎቶች:"
-      );
+      const message = lang === "en" ? "Available Services:" : "የሚገኙ አገልግሎቶች:";
       await ctx.editMessageText(message, {
         reply_markup: { inline_keyboard: keyboard },
-        parse_mode: "MarkdownV2",
       });
       await ctx.answerCbQuery();
     } catch (error) {
@@ -61,36 +57,36 @@ export default function startHandler(bot) {
       const lang = ctx.userLang;
       const supportText =
         lang === "en"
-          ? `💬 **Support Information:**
+          ? `💬 Support Information:
 
-📧 **Contact:** support@admin\\.birr‑pay
+📧 Contact: support@admin.birr‑pay
 
-📱 **How to get help:**
+📱 How to get help:
 • Send any message to this bot
 • Admin will review and respond
 • You'll get a confirmation when message is received
 
-🔧 **Other commands:**
-/help \\- Show all commands
-/faq \\- Frequently asked questions
-/lang en \\- Switch to English
-/lang am \\- Switch to Amharic`
-          : `💬 **የድጋፍ መረጃ:**
+🔧 Other commands:
+/help - Show all commands
+/faq - Frequently asked questions
+/lang en - Switch to English
+/lang am - Switch to Amharic`
+          : `💬 የድጋፍ መረጃ:
 
-📧 **አድራሻ:** support@admin\\.birr‑pay
+📧 አድራሻ: support@admin.birr‑pay
 
-📱 **እርዳታ እንዴት እንደሚያገኙ:**
+📱 እርዳታ እንዴት እንደሚያገኙ:
 • ለዚህ ቦት ማንኛውንም መልእክት ይላኩ
 • አስተዳዳሪ ያገኝ እና ይመልሳል
 • መልእክቱ እንደተቀበለ ማረጋገጫ ያገኛሉ
 
-🔧 **ሌሎች ትዕዛዞች:**
-/help \\- ሁሉንም ትዕዛዞች ያሳዩ
-/faq \\- በተደጋጋሚ የሚጠየቁ ጥያቄዎች
-/lang en \\- ወደ እንግሊዝኛ ቀይር
-/lang am \\- ወደ አማርኛ ቀይር`;
+🔧 ሌሎች ትዕዛዞች:
+/help - ሁሉንም ትዕዛዞች ያሳዩ
+/faq - በተደጋጋሚ የሚጠየቁ ጥያቄዎች
+/lang en - ወደ እንግሊዝኛ ቀይር
+/lang am - ወደ አማርኛ ቀይር`;
 
-      await ctx.editMessageText(supportText, { parse_mode: "MarkdownV2" });
+      await ctx.editMessageText(supportText);
       await ctx.answerCbQuery();
     } catch (error) {
       console.error("Error in support action:", error);

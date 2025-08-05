@@ -14,7 +14,8 @@ export async function loadI18n() {
 // Function to escape MarkdownV2 text
 export function escapeMarkdownV2(text) {
   if (!text) return text;
-  return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, "\\$&").replace(/\\/g, "\\\\");
+  // First escape backslashes, then escape special characters
+  return text.replace(/\\/g, "\\\\").replace(/[_*[\]()~`>#+=|{}.!-]/g, "\\$&");
 }
 
 export async function getUserLang(ctx) {
