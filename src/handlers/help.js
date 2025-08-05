@@ -1,10 +1,11 @@
 export default function helpHandler(bot) {
   bot.command("help", async (ctx) => {
-    const lang = ctx.userLang;
+    try {
+      const lang = ctx.userLang;
 
-    const helpText =
-      lang === "en"
-        ? `🤖 **BirrPay Bot Commands:**
+      const helpText =
+        lang === "en"
+          ? `🤖 **BirrPay Bot Commands:**
 
 📋 **Main Commands:**
 /start - Start the bot and see main menu
@@ -25,7 +26,7 @@ Send any message for support (admin will review)
 /admin_support - View support messages
 /admin_active - View active subscriptions
 /admin_help - Admin help`
-        : `🤖 **የ BirrPay Bot ትዕዛዞች:**
+          : `🤖 **የ BirrPay Bot ትዕዛዞች:**
 
 📋 **ዋና ትዕዛዞች:**
 /start - ቦቱን ጀምር እና ዋና ምናሌ ይመልከቱ
@@ -47,6 +48,10 @@ Send any message for support (admin will review)
 /admin_active - አካት መዋቅሮችን ይመልከቱ
 /admin_help - የአስተዳዳሪ እርዳታ`;
 
-    await ctx.reply(helpText, { parse_mode: "MarkdownV2" });
+      await ctx.reply(helpText, { parse_mode: "MarkdownV2" });
+    } catch (error) {
+      console.error("Error in help handler:", error);
+      await ctx.reply("Sorry, something went wrong. Please try again.");
+    }
   });
 }

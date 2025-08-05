@@ -12,19 +12,31 @@ export async function loadI18n() {
 }
 
 export async function getUserLang(ctx) {
-  // Try Firestore, fallback to Telegram language_code, then 'en'
-  const userDoc = await firestore
-    .collection("users")
-    .doc(String(ctx.from.id))
-    .get();
-  if (userDoc.exists) return userDoc.data().language;
-  if (ctx.from.language_code === "am") return "am";
-  return "en";
+  try {
+    // Try Firestore, fallback to Telegram language_code, then 'en'
+    const userDoc = await firestore
+      .collection("users")
+      .doc(String(ctx.from.id))
+      .get();
+    if (userDoc.exists) return userDoc.data().language;
+    if (ctx.from.language_code === "am") return "am";
+    return "en";
+  } catch (error) {
+    console.error("Error getting user language:", error);
+    // Fallback to Telegram language_code or 'en'
+    if (ctx.from?.language_code === "am") return "am";
+    return "en";
+  }
 }
 
 export async function setUserLang(userID, lang) {
-  await firestore
-    .collection("users")
-    .doc(String(userID))
-    .set({ language: lang }, { merge: true });
+  try {
+    await firestore
+      .collection("users")
+      .doc(String(userID))
+      .set({ language: lang }, { merge: true });
+  } catch (error) {
+    console.error("Error setting user language:", error);
+    // Don't throw - this is not critical for bot operation
+  }
 }

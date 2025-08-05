@@ -1,10 +1,34 @@
 import { initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
-const firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG);
+let firestore = null;
 
-initializeApp({
-  credential: cert(firebaseConfig),
-});
+try {
+  const firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG);
 
-export const firestore = getFirestore();
+  initializeApp({
+    credential: cert(firebaseConfig),
+  });
+
+  firestore = getFirestore();
+  console.log("Firestore initialized successfully");
+} catch (error) {
+  console.error("Error initializing Firestore:", error);
+  // Create a mock firestore object that won't crash the app
+  firestore = {
+    collection: () => ({
+      doc: () => ({
+        get: async () => ({ exists: false, data: () => null }),
+        set: async () => {},
+        update: async () => {},
+      }),
+      add: async () => {},
+      where: () => ({
+        get: async () => ({ empty: true, forEach: () => {} }),
+      }),
+      onSnapshot: () => {}, // Add this for the listener
+    }),
+  };
+}
+
+export { firestore };
