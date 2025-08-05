@@ -53,18 +53,26 @@ try {
 // CRITICAL FIX: Register ALL handlers BEFORE middleware
 console.log("🚀 REGISTERING ALL HANDLERS FIRST...");
 
-// Direct command handlers
+// Direct command handlers with enhanced debugging
 bot.command("help", async (ctx) => {
   try {
     console.log("🚀 HELP COMMAND TRIGGERED!");
-    const lang = ctx.userLang || "en";
+    console.log("Help command - User ID:", ctx.from?.id);
+    console.log("Help command - Message:", ctx.message?.text);
+    
+    // Get language from Telegram or default to English
+    const lang = ctx.from?.language_code === "am" ? "am" : "en";
+    console.log("Help command - Language:", lang);
+    
     const helpText = lang === "am" 
       ? "🔧 BirrPay የብር የደግፍ መረጃ\n\nየተጣታት ትዕዛዞች:\n• /start - ዋና ምንዩ\n• /help - የእርዳታ ምንዩ\n• /faq - በተደጋጋሚ የሚጣዩ ጥያቄዎች\n• /lang - የቋንቃ መረጥ\n• /mysubs - የእርስዎ መዋቅሮች\n• /support - የተጠቃሚ ድጋፍ"
       : "🔧 BirrPay Help & Support\n\nAvailable Commands:\n• /start - Main menu and services\n• /help - Show this help message\n• /faq - Frequently asked questions\n• /lang - Change language settings\n• /mysubs - View your subscriptions\n• /support - Contact customer support";
+    
+    console.log("Help command - Sending response...");
     await ctx.reply(helpText);
-    console.log("✅ Help response sent!");
+    console.log("✅ Help response sent successfully!");
   } catch (error) {
-    console.error("⚠️ Error in help:", error);
+    console.error("⚠️ Error in help command:", error);
     await ctx.reply("Sorry, something went wrong. Please try again.");
   }
 });
@@ -72,7 +80,12 @@ bot.command("help", async (ctx) => {
 bot.command("faq", async (ctx) => {
   try {
     console.log("🚀 FAQ COMMAND TRIGGERED!");
-    const lang = ctx.userLang || "en";
+    console.log("FAQ command - User ID:", ctx.from?.id);
+    console.log("FAQ command - Message:", ctx.message?.text);
+    
+    // Get language from Telegram or default to English
+    const lang = ctx.from?.language_code === "am" ? "am" : "en";
+    console.log("FAQ command - Language:", lang);
     const faqData = {
       en: {
         title: "❓ Frequently Asked Questions",
@@ -110,6 +123,8 @@ bot.command("faq", async (ctx) => {
 bot.command("lang", async (ctx) => {
   try {
     console.log("🚀 LANG COMMAND TRIGGERED!");
+    console.log("Lang command - User ID:", ctx.from?.id);
+    console.log("Lang command - Message:", ctx.message?.text);
     const keyboard = [
       [{ text: "🇺🇸 English", callback_data: "lang_en" }],
       [{ text: "🇪🇹 አማርኛ", callback_data: "lang_am" }]
@@ -129,7 +144,8 @@ bot.action(/faq_(\d+)/, async (ctx) => {
   try {
     console.log("🚀 FAQ CALLBACK TRIGGERED!");
     const index = parseInt(ctx.match[1]);
-    const lang = ctx.userLang || "en";
+    // Get language from Telegram or default to English
+    const lang = ctx.from?.language_code === "am" ? "am" : "en";
     const faqData = {
       en: {
         questions: [
@@ -166,7 +182,8 @@ bot.action(/faq_(\d+)/, async (ctx) => {
 bot.action("support", async (ctx) => {
   try {
     console.log("🚀 SUPPORT CALLBACK TRIGGERED!");
-    const lang = ctx.userLang || "en";
+    // Get language from Telegram or default to English
+    const lang = ctx.from?.language_code === "am" ? "am" : "en";
     const supportText = lang === "am"
       ? "📞 የደንበኞች አገልግሎት\n\nየእርዳታ አገልግሎት አትፈልግዎት?\n\nየተለያዩ የደጋፍ አገልግሎቶች:\n• የምዝገባ እርዳታ\n• የክፍያ ጥያቄዎች\n• ተክኒካዊ ድጋፍ\n• የመረጃ ጥያቄዎች\n\nየተጠቃሚ ድጋፍዎ መረጃ: @BirrPaySupport"
       : "📞 Customer Support\n\nNeed help with your account?\n\nOur support team can help with:\n• Subscription management\n• Payment issues\n• Technical support\n• Account questions\n\nContact our support team: @BirrPaySupport";
