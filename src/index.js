@@ -70,7 +70,27 @@ bot.use(async (ctx, next) => {
 // Test commands for debugging
 bot.command("test", async (ctx) => {
   console.log("Test command triggered!");
+  console.log("Context has i18n:", !!ctx.i18n);
+  console.log("Context has userLang:", ctx.userLang);
+  console.log("Context has services:", !!ctx.services);
   await ctx.reply("🎉 Bot is working perfectly!");
+});
+
+// Debug help command
+bot.command("debug_help", async (ctx) => {
+  try {
+    console.log("Debug help command triggered!");
+    console.log("User language:", ctx.userLang);
+    console.log("i18n available:", !!ctx.i18n);
+    
+    const helpText = "🔧 Debug Help\n\nBot is working! Available commands:\n• /start - Main menu\n• /help - Help information\n• /faq - FAQ\n• /lang - Language settings";
+    
+    await ctx.reply(helpText);
+    console.log("Debug help sent successfully!");
+  } catch (error) {
+    console.error("Error in debug help:", error);
+    await ctx.reply("Error in debug help: " + error.message);
+  }
 });
 
 // Add error handling for all handlers
@@ -147,6 +167,26 @@ bot.on("text", async (ctx) => {
 fastify.register(fastifyStatic, {
   root: path.join(__dirname, '../public'),
   prefix: '/public/',
+});
+
+// Root route
+fastify.get('/', async (req, reply) => {
+  return {
+    message: "🤖 BirrPay Telegram Bot API",
+    status: "running",
+    endpoints: {
+      telegram: "/telegram (webhook)",
+      admin_panel: "/panel",
+      api_stats: "/api/stats",
+      api_pending: "/api/pending",
+      api_support: "/api/support"
+    },
+    bot_info: {
+      name: "BirrPay Bot",
+      version: "1.0.0",
+      description: "BirrPay service subscription and support bot"
+    }
+  };
 });
 
 // Admin panel authentication middleware

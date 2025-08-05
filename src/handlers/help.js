@@ -4,17 +4,35 @@ export default function helpHandler(bot) {
   bot.command("help", async (ctx) => {
     try {
       console.log("Help command triggered!");
-      const lang = ctx.userLang;
-      const helpTitle = ctx.i18n.help_title[lang];
-      const helpText = ctx.i18n.help_text[lang];
+      console.log("User language:", ctx.userLang);
+      console.log("i18n available:", !!ctx.i18n);
+      
+      const lang = ctx.userLang || "en";
+      
+      // Fallback help text if i18n is not available
+      let helpText;
+      if (ctx.i18n && ctx.i18n.help_title && ctx.i18n.help_text) {
+        const helpTitle = ctx.i18n.help_title[lang] || ctx.i18n.help_title["en"];
+        const helpContent = ctx.i18n.help_text[lang] || ctx.i18n.help_text["en"];
+        helpText = `${helpTitle}\n\n${helpContent}`;
+      } else {
+        // Fallback help text
+        helpText = lang === "am" 
+          ? "🔧 BirrPay የብር የደግፍ መረጃ\n\nየተጣታት ትዕዛዞች:\n• /start - ዋና ምንዩ\n• /help - የእርዳታ ምንዩ\n• /faq - በተደጋጋሚ የሚጣዩ ጥያቄዎች\n• /lang - የቋንቃ መረጥ\n• /mysubs - የእርስዎ መዋቅሮች\n• /support - የተጠቃሚ ድጋፍ"
+          : "🔧 BirrPay Help & Support\n\nAvailable Commands:\n• /start - Main menu and services\n• /help - Show this help message\n• /faq - Frequently asked questions\n• /lang - Change language settings\n• /mysubs - View your subscriptions\n• /support - Contact customer support";
+      }
 
       console.log("Sending help response...");
-      await ctx.reply(`${helpTitle}\n\n${helpText}`);
+      await ctx.reply(helpText);
       console.log("Help response sent successfully!");
     } catch (error) {
       console.error("Error in help handler:", error);
-      const errorMsg = ctx.i18n?.error_generic?.[ctx.userLang] || "Sorry, something went wrong. Please try again.";
-      await ctx.reply(errorMsg);
+      try {
+        const errorMsg = "Sorry, something went wrong. Please try again.";
+        await ctx.reply(errorMsg);
+      } catch (replyError) {
+        console.error("Failed to send error message:", replyError);
+      }
     }
   });
 }
