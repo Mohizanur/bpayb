@@ -4,10 +4,10 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "admin": "node panel/ExpressServer.js"
+    "start": "node src/index.js"
   },
   "dependencies": {
+    "@fastify/static": "^8.2.0",
     "dotenv": "^17.2.1",
     "express": "^4.18.2",
     "fastify": "^4.0.0",

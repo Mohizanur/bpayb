@@ -3,6 +3,10 @@ import { Telegraf } from "telegraf";
 import Fastify from "fastify";
 import { loadI18n, getUserLang, setUserLang } from "./utils/i18n.js";
 import { loadServices } from "./utils/loadServices.js";
+import { firestore } from "./utils/firestore.js";
+import path from "path";
+import { fileURLToPath } from "url";
+import fastifyStatic from "@fastify/static";
 import startHandler from "./handlers/start.js";
 import subscribeHandler from "./handlers/subscribe.js";
 import supportHandler from "./handlers/support.js";
@@ -23,6 +27,10 @@ const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN, {
   handlerTimeout: 9000,
 });
 const fastify = Fastify();
+
+// Get current directory for serving static files
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load i18n and services with error handling
 let i18n, services;
@@ -59,16 +67,10 @@ bot.use(async (ctx, next) => {
   }
 });
 
-// Add a simple test command BEFORE other handlers
+// Test commands for debugging
 bot.command("test", async (ctx) => {
   console.log("Test command triggered!");
-  await ctx.reply("Test command works! 🎉");
-});
-
-// Add a simple help command directly here
-bot.command("help", async (ctx) => {
-  console.log("Help command triggered directly!");
-  await ctx.reply("Help command works! 🎉");
+  await ctx.reply("🎉 Bot is working perfectly!");
 });
 
 // Add error handling for all handlers
@@ -96,9 +98,9 @@ subscribeHandler(bot);
 console.log("Registering support handler...");
 supportHandler(bot);
 console.log("Registering lang handler...");
-// langHandler(bot); // Commented out - using direct implementation
+langHandler(bot);
 console.log("Registering faq handler...");
-// faqHandler(bot); // Commented out - using direct implementation
+faqHandler(bot);
 console.log("Registering mySubscriptions handler...");
 mySubscriptionsHandler(bot);
 console.log("Registering cancelSubscription handler...");
@@ -116,61 +118,9 @@ console.log("All handlers registered successfully!");
 console.log("Bot handlers:", Object.keys(bot.context || {}));
 console.log("Bot middleware:", bot.middleware?.length || 0);
 
-// Add direct implementations for commands that aren't working
-bot.command("faq", async (ctx) => {
-  console.log("FAQ command triggered directly!");
-  try {
-    const lang = ctx.userLang;
-    const faqs = [
-      { q: ctx.i18n.faq_1_q[lang], a: ctx.i18n.faq_1_a[lang] },
-      { q: ctx.i18n.faq_2_q[lang], a: ctx.i18n.faq_2_a[lang] },
-      { q: ctx.i18n.faq_3_q[lang], a: ctx.i18n.faq_3_a[lang] },
-      { q: ctx.i18n.faq_4_q[lang], a: ctx.i18n.faq_4_a[lang] },
-    ];
-    const keyboard = faqs.map((f, i) => [
-      { text: f.q, callback_data: `faq_${i}` },
-    ]);
-    console.log("Sending FAQ response...");
-    await ctx.reply(ctx.i18n.faq_title[lang], {
-      reply_markup: { inline_keyboard: keyboard },
-    });
-    console.log("FAQ response sent successfully!");
-  } catch (error) {
-    console.error("Error in FAQ command:", error);
-    await ctx.reply("Sorry, something went wrong. Please try again.");
-  }
-});
+// Commands are now handled by their respective handlers
 
-bot.command("lang", async (ctx) => {
-  console.log("Lang command triggered directly!");
-  try {
-    const arg = ctx.message.text.split(" ")[1];
-    console.log("Lang argument:", arg);
-    if (arg === "en" || arg === "am") {
-      await setUserLang(ctx.from.id, arg);
-      console.log("Sending lang response...");
-      await ctx.reply(
-        arg === "en"
-          ? ctx.i18n.lang_switched_en.en
-          : ctx.i18n.lang_switched_am.am
-      );
-      console.log("Lang response sent successfully!");
-    } else {
-      console.log("Invalid lang argument, sending usage message...");
-      await ctx.reply("Usage: /lang en or /lang am");
-      console.log("Usage message sent successfully!");
-    }
-  } catch (error) {
-    console.error("Error in lang command:", error);
-    await ctx.reply("Sorry, something went wrong. Please try again.");
-  }
-});
 
-// Add a simple test command AFTER other handlers to see if it works
-bot.command("test2", async (ctx) => {
-  console.log("Test2 command triggered!");
-  await ctx.reply("Test2 command works! 🎉");
-});
 
 // Add a simple text handler for non-command messages (AFTER all command handlers)
 bot.on("text", async (ctx) => {
@@ -193,6 +143,217 @@ bot.on("text", async (ctx) => {
   }
 });
 
+// Serve static files
+fastify.register(fastifyStatic, {
+  root: path.join(__dirname, '../public'),
+  prefix: '/public/',
+});
+
+// Admin panel authentication middleware
+const requireAdmin = (req, reply, done) => {
+  const adminId = req.query.admin || req.body.admin;
+  if (adminId !== process.env.ADMIN_TELEGRAM_ID) {
+    reply.status(403).send({ error: "Forbidden: Invalid admin credentials" });
+    return;
+  }
+  done();
+};
+
+// Serve admin panel HTML
+fastify.get('/panel', async (req, reply) => {
+  return reply.sendFile('admin.html', path.join(__dirname, '../panel/'));
+});
+
+// Admin API endpoints
+fastify.get('/api/stats', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const [pendingSubs, activeSubs, cancelledSubs, supportMsgs] = await Promise.all([
+      firestore.collection("subscriptions").where("status", "==", "pending").get(),
+      firestore.collection("subscriptions").where("status", "==", "active").get(),
+      firestore.collection("subscriptions").where("status", "==", "cancelled").get(),
+      firestore.collection("supportMessages").where("handled", "==", false).get()
+    ]);
+    
+    return {
+      pending: pendingSubs.size,
+      active: activeSubs.size,
+      cancelled: cancelledSubs.size,
+      unhandledSupport: supportMsgs.size
+    };
+  } catch (error) {
+    reply.status(500).send({ error: error.message });
+  }
+});
+
+fastify.get('/api/pending', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const subs = await firestore
+      .collection("subscriptions")
+      .where("status", "==", "pending")
+      .get();
+    
+    const services = await loadServices();
+    const result = subs.docs.map((doc) => {
+      const data = doc.data();
+      const service = services.find(s => s.serviceID === data.serviceID);
+      return {
+        id: doc.id,
+        ...data,
+        requestedAt: data.requestedAt?.toDate?.()?.toISOString() || data.requestedAt,
+        serviceName: service?.name || data.serviceID,
+        price: service?.price || data.price
+      };
+    });
+    
+    return result;
+  } catch (error) {
+    reply.status(500).send({ error: error.message });
+  }
+});
+
+fastify.get('/api/active', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const subs = await firestore
+      .collection("subscriptions")
+      .where("status", "==", "active")
+      .get();
+    
+    const services = await loadServices();
+    const result = subs.docs.map((doc) => {
+      const data = doc.data();
+      const service = services.find(s => s.serviceID === data.serviceID);
+      return {
+        id: doc.id,
+        ...data,
+        approvedAt: data.approvedAt?.toDate?.()?.toISOString() || data.approvedAt,
+        serviceName: service?.name || data.serviceID,
+        price: service?.price || data.price
+      };
+    });
+    
+    return result;
+  } catch (error) {
+    reply.status(500).send({ error: error.message });
+  }
+});
+
+fastify.get('/api/support', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const messages = await firestore
+      .collection("supportMessages")
+      .where("handled", "==", false)
+      .limit(50)
+      .get();
+    
+    const result = messages.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        timestamp: data.timestamp?.toDate?.()?.toISOString() || data.timestamp
+      };
+    });
+    
+    return result;
+  } catch (error) {
+    reply.status(500).send({ error: error.message });
+  }
+});
+
+fastify.post('/api/approve', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const { id, nextBillingDate } = req.body;
+    
+    if (!id || !nextBillingDate) {
+      return reply.status(400).send({ error: "Missing required fields" });
+    }
+    
+    await firestore.collection("subscriptions").doc(id).update({
+      status: "active",
+      nextBillingDate,
+      approvedAt: new Date(),
+      approvedBy: process.env.ADMIN_TELEGRAM_ID
+    });
+    
+    return { ok: true, message: "Subscription approved successfully" };
+  } catch (error) {
+    reply.status(500).send({ error: error.message });
+  }
+});
+
+fastify.post('/api/reject', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const { id, reason } = req.body;
+    
+    if (!id) {
+      return reply.status(400).send({ error: "Missing subscription ID" });
+    }
+    
+    await firestore.collection("subscriptions").doc(id).update({
+      status: "rejected",
+      rejectedAt: new Date(),
+      rejectedBy: process.env.ADMIN_TELEGRAM_ID,
+      rejectionReason: reason || "No reason provided"
+    });
+    
+    return { ok: true, message: "Subscription rejected successfully" };
+  } catch (error) {
+    reply.status(500).send({ error: error.message });
+  }
+});
+
+fastify.post('/api/cancel', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const { id, reason } = req.body;
+    
+    if (!id) {
+      return reply.status(400).send({ error: "Missing subscription ID" });
+    }
+    
+    await firestore.collection("subscriptions").doc(id).update({
+      status: "cancelled",
+      cancelledAt: new Date(),
+      cancelledBy: process.env.ADMIN_TELEGRAM_ID,
+      cancellationReason: reason || "Cancelled by admin"
+    });
+    
+    return { ok: true, message: "Subscription cancelled successfully" };
+  } catch (error) {
+    reply.status(500).send({ error: error.message });
+  }
+});
+
+fastify.post('/api/support/handle', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const { id, response } = req.body;
+    
+    if (!id) {
+      return reply.status(400).send({ error: "Missing message ID" });
+    }
+    
+    await firestore.collection("supportMessages").doc(id).update({
+      handled: true,
+      handledAt: new Date(),
+      handledBy: process.env.ADMIN_TELEGRAM_ID,
+      adminResponse: response || ""
+    });
+    
+    return { ok: true, message: "Support message marked as handled" };
+  } catch (error) {
+    reply.status(500).send({ error: error.message });
+  }
+});
+
+fastify.get('/api/services', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const services = await loadServices();
+    return services;
+  } catch (error) {
+    reply.status(500).send({ error: error.message });
+  }
+});
+
+// Telegram webhook endpoint
 fastify.post("/telegram", async (req, reply) => {
   try {
     console.log("Received webhook update");
@@ -205,7 +366,14 @@ fastify.post("/telegram", async (req, reply) => {
   }
 });
 
-fastify.listen({ port: 3000, host: "0.0.0.0" }, (err) => {
-  if (err) process.exit(1);
-  console.log("Bot server running on port 3000");
+const PORT = process.env.PORT || 3000;
+fastify.listen({ port: PORT, host: "0.0.0.0" }, (err) => {
+  if (err) {
+    console.error("Error starting server:", err);
+    process.exit(1);
+  }
+  console.log(`🚀 BirrPay Bot & Admin Panel running on port ${PORT}`);
+  console.log(`📱 Telegram Bot: Webhook ready at /telegram`);
+  console.log(`🔧 Admin Panel: http://localhost:${PORT}/panel`);
+  console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID}`);
 });

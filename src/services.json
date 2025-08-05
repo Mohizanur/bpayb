@@ -5,7 +5,8 @@
     "price": 350,
     "billingCycle": "Monthly",
     "logoUrl": "/public/logos/netflix.png",
-    "approvalRequiredFlag": true
+    "approvalRequiredFlag": true,
+    "description": "Stream movies, TV shows and more"
   },
   {
     "serviceID": "prime",
@@ -13,6 +14,79 @@
     "price": 300,
     "billingCycle": "Monthly",
     "logoUrl": "/public/logos/prime.png",
-    "approvalRequiredFlag": true
+    "approvalRequiredFlag": true,
+    "description": "Prime Video, Music and Shopping benefits"
+  },
+  {
+    "serviceID": "spotify",
+    "name": "Spotify Premium",
+    "price": 250,
+    "billingCycle": "Monthly",
+    "logoUrl": "/public/logos/spotify.png",
+    "approvalRequiredFlag": true,
+    "description": "Music streaming without ads"
+  },
+  {
+    "serviceID": "disney",
+    "name": "Disney+",
+    "price": 280,
+    "billingCycle": "Monthly",
+    "logoUrl": "/public/logos/disney.png",
+    "approvalRequiredFlag": true,
+    "description": "Disney, Marvel, Star Wars content"
+  },
+  {
+    "serviceID": "hulu",
+    "name": "Hulu",
+    "price": 320,
+    "billingCycle": "Monthly",
+    "logoUrl": "/public/logos/hulu.png",
+    "approvalRequiredFlag": true,
+    "description": "TV shows and movies streaming"
+  },
+  {
+    "serviceID": "youtube",
+    "name": "YouTube Premium",
+    "price": 200,
+    "billingCycle": "Monthly",
+    "logoUrl": "/public/logos/youtube.png",
+    "approvalRequiredFlag": true,
+    "description": "Ad-free YouTube with offline downloads"
+  },
+  {
+    "serviceID": "apple",
+    "name": "Apple TV+",
+    "price": 180,
+    "billingCycle": "Monthly",
+    "logoUrl": "/public/logos/apple.png",
+    "approvalRequiredFlag": true,
+    "description": "Original shows and movies"
+  },
+  {
+    "serviceID": "hbo",
+    "name": "HBO Max",
+    "price": 400,
+    "billingCycle": "Monthly",
+    "logoUrl": "/public/logos/hbo.png",
+    "approvalRequiredFlag": true,
+    "description": "Premium movies and series"
+  },
+  {
+    "serviceID": "paramount",
+    "name": "Paramount+",
+    "price": 220,
+    "billingCycle": "Monthly",
+    "logoUrl": "/public/logos/paramount.png",
+    "approvalRequiredFlag": true,
+    "description": "CBS, Paramount movies and shows"
+  },
+  {
+    "serviceID": "peacock",
+    "name": "Peacock Premium",
+    "price": 190,
+    "billingCycle": "Monthly",
+    "logoUrl": "/public/logos/peacock.png",
+    "approvalRequiredFlag": true,
+    "description": "NBC content and originals"
   }
 ]

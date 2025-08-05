@@ -70,5 +70,69 @@
   "lang_switched_am": {
     "en": "Language switched to Amharic",
     "am": "ቋንቋ ወደ አማርኛ ተቀይሯል"
+  },
+  "help_title": {
+    "en": "🤖 BirrPay Bot Commands",
+    "am": "🤖 የBirrPay ቦት ትዕዛዞች"
+  },
+  "help_text": {
+    "en": "Welcome to BirrPay - Ethiopia's Premier Subscription Hub!\n\n📋 Available Commands:\n\n/start - Main menu and services\n/help - Show this help message\n/faq - Frequently asked questions\n/lang en - Switch to English\n/lang am - Switch to Amharic\n/mysubs - View your active subscriptions\n/support - Contact support\n\n💡 How it works:\n1. Choose a service from /start\n2. Submit your subscription request\n3. Make payment as instructed\n4. Admin approves and activates\n5. Enjoy your subscription!\n\n💰 Payment Methods:\n• Bank Transfer\n• TeleBirr\n• Other local methods\n\n📧 Support: support@admin.birr‑pay",
+    "am": "እንኳን ወደ BirrPay - የኢትዮጵያ ዋና የማስተካል አገልግሎት በደህና መጡ!\n\n📋 የሚገኙ ትዕዛዞች:\n\n/start - ዋና ሜኑ እና አገልግሎቶች\n/help - ይህንን የእርዳታ መልእክት አሳይ\n/faq - በተደጋጋሚ የሚጠየቁ ጥያቄዎች\n/lang en - ወደ እንግሊዝኛ ቀይር\n/lang am - ወደ አማርኛ ቀይር\n/mysubs - የእርስዎን ንቁ መዋቅሮች ይመልከቱ\n/support - ድጋፍ ያግኙ\n\n💡 እንዴት እንደሚሰራ:\n1. ከ/start አገልግሎት ይምረጡ\n2. የመዋቅር ጥያቄዎን ያቅርቡ\n3. እንደተመረጠው ክፍያ ያድርጉ\n4. አስተዳዳሪ ያፈቅዳል እና ያነቃቃል\n5. መዋቅሩን ይደሰቱ!\n\n💰 የክፍያ መንገዶች:\n• የባንክ ማስተላለፊያ\n• ቴሌብር\n• ሌሎች የአካባቢ መንገዶች\n\n📧 ድጋፍ: support@admin.birr‑pay"
+  },
+  "no_active_subs": {
+    "en": "📭 You don't have any active subscriptions yet.\n\nUse /start to browse available services and subscribe!",
+    "am": "📭 እስካሁን ምንም ንቁ መዋቅሮች የሉዎትም።\n\nየሚገኙ አገልግሎቶችን ለማሰስ እና ለመመዝገብ /start ይጠቀሙ!"
+  },
+  "active_subs_title": {
+    "en": "📊 Your Active Subscriptions",
+    "am": "📊 የእርስዎ ንቁ መዋቅሮች"
+  },
+  "cancel_success": {
+    "en": "✅ Subscription cancelled successfully. You will receive a confirmation shortly.",
+    "am": "✅ መዋቅር በተሳካ ሁኔታ ተሰርዟል። በቅርቡ ማረጋገጫ ይቀበላሉ።"
+  },
+  "cancel_confirm": {
+    "en": "⚠️ Are you sure you want to cancel this subscription?",
+    "am": "⚠️ ይህንን መዋቅር መሰረዝ እርግጠኛ ነዎት?"
+  },
+  "yes": {
+    "en": "✅ Yes, Cancel",
+    "am": "✅ አዎን፣ ሰርዝ"
+  },
+  "no": {
+    "en": "❌ No, Keep",
+    "am": "❌ አይ፣ ይቆይ"
+  },
+  "service_details": {
+    "en": "📱 Service: {service}\n💰 Price: {price} Birr/{cycle}\n📝 Description: {description}\n\n⚡ Click Subscribe to get started!",
+    "am": "📱 አገልግሎት: {service}\n💰 ዋጋ: {price} ብር/{cycle}\n📝 መግለጫ: {description}\n\n⚡ ለመጀመር Subscribe ይጫኑ!"
+  },
+  "subscribe_button": {
+    "en": "🚀 Subscribe Now",
+    "am": "🚀 አሁን መዝግብ"
+  },
+  "back_button": {
+    "en": "⬅️ Back to Services",
+    "am": "⬅️ ወደ አገልግሎቶች ተመለስ"
+  },
+  "payment_instructions": {
+    "en": "💳 Payment Instructions:\n\nYour subscription request has been submitted!\n\n📋 Next Steps:\n1. Wait for admin approval (usually within minutes)\n2. You'll receive payment instructions\n3. Complete payment using your preferred method\n4. Your subscription will be activated\n\n⏰ Processing time: Usually within 24 hours\n📧 Questions? Contact: support@admin.birr‑pay",
+    "am": "💳 የክፍያ መመሪያዎች:\n\nየመዋቅር ጥያቄዎ ተላክ!\n\n📋 ቀጣይ ደረጃዎች:\n1. የአስተዳዳሪ ፈቃድ ይጠብቁ (አብዛኛውን ጊዜ በደቂቃዎች ውስጥ)\n2. የክፍያ መመሪያዎች ይቀበላሉ\n3. በሚመርጡት መንገድ ክፍያ ያጠናቅቁ\n4. መዋቅርዎ ይነቃቃል\n\n⏰ የማስኬጃ ጊዜ: አብዛኛውን ጊዜ በ24 ሰዓት ውስጥ\n📧 ጥያቄዎች? ያግኙ: support@admin.birr‑pay"
+  },
+  "welcome_back": {
+    "en": "👋 Welcome back to BirrPay!",
+    "am": "👋 ወደ BirrPay እንደገና እንኳን በደህና መጡ!"
+  },
+  "error_generic": {
+    "en": "❌ Something went wrong. Please try again or contact support.",
+    "am": "❌ የሆነ ችግር ተፈጥሯል። እንደገና ይሞክሩ ወይም ድጋፍ ያግኙ።"
+  },
+  "monthly": {
+    "en": "month",
+    "am": "ወር"
+  },
+  "yearly": {
+    "en": "year",
+    "am": "ዓመት"
   }
 }

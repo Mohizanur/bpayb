@@ -5,58 +5,16 @@ export default function helpHandler(bot) {
     try {
       console.log("Help command triggered!");
       const lang = ctx.userLang;
-
-      const helpText =
-        lang === "en"
-          ? `🤖 BirrPay Bot Commands:
-
-📋 Main Commands:
-/start - Start the bot and see main menu
-/help - Show this help message
-/faq - Frequently asked questions
-/lang en - Switch to English
-/lang am - Switch to Amharic
-
-📱 Subscription Commands:
-/my_subscriptions - View your active subscriptions
-/cancel_subscription - Cancel a subscription
-
-💬 Support:
-Send any message for support (admin will review)
-
-🔧 Admin Commands (Admin only):
-/admin_pending - View pending subscriptions
-/admin_support - View support messages
-/admin_active - View active subscriptions
-/admin_help - Admin help`
-          : `🤖 የ BirrPay Bot ትዕዛዞች:
-
-📋 ዋና ትዕዛዞች:
-/start - ቦቱን ጀምር እና ዋና ምናሌ ይመልከቱ
-/help - ይህን የእርዳታ መልእክት ያሳዩ
-/faq - በተደጋጋሚ የሚጠየቁ ጥያቄዎች
-/lang en - ወደ እንግሊዝኛ ቀይር
-/lang am - ወደ አማርኛ ቀይር
-
-📱 የመዋቅር ትዕዛዞች:
-/my_subscriptions - አካት መዋቅሮችዎን ይመልከቱ
-/cancel_subscription - መዋቅር ይሰረዙ
-
-💬 ድጋፍ:
-ለድጋፍ ማንኛውንም መልእክት ይላኩ (አስተዳዳሪ ያገኝ)
-
-🔧 የአስተዳዳሪ ትዕዛዞች (አስተዳዳሪ ብቻ):
-/admin_pending - የሚጠበቁ መዋቅሮችን ይመልከቱ
-/admin_support - የድጋፍ መልእክቶችን ይመልከቱ
-/admin_active - አካት መዋቅሮችን ይመልከቱ
-/admin_help - የአስተዳዳሪ እርዳታ`;
+      const helpTitle = ctx.i18n.help_title[lang];
+      const helpText = ctx.i18n.help_text[lang];
 
       console.log("Sending help response...");
-      await ctx.reply(helpText);
+      await ctx.reply(`${helpTitle}\n\n${helpText}`);
       console.log("Help response sent successfully!");
     } catch (error) {
       console.error("Error in help handler:", error);
-      await ctx.reply("Sorry, something went wrong. Please try again.");
+      const errorMsg = ctx.i18n?.error_generic?.[ctx.userLang] || "Sorry, something went wrong. Please try again.";
+      await ctx.reply(errorMsg);
     }
   });
 }

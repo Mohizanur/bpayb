@@ -1,37 +1,706 @@
 <!DOCTYPE html>
-<html>
-  <head>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BirrPay Admin Panel</title>
-  </head>
-  <body>
-    <h1>Pending Subscriptions</h1>
-    <div id="subs"></div>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: #4a5568;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-number {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .stat-label {
+            color: #718096;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .pending { color: #f6ad55; }
+        .active { color: #48bb78; }
+        .cancelled { color: #fc8181; }
+        .support { color: #4299e1; }
+        
+        .tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px 20px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            color: #718096;
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .tab-content {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            min-height: 400px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .subscription-item, .support-item {
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4299e1;
+            transition: all 0.3s ease;
+        }
+        
+        .subscription-item:hover, .support-item:hover {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transform: translateX(5px);
+        }
+        
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .service-name {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        .user-info {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        
+        .item-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .detail-label {
+            font-size: 0.8rem;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        
+        .detail-value {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-approve {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+        }
+        
+        .btn-reject {
+            background: linear-gradient(135deg, #fc8181, #e53e3e);
+            color: white;
+        }
+        
+        .btn-cancel {
+            background: linear-gradient(135deg, #fc8181, #e53e3e);
+            color: white;
+        }
+        
+        .btn-handle {
+            background: linear-gradient(135deg, #4299e1, #3182ce);
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .date-input {
+            padding: 8px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            margin-right: 10px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #718096;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .login-form {
+            max-width: 400px;
+            margin: 100px auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .refresh-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                margin-bottom: 5px;
+            }
+            
+            .item-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .actions {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 BirrPay Admin Panel</h1>
+            <p>Manage subscriptions and support messages</p>
+        </div>
+        
+        <div id="loginForm" class="login-form">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #4a5568;">Admin Login</h2>
+            <div class="form-group">
+                <label class="form-label" for="adminId">Admin Telegram ID:</label>
+                <input type="text" id="adminId" class="form-input" placeholder="Enter your Telegram ID">
+            </div>
+            <button onclick="login()" class="btn btn-approve" style="width: 100%; justify-content: center;">🔑 Login</button>
+        </div>
+        
+        <div id="dashboard" class="hidden">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number pending" id="pendingCount">-</div>
+                    <div class="stat-label">Pending Requests</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number active" id="activeCount">-</div>
+                    <div class="stat-label">Active Subscriptions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number cancelled" id="cancelledCount">-</div>
+                    <div class="stat-label">Cancelled</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number support" id="supportCount">-</div>
+                    <div class="stat-label">Support Messages</div>
+                </div>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('pending')">📋 Pending</button>
+                <button class="tab" onclick="showTab('active')">✅ Active</button>
+                <button class="tab" onclick="showTab('support')">💬 Support</button>
+            </div>
+            
+            <div id="pendingTab" class="tab-content">
+                <h2 style="margin-bottom: 20px; color: #4a5568;">📋 Pending Subscriptions</h2>
+                <div id="pendingList" class="loading">Loading...</div>
+            </div>
+            
+            <div id="activeTab" class="tab-content hidden">
+                <h2 style="margin-bottom: 20px; color: #4a5568;">✅ Active Subscriptions</h2>
+                <div id="activeList" class="loading">Loading...</div>
+            </div>
+            
+            <div id="supportTab" class="tab-content hidden">
+                <h2 style="margin-bottom: 20px; color: #4a5568;">💬 Support Messages</h2>
+                <div id="supportList" class="loading">Loading...</div>
+            </div>
+        </div>
+    </div>
+    
+    <button class="refresh-btn" onclick="loadAllData()" title="Refresh Data">🔄</button>
+    
     <script>
-      const admin = prompt("Enter admin Telegram ID:");
-      async function load() {
-        const res = await fetch("/api/pending?admin=" + admin);
-        const subs = await res.json();
-        document.getElementById("subs").innerHTML = subs
-          .map(
-            (s) =>
-              `<div>
-          <b>${s.serviceID}</b> by ${s.telegramUserID}
-          <input type="date" id="date_${s.id}">
-          <button onclick="approve('${s.id}')">Approve</button>
-        </div>`
-          )
-          .join("");
-      }
-      async function approve(id) {
-        const nextBillingDate = document.getElementById("date_" + id).value;
-        await fetch("/api/approve", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, nextBillingDate, admin }),
-        });
-        load();
-      }
-      load();
+        let adminId = '';
+        let currentTab = 'pending';
+        const API_BASE = window.location.origin;
+        
+        function login() {
+            adminId = document.getElementById('adminId').value.trim();
+            if (!adminId) {
+                alert('Please enter your Admin Telegram ID');
+                return;
+            }
+            
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            loadAllData();
+        }
+        
+        function showTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(tab + 'Tab').classList.remove('hidden');
+            
+            currentTab = tab;
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/api/stats?admin=${adminId}`);
+                if (!response.ok) throw new Error('Failed to fetch stats');
+                const stats = await response.json();
+                
+                document.getElementById('pendingCount').textContent = stats.pending;
+                document.getElementById('activeCount').textContent = stats.active;
+                document.getElementById('cancelledCount').textContent = stats.cancelled;
+                document.getElementById('supportCount').textContent = stats.unhandledSupport;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        async function loadPending() {
+            try {
+                const response = await fetch(`${API_BASE}/api/pending?admin=${adminId}`);
+                if (!response.ok) throw new Error('Failed to fetch pending subscriptions');
+                const subscriptions = await response.json();
+                
+                if (subscriptions.length === 0) {
+                    document.getElementById('pendingList').innerHTML = `
+                        <div class="empty-state">
+                            <h3>🎉 All caught up!</h3>
+                            <p>No pending subscription requests</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                document.getElementById('pendingList').innerHTML = subscriptions.map(sub => `
+                    <div class="subscription-item">
+                        <div class="item-header">
+                            <div class="service-name">📱 ${sub.serviceName || sub.serviceID}</div>
+                            <div class="user-info">User: ${sub.telegramUserID}</div>
+                        </div>
+                        <div class="item-details">
+                            <div class="detail-item">
+                                <div class="detail-label">Price</div>
+                                <div class="detail-value">${sub.price} Birr/month</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Requested</div>
+                                <div class="detail-value">${new Date(sub.requestedAt).toLocaleString()}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Language</div>
+                                <div class="detail-value">${(sub.userLanguage || 'en').toUpperCase()}</div>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <input type="date" id="date_${sub.id}" class="date-input" value="${new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]}">
+                            <button class="btn btn-approve" onclick="approve('${sub.id}')">
+                                ✅ Approve
+                            </button>
+                            <button class="btn btn-reject" onclick="reject('${sub.id}')">
+                                ❌ Reject
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading pending:', error);
+                document.getElementById('pendingList').innerHTML = '<div class="empty-state"><h3>Error loading data</h3></div>';
+            }
+        }
+        
+        async function loadActive() {
+            try {
+                const response = await fetch(`${API_BASE}/api/active?admin=${adminId}`);
+                if (!response.ok) throw new Error('Failed to fetch active subscriptions');
+                const subscriptions = await response.json();
+                
+                if (subscriptions.length === 0) {
+                    document.getElementById('activeList').innerHTML = `
+                        <div class="empty-state">
+                            <h3>📭 No active subscriptions</h3>
+                            <p>No active subscriptions found</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                document.getElementById('activeList').innerHTML = subscriptions.map(sub => `
+                    <div class="subscription-item">
+                        <div class="item-header">
+                            <div class="service-name">📱 ${sub.serviceName || sub.serviceID}</div>
+                            <div class="user-info">User: ${sub.telegramUserID}</div>
+                        </div>
+                        <div class="item-details">
+                            <div class="detail-item">
+                                <div class="detail-label">Price</div>
+                                <div class="detail-value">${sub.price} Birr/month</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Next Billing</div>
+                                <div class="detail-value">${sub.nextBillingDate}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Approved</div>
+                                <div class="detail-value">${new Date(sub.approvedAt).toLocaleString()}</div>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-cancel" onclick="cancelSub('${sub.id}')">
+                                🚫 Cancel Subscription
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading active:', error);
+                document.getElementById('activeList').innerHTML = '<div class="empty-state"><h3>Error loading data</h3></div>';
+            }
+        }
+        
+        async function loadSupport() {
+            try {
+                const response = await fetch(`${API_BASE}/api/support?admin=${adminId}`);
+                if (!response.ok) throw new Error('Failed to fetch support messages');
+                const messages = await response.json();
+                
+                if (messages.length === 0) {
+                    document.getElementById('supportList').innerHTML = `
+                        <div class="empty-state">
+                            <h3>🎉 All messages handled!</h3>
+                            <p>No unhandled support messages</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                document.getElementById('supportList').innerHTML = messages.map(msg => `
+                    <div class="support-item">
+                        <div class="item-header">
+                            <div class="service-name">💬 Support Message</div>
+                            <div class="user-info">
+                                ${msg.userInfo ? `${msg.userInfo.firstName} ${msg.userInfo.lastName || ''} (${msg.userInfo.id})` : `User: ${msg.telegramUserID}`}
+                            </div>
+                        </div>
+                        <div class="item-details">
+                            <div class="detail-item" style="grid-column: 1 / -1;">
+                                <div class="detail-label">Message</div>
+                                <div class="detail-value" style="background: #edf2f7; padding: 15px; border-radius: 8px; margin-top: 5px;">
+                                    ${msg.messageText}
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Language</div>
+                                <div class="detail-value">${(msg.language || 'en').toUpperCase()}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Received</div>
+                                <div class="detail-value">${new Date(msg.timestamp).toLocaleString()}</div>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-handle" onclick="handleSupport('${msg.id}')">
+                                ✅ Mark as Handled
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading support:', error);
+                document.getElementById('supportList').innerHTML = '<div class="empty-state"><h3>Error loading data</h3></div>';
+            }
+        }
+        
+        async function approve(id) {
+            const nextBillingDate = document.getElementById(`date_${id}`).value;
+            if (!nextBillingDate) {
+                alert('Please select a next billing date');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/approve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, nextBillingDate, admin: adminId })
+                });
+                
+                if (response.ok) {
+                    loadAllData();
+                } else {
+                    alert('Error approving subscription');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error approving subscription');
+            }
+        }
+        
+        async function reject(id) {
+            const reason = prompt('Reason for rejection (optional):');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/reject`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, reason, admin: adminId })
+                });
+                
+                if (response.ok) {
+                    loadAllData();
+                } else {
+                    alert('Error rejecting subscription');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error rejecting subscription');
+            }
+        }
+        
+        async function cancelSub(id) {
+            if (!confirm('Are you sure you want to cancel this subscription?')) return;
+            
+            const reason = prompt('Reason for cancellation (optional):');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, reason, admin: adminId })
+                });
+                
+                if (response.ok) {
+                    loadAllData();
+                } else {
+                    alert('Error cancelling subscription');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error cancelling subscription');
+            }
+        }
+        
+        async function handleSupport(id) {
+            const response = prompt('Optional response to user:');
+            
+            try {
+                const adminResponse = response || '';
+                const res = await fetch(`${API_BASE}/api/support/handle`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, response: adminResponse, admin: adminId })
+                });
+                
+                if (res.ok) {
+                    loadAllData();
+                } else {
+                    alert('Error handling support message');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error handling support message');
+            }
+        }
+        
+        async function loadAllData() {
+            await loadStats();
+            await loadPending();
+            await loadActive();
+            await loadSupport();
+        }
+        
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            if (adminId) {
+                loadAllData();
+            }
+        }, 30000);
     </script>
-  </body>
+</body>
 </html>
