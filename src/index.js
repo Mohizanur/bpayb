@@ -110,17 +110,16 @@ console.log("All handlers registered successfully!");
 console.log("Bot handlers:", Object.keys(bot.context || {}));
 console.log("Bot middleware:", bot.middleware?.length || 0);
 
-// Add a catch-all handler for unhandled messages (only for non-commands)
+// Add a simple text handler for non-command messages (AFTER all command handlers)
 bot.on("text", async (ctx) => {
   try {
     // Skip if it's a command (starts with /)
     if (ctx.message.text.startsWith("/")) {
       console.log("Command not handled:", ctx.message.text);
-      console.log("Available commands: /start, /help, /faq, /lang, /my_subscriptions, /cancel_subscription");
       return;
     }
     
-    console.log("Catch-all handler triggered for:", ctx.message?.text);
+    console.log("Text handler triggered for:", ctx.message?.text);
     const lang = ctx.userLang || "en";
     const helpText =
       lang === "en"
@@ -128,7 +127,7 @@ bot.on("text", async (ctx) => {
         : "ያ መልእክት አልገባኝም። የሚገኙ ትዕዛዞችን ለማየት /help ይጠቀሙ።";
     await ctx.reply(helpText);
   } catch (error) {
-    console.error("Error in catch-all handler:", error);
+    console.error("Error in text handler:", error);
   }
 });
 
