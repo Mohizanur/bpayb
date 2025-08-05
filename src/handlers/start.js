@@ -4,9 +4,22 @@ import { firestore } from "../utils/firestore.js";
 export default function startHandler(bot) {
   bot.start(async (ctx) => {
     try {
-      const lang = ctx.userLang;
-      const title = ctx.i18n.hero_title[lang];
-      const subtitle = ctx.i18n.hero_subtitle[lang];
+      const lang = ctx.userLang || "en";
+      
+      // Fallback text if i18n is not available
+      let title, subtitle;
+      if (ctx.i18n && ctx.i18n.hero_title && ctx.i18n.hero_subtitle) {
+        title = ctx.i18n.hero_title[lang] || ctx.i18n.hero_title["en"];
+        subtitle = ctx.i18n.hero_subtitle[lang] || ctx.i18n.hero_subtitle["en"];
+      } else {
+        // Hardcoded fallback
+        title = lang === "am" 
+          ? "🌍 BirrPay የኢትዮጵያ የምዝገባ መከር"
+          : "🌍 Ethiopia's Premier Subscription Hub";
+        subtitle = lang === "am"
+          ? "ሁሉንም የዲጂታል ምዝገባዎችዎን በአንድ የተጠቃማ ኦታ ይአስተዳድሩ። Netflix፣ Amazon Prime፣ እና ተጨማሪዎችን በቀላሉ በእንጋ መንግስት አገባባት ያግኙ።"
+          : "Manage all your digital subscriptions in one secure place. Access Netflix, Amazon Prime, and more with ease through our localized platform.";
+      }
 
       await ctx.reply(title + "\n\n" + subtitle, {
         reply_markup: {

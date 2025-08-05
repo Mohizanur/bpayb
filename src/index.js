@@ -27,7 +27,30 @@ const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN, {
   handlerTimeout: 9000,
 });
 
-// Register all handlers FIRST before middleware
+const fastify = Fastify();
+
+// Get current directory for serving static files
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load i18n and services with error handling FIRST
+let i18n, services;
+try {
+  console.log("Loading i18n and services...");
+  i18n = await loadI18n();
+  services = await loadServices();
+  console.log("Successfully loaded i18n and services");
+} catch (error) {
+  console.error("Error loading i18n or services:", error);
+  // Provide fallback data
+  i18n = {
+    hero_title: { en: "Welcome", am: "እንኳን ደስ አለዎት" },
+    hero_subtitle: { en: "Choose your plan", am: "የእርስዎን እቅድ ይምረጡ" },
+  };
+  services = [];
+}
+
+// Now register handlers AFTER i18n is loaded
 console.log("Registering handlers...");
 console.log("Registering start handler...");
 startHandler(bot);
@@ -50,29 +73,6 @@ adminHandler(bot);
 console.log("Registering help handler...");
 helpHandler(bot);
 console.log("All handlers registered successfully!");
-
-const fastify = Fastify();
-
-// Get current directory for serving static files
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load i18n and services with error handling
-let i18n, services;
-try {
-  console.log("Loading i18n and services...");
-  i18n = await loadI18n();
-  services = await loadServices();
-  console.log("Successfully loaded i18n and services");
-} catch (error) {
-  console.error("Error loading i18n or services:", error);
-  // Provide fallback data
-  i18n = {
-    hero_title: { en: "Welcome", am: "እንኳን ደስ አለዎት" },
-    hero_subtitle: { en: "Choose your plan", am: "የእርስዎን እቅድ ይምረጡ" },
-  };
-  services = [];
-}
 
 // Now add middleware AFTER handlers
 bot.use(async (ctx, next) => {
