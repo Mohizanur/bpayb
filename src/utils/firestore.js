@@ -1,331 +1,406 @@
 import { initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import fs from 'fs';
+import path from 'path';
 
 let firestore = null;
 let isFirebaseConnected = false;
 
-// Enhanced local storage data manager
-class LocalDataManager {
-  constructor() {
-    this.dbName = 'birrpay_db';
-    this.initializeData();
-  }
-
-  initializeData() {
-    // Initialize collections if they don't exist
-    const collections = ['users', 'subscriptions', 'payments', 'support_tickets', 'services', 'analytics'];
-    collections.forEach(collection => {
-      if (!localStorage.getItem(`${this.dbName}_${collection}`)) {
-        localStorage.setItem(`${this.dbName}_${collection}`, JSON.stringify([]));
+// Firebase connection with enhanced error handling
+async function initializeFirebase() {
+  try {
+    // Try to load Firebase config from environment variable first
+    let firebaseConfig;
+    
+    if (process.env.FIREBASE_CONFIG) {
+      console.log("Loading Firebase config from environment variable...");
+      firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG);
+    } else {
+      // Fallback to config file
+      console.log("Loading Firebase config from file...");
+      const configPath = path.resolve(process.cwd(), 'firebaseConfig.json');
+      
+      if (fs.existsSync(configPath)) {
+        const configFile = fs.readFileSync(configPath, 'utf8');
+        firebaseConfig = JSON.parse(configFile);
+      } else {
+        throw new Error('Firebase configuration not found. Please set FIREBASE_CONFIG environment variable or provide firebaseConfig.json');
       }
+    }
+
+    // Validate required Firebase configuration fields
+    const requiredFields = ['project_id', 'private_key', 'client_email'];
+    for (const field of requiredFields) {
+      if (!firebaseConfig[field]) {
+        throw new Error(`Missing required Firebase configuration field: ${field}`);
+      }
+    }
+
+    // Initialize Firebase Admin SDK
+    const app = initializeApp({
+      credential: cert(firebaseConfig),
+      databaseURL: `https://${firebaseConfig.project_id}-default-rtdb.firebaseio.com/`
     });
 
-    // Initialize sample services data
-    const services = JSON.parse(localStorage.getItem(`${this.dbName}_services`) || '[]');
-    if (services.length === 0) {
-      const sampleServices = [
-        { 
-          id: 'netflix', 
-          name: 'Netflix', 
-          price: 350, 
-          description: 'Stream movies, TV shows and more',
-          logo: 'logos/netflix.png',
-          category: 'streaming',
-          status: 'active',
-          features: ['HD Streaming', 'Multiple Devices', 'Download for Offline']
-        },
-        { 
-          id: 'prime', 
-          name: 'Amazon Prime', 
-          price: 300, 
-          description: 'Prime Video, Music and Shopping benefits',
-          logo: 'logos/prime.png',
-          category: 'streaming',
-          status: 'active',
-          features: ['Prime Video', 'Free Shipping', 'Prime Music']
-        },
-        { 
-          id: 'spotify', 
-          name: 'Spotify Premium', 
-          price: 250, 
-          description: 'Music streaming without ads',
-          logo: 'logos/spotify.png',
-          category: 'music',
-          status: 'active',
-          features: ['Ad-free Music', 'Offline Downloads', 'High Quality Audio']
-        }
-      ];
-      localStorage.setItem(`${this.dbName}_services`, JSON.stringify(sampleServices));
+    firestore = getFirestore(app);
+    isFirebaseConnected = true;
+    
+    console.log("✅ Firebase initialized successfully");
+    console.log(`📊 Connected to project: ${firebaseConfig.project_id}`);
+    
+    // Test the connection
+    await testFirebaseConnection();
+    
+    return firestore;
+  } catch (error) {
+    console.error("❌ Error initializing Firebase:", error.message);
+    
+    // For testing environment, use mock instead of failing
+    if (process.env.NODE_ENV === 'test') {
+      console.log("🧪 Using mock Firestore for testing");
+      return createMockFirestore();
     }
-  }
-
-  getData(collection) {
-    try {
-      return JSON.parse(localStorage.getItem(`${this.dbName}_${collection}`) || '[]');
-    } catch (error) {
-      console.error(`Error reading ${collection}:`, error);
-      return [];
-    }
-  }
-
-  setData(collection, data) {
-    try {
-      localStorage.setItem(`${this.dbName}_${collection}`, JSON.stringify(data));
-      return true;
-    } catch (error) {
-      console.error(`Error writing ${collection}:`, error);
-      return false;
-    }
-  }
-
-  addDocument(collection, document) {
-    const data = this.getData(collection);
-    const newDoc = {
-      id: document.id || `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      ...document,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    data.push(newDoc);
-    this.setData(collection, data);
-    return newDoc;
-  }
-
-  updateDocument(collection, id, updates) {
-    const data = this.getData(collection);
-    const index = data.findIndex(doc => doc.id === id);
-    if (index !== -1) {
-      data[index] = {
-        ...data[index],
-        ...updates,
-        updatedAt: new Date().toISOString()
-      };
-      this.setData(collection, data);
-      return data[index];
-    }
-    return null;
-  }
-
-  getDocument(collection, id) {
-    const data = this.getData(collection);
-    return data.find(doc => doc.id === id) || null;
-  }
-
-  deleteDocument(collection, id) {
-    const data = this.getData(collection);
-    const filteredData = data.filter(doc => doc.id !== id);
-    this.setData(collection, filteredData);
-    return filteredData.length < data.length;
-  }
-
-  queryDocuments(collection, conditions = {}) {
-    const data = this.getData(collection);
-    return data.filter(doc => {
-      return Object.keys(conditions).every(key => {
-        if (typeof conditions[key] === 'object' && conditions[key].operator) {
-          const { operator, value } = conditions[key];
-          switch (operator) {
-            case '==': return doc[key] === value;
-            case '!=': return doc[key] !== value;
-            case '>': return doc[key] > value;
-            case '<': return doc[key] < value;
-            case '>=': return doc[key] >= value;
-            case '<=': return doc[key] <= value;
-            case 'array-contains': return Array.isArray(doc[key]) && doc[key].includes(value);
-            default: return doc[key] === value;
-          }
-        }
-        return doc[key] === conditions[key];
-      });
-    });
-  }
-
-  getStats() {
-    const users = this.getData('users');
-    const subscriptions = this.getData('subscriptions');
-    const payments = this.getData('payments');
-    const tickets = this.getData('support_tickets');
-
-    return {
-      totalUsers: users.length,
-      activeSubscriptions: subscriptions.filter(s => s.status === 'active').length,
-      totalRevenue: payments.reduce((sum, p) => sum + (p.amount || 0), 0),
-      pendingTickets: tickets.filter(t => t.status === 'open').length,
-      paidUsers: users.filter(u => u.isPaid).length
-    };
+    
+    throw error;
   }
 }
 
-// Enhanced mock firestore for better functionality
-const createMockFirestore = () => {
-  const dataManager = new LocalDataManager();
-
+// Create mock Firestore for testing
+function createMockFirestore() {
+  const mockData = new Map();
+  
   return {
     collection: (name) => ({
       doc: (id) => ({
-        get: async () => {
-          const doc = dataManager.getDocument(name, id);
-          return { 
-            exists: !!doc, 
-            data: () => doc,
-            id: id || 'mock-id'
-          };
-        },
+        get: async () => ({
+          exists: mockData.has(`${name}/${id}`),
+          data: () => mockData.get(`${name}/${id}`) || null
+        }),
         set: async (data) => {
-          console.log(`Mock Firestore: Setting data in ${name}/${id}:`, data);
-          const result = dataManager.updateDocument(name, id, data) || dataManager.addDocument(name, { id, ...data });
-          return { id: result.id };
+          mockData.set(`${name}/${id}`, { id, ...data });
+          return { id };
         },
         update: async (data) => {
-          console.log(`Mock Firestore: Updating data in ${name}/${id}:`, data);
-          const result = dataManager.updateDocument(name, id, data);
-          return { id: result?.id || id };
+          const existing = mockData.get(`${name}/${id}`) || {};
+          mockData.set(`${name}/${id}`, { ...existing, ...data });
+          return { id };
         },
         delete: async () => {
-          console.log(`Mock Firestore: Deleting document ${name}/${id}`);
-          return dataManager.deleteDocument(name, id);
+          mockData.delete(`${name}/${id}`);
+          return true;
         }
       }),
       add: async (data) => {
-        console.log(`Mock Firestore: Adding data to ${name}:`, data);
-        const result = dataManager.addDocument(name, data);
-        return { id: result.id };
-      },
-      where: (field, op, value) => ({
-        get: async () => {
-          const docs = dataManager.queryDocuments(name, { [field]: { operator: op, value } });
-          return { 
-            empty: docs.length === 0, 
-            size: docs.length,
-            docs: docs.map(doc => ({
-              id: doc.id,
-              data: () => doc,
-              exists: true
-            })),
-            forEach: (callback) => docs.forEach((doc, index) => {
-              callback({
-                id: doc.id,
-                data: () => doc,
-                exists: true
-              }, index);
-            })
-          };
-        },
-        limit: (num) => ({
-          get: async () => {
-            const docs = dataManager.queryDocuments(name, { [field]: { operator: op, value } }).slice(0, num);
-            return { 
-              empty: docs.length === 0, 
-              size: docs.length,
-              docs: docs.map(doc => ({
-                id: doc.id,
-                data: () => doc,
-                exists: true
-              })),
-              forEach: (callback) => docs.forEach((doc, index) => {
-                callback({
-                  id: doc.id,
-                  data: () => doc,
-                  exists: true
-                }, index);
-              })
-            };
-          }
-        })
-      }),
-      onSnapshot: (callback) => {
-        console.log(`Mock Firestore: Setting up listener for ${name}`);
-        
-        // Simulate real-time updates by periodically checking for changes
-        const intervalId = setInterval(() => {
-          const docs = dataManager.getData(name);
-          const snapshot = {
-            empty: docs.length === 0,
-            size: docs.length,
-            docs: docs.map(doc => ({
-              id: doc.id,
-              data: () => doc,
-              exists: true
-            })),
-            forEach: (callback) => docs.forEach((doc, index) => {
-              callback({
-                id: doc.id,
-                data: () => doc,
-                exists: true
-              }, index);
-            })
-          };
-          callback(snapshot);
-        }, 30000); // Check every 30 seconds
-        
-        // Return unsubscribe function
-        return () => {
-          clearInterval(intervalId);
-          console.log(`Mock Firestore: Unsubscribed from ${name}`);
+        const id = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const docData = { id, ...data };
+        mockData.set(`${name}/${id}`, docData);
+        return { 
+          id,
+          get: async () => ({ exists: true, data: () => docData })
         };
       },
       get: async () => {
-        const docs = dataManager.getData(name);
-        return { 
-          empty: docs.length === 0, 
-          size: docs.length,
-          docs: docs.map(doc => ({
-            id: doc.id,
-            data: () => doc,
-            exists: true
-          })),
-          forEach: (callback) => docs.forEach((doc, index) => {
-            callback({
-              id: doc.id,
-              data: () => doc,
+        const docs = [];
+        for (const [key, value] of mockData.entries()) {
+          if (key.startsWith(`${name}/`)) {
+            docs.push({
+              id: value.id,
+              data: () => value,
               exists: true
-            }, index);
-          })
+            });
+          }
+        }
+        return {
+          docs,
+          empty: docs.length === 0,
+          size: docs.length,
+          forEach: (callback) => docs.forEach(callback)
         };
+      },
+      where: (field, op, value) => ({
+        get: async () => {
+          const docs = [];
+          for (const [key, docData] of mockData.entries()) {
+            if (key.startsWith(`${name}/`)) {
+              let matches = false;
+              switch (op) {
+                case '==': matches = docData[field] === value; break;
+                case '!=': matches = docData[field] !== value; break;
+                case '>': matches = docData[field] > value; break;
+                case '<': matches = docData[field] < value; break;
+                case '>=': matches = docData[field] >= value; break;
+                case '<=': matches = docData[field] <= value; break;
+                default: matches = docData[field] === value;
+              }
+              if (matches) {
+                docs.push({
+                  id: docData.id,
+                  data: () => docData,
+                  exists: true
+                });
+              }
+            }
+          }
+          return {
+            docs,
+            empty: docs.length === 0,
+            size: docs.length,
+            forEach: (callback) => docs.forEach(callback)
+          };
+        }
+      }),
+      onSnapshot: (callback) => {
+        // Mock real-time listener
+        const unsubscribe = () => console.log(`Mock: Unsubscribed from ${name}`);
+        setTimeout(() => {
+          const docs = [];
+          for (const [key, value] of mockData.entries()) {
+            if (key.startsWith(`${name}/`)) {
+              docs.push({
+                id: value.id,
+                data: () => value,
+                exists: true
+              });
+            }
+          }
+          callback({
+            docs,
+            empty: docs.length === 0,
+            size: docs.length,
+            forEach: (callback) => docs.forEach(callback)
+          });
+        }, 100);
+        return unsubscribe;
       }
-    }),
-    
-    // Add utility methods for stats and management
-    getStats: () => dataManager.getStats(),
-    clearCollection: (name) => dataManager.setData(name, []),
-    exportData: () => {
-      const data = {};
-      ['users', 'subscriptions', 'payments', 'support_tickets', 'services', 'analytics'].forEach(collection => {
-        data[collection] = dataManager.getData(collection);
-      });
-      return data;
-    },
-    importData: (data) => {
-      Object.keys(data).forEach(collection => {
-        dataManager.setData(collection, data[collection]);
-      });
-    }
+    })
   };
-};
-
-try {
-  if (!process.env.FIREBASE_CONFIG) {
-    throw new Error('FIREBASE_CONFIG environment variable not set');
-  }
-
-  const firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG);
-  
-  if (!firebaseConfig.project_id || !firebaseConfig.private_key || !firebaseConfig.client_email) {
-    throw new Error('Invalid Firebase configuration - missing required fields');
-  }
-
-  initializeApp({
-    credential: cert(firebaseConfig),
-  });
-
-  firestore = getFirestore();
-  isFirebaseConnected = true;
-  console.log("✅ Firestore initialized successfully");
-} catch (error) {
-  console.error("❌ Error initializing Firestore:", error.message);
-  console.log("🔄 Using enhanced mock Firestore with local storage persistence");
-  firestore = createMockFirestore();
-  isFirebaseConnected = false;
 }
 
-export { firestore, isFirebaseConnected };
+// Test Firebase connection
+async function testFirebaseConnection() {
+  try {
+    const testDoc = firestore.collection('_health_check').doc('test');
+    await testDoc.set({ 
+      timestamp: new Date().toISOString(), 
+      status: 'connected',
+      environment: process.env.NODE_ENV || 'development'
+    });
+    
+    const doc = await testDoc.get();
+    if (doc.exists) {
+      console.log("✅ Firebase connection test successful");
+      // Clean up test document
+      await testDoc.delete();
+    } else {
+      throw new Error("Failed to write/read test document");
+    }
+  } catch (error) {
+    console.error("❌ Firebase connection test failed:", error.message);
+    throw error;
+  }
+}
+
+// Enhanced database operations with proper error handling
+class FirestoreManager {
+  constructor(db) {
+    this.db = db;
+  }
+
+  // Create document with auto-generated ID
+  async createDocument(collection, data) {
+    try {
+      const result = await this.db.collection(collection).add(data);
+      const documentData = {
+        id: result.id,
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      console.log(`✅ Document created in ${collection}: ${result.id}`);
+      return { success: true, id: result.id, data: documentData };
+    } catch (error) {
+      console.error(`❌ Error creating document in ${collection}:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Create document with specific ID
+  async setDocument(collection, id, data) {
+    try {
+      const docRef = this.db.collection(collection).doc(id);
+      const documentData = {
+        id,
+        ...data,
+        createdAt: data.createdAt || new Date(),
+        updatedAt: new Date()
+      };
+      
+      await docRef.set(documentData);
+      console.log(`✅ Document set in ${collection}: ${id}`);
+      return { success: true, id, data: documentData };
+    } catch (error) {
+      console.error(`❌ Error setting document in ${collection}:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get document by ID
+  async getDocument(collection, id) {
+    try {
+      const docRef = this.db.collection(collection).doc(id);
+      const doc = await docRef.get();
+      
+      if (doc.exists) {
+        return { success: true, data: doc.data() };
+      } else {
+        return { success: false, error: 'Document not found' };
+      }
+    } catch (error) {
+      console.error(`❌ Error getting document from ${collection}:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Update document
+  async updateDocument(collection, id, updates) {
+    try {
+      const docRef = this.db.collection(collection).doc(id);
+      const updateData = {
+        ...updates,
+        updatedAt: new Date()
+      };
+      
+      await docRef.update(updateData);
+      console.log(`✅ Document updated in ${collection}: ${id}`);
+      return { success: true };
+    } catch (error) {
+      console.error(`❌ Error updating document in ${collection}:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Delete document
+  async deleteDocument(collection, id) {
+    try {
+      await this.db.collection(collection).doc(id).delete();
+      console.log(`✅ Document deleted from ${collection}: ${id}`);
+      return { success: true };
+    } catch (error) {
+      console.error(`❌ Error deleting document from ${collection}:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Query documents
+  async queryDocuments(collection, conditions = {}) {
+    try {
+      let query = this.db.collection(collection);
+      
+      // Apply conditions
+      Object.entries(conditions).forEach(([field, condition]) => {
+        if (typeof condition === 'object' && condition.operator) {
+          query = query.where(field, condition.operator, condition.value);
+        } else {
+          query = query.where(field, '==', condition);
+        }
+      });
+      
+      const snapshot = await query.get();
+      const documents = [];
+      
+      snapshot.forEach(doc => {
+        documents.push({ id: doc.id, ...doc.data() });
+      });
+      
+      return { success: true, data: documents };
+    } catch (error) {
+      console.error(`❌ Error querying ${collection}:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get all documents in a collection
+  async getAllDocuments(collection) {
+    try {
+      const snapshot = await this.db.collection(collection).get();
+      const documents = [];
+      
+      snapshot.forEach(doc => {
+        documents.push({ id: doc.id, ...doc.data() });
+      });
+      
+      return { success: true, data: documents };
+    } catch (error) {
+      console.error(`❌ Error getting all documents from ${collection}:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Set up real-time listener
+  setupListener(collection, callback) {
+    try {
+      const unsubscribe = this.db.collection(collection).onSnapshot(
+        (snapshot) => {
+          const documents = [];
+          snapshot.forEach(doc => {
+            documents.push({ id: doc.id, ...doc.data() });
+          });
+          callback({ success: true, data: documents });
+        },
+        (error) => {
+          console.error(`❌ Listener error for ${collection}:`, error);
+          callback({ success: false, error: error.message });
+        }
+      );
+      
+      console.log(`✅ Real-time listener set up for ${collection}`);
+      return unsubscribe;
+    } catch (error) {
+      console.error(`❌ Error setting up listener for ${collection}:`, error);
+      return null;
+    }
+  }
+
+  // Get collection statistics
+  async getCollectionStats(collection) {
+    try {
+      const snapshot = await this.db.collection(collection).get();
+      return {
+        success: true,
+        stats: {
+          totalDocuments: snapshot.size,
+          collection: collection,
+          timestamp: new Date().toISOString()
+        }
+      };
+    } catch (error) {
+      console.error(`❌ Error getting stats for ${collection}:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+}
+
+// Initialize Firebase and create manager instance
+let firestoreManager = null;
+
+try {
+  console.log("🚀 Initializing Firebase connection...");
+  firestore = await initializeFirebase();
+  firestoreManager = new FirestoreManager(firestore);
+  console.log("✅ Firebase integration completed successfully");
+} catch (error) {
+  if (process.env.NODE_ENV === 'test') {
+    console.log("🧪 Using mock Firestore for testing environment");
+    firestore = createMockFirestore();
+    firestoreManager = new FirestoreManager(firestore);
+    isFirebaseConnected = false;
+  } else {
+    console.error("💥 CRITICAL ERROR: Firebase initialization failed");
+    console.error("This is a production system that requires Firebase connection");
+    console.error("Error details:", error.message);
+    process.exit(1); // Exit the application if Firebase fails
+  }
+}
+
+export { firestore, firestoreManager, isFirebaseConnected };

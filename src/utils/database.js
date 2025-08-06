@@ -1,421 +1,514 @@
-import { firestore } from "./firestore.js";
-import { v4 as uuidv4 } from 'uuid';
+import { firestoreManager } from './firestore.js';
 
-// User Management
-export const createUser = async (userId, userData) => {
+// User Management Functions
+export async function createUser(userId, userData) {
   try {
-    const userRef = firestore.collection('users').doc(String(userId));
-    await userRef.set({
+    const result = await firestoreManager.setDocument('users', userId, {
       ...userData,
+      userId,
       createdAt: new Date(),
       updatedAt: new Date(),
-      isActive: true,
-      phoneVerified: false,
+      status: 'active',
+      isPaid: false,
       subscriptions: [],
-      paymentHistory: []
+      totalSpent: 0
     });
-    return { success: true, userId };
+    
+    return result;
   } catch (error) {
     console.error('Error creating user:', error);
     return { success: false, error: error.message };
   }
-};
+}
 
-export const getUser = async (userId) => {
+export async function getUser(userId) {
   try {
-    const userDoc = await firestore.collection('users').doc(String(userId)).get();
-    return userDoc.exists ? userDoc.data() : null;
+    const result = await firestoreManager.getDocument('users', userId);
+    return result.success ? result.data : null;
   } catch (error) {
     console.error('Error getting user:', error);
     return null;
   }
-};
+}
 
-export const getAllUsers = async () => {
+export async function updateUser(userId, updates) {
   try {
-    const snapshot = await firestore.collection('users').orderBy('createdAt', 'desc').get();
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      joinDate: doc.data().createdAt ? new Date(doc.data().createdAt.toDate()).toLocaleDateString() : 'N/A'
-    }));
-  } catch (error) {
-    console.error('Error getting all users:', error);
-    return [];
-  }
-};
-
-export const updateUser = async (userId, updates) => {
-  try {
-    const userRef = firestore.collection('users').doc(String(userId));
-    await userRef.update({
-      ...updates,
-      updatedAt: new Date()
-    });
-    return { success: true };
+    const result = await firestoreManager.updateDocument('users', userId, updates);
+    return result;
   } catch (error) {
     console.error('Error updating user:', error);
     return { success: false, error: error.message };
   }
-};
+}
 
-// Subscription Management
-export const createSubscription = async (subscriptionData) => {
+export async function getAllUsers() {
   try {
-    const subscriptionId = uuidv4();
-    const subscriptionRef = firestore.collection('subscriptions').doc(subscriptionId);
-    
-    const subscription = {
-      id: subscriptionId,
+    const result = await firestoreManager.getAllDocuments('users');
+    return result.success ? result.data : [];
+  } catch (error) {
+    console.error('Error getting all users:', error);
+    return [];
+  }
+}
+
+// Subscription Management Functions
+export async function createSubscription(subscriptionData) {
+  try {
+    const result = await firestoreManager.createDocument('subscriptions', {
       ...subscriptionData,
       status: 'pending',
       createdAt: new Date(),
-      updatedAt: new Date(),
-      paymentStatus: 'pending',
-      screenshotUploaded: false,
-      screenshotUrl: null
-    };
-    
-    await subscriptionRef.set(subscription);
-    
-    // Add to user's subscriptions
-    const userRef = firestore.collection('users').doc(String(subscriptionData.userId));
-    await userRef.update({
-      subscriptions: firestore.FieldValue.arrayUnion(subscriptionId),
       updatedAt: new Date()
     });
     
-    return { success: true, subscriptionId };
+    return result;
   } catch (error) {
     console.error('Error creating subscription:', error);
     return { success: false, error: error.message };
   }
-};
+}
 
-export const getSubscription = async (subscriptionId) => {
+export async function getSubscription(subscriptionId) {
   try {
-    const subscriptionDoc = await firestore.collection('subscriptions').doc(subscriptionId).get();
-    return subscriptionDoc.exists ? subscriptionDoc.data() : null;
+    const result = await firestoreManager.getDocument('subscriptions', subscriptionId);
+    return result.success ? result.data : null;
   } catch (error) {
     console.error('Error getting subscription:', error);
     return null;
   }
-};
+}
 
-export const getAllSubscriptions = async () => {
+export async function getUserSubscriptions(userId) {
   try {
-    const snapshot = await firestore.collection('subscriptions').orderBy('createdAt', 'desc').get();
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      startDate: doc.data().startDate ? new Date(doc.data().startDate.toDate()).toLocaleDateString() : 'N/A',
-      endDate: doc.data().endDate ? new Date(doc.data().endDate.toDate()).toLocaleDateString() : 'N/A'
-    }));
-  } catch (error) {
-    console.error('Error getting all subscriptions:', error);
-    return [];
-  }
-};
-
-export const updateSubscription = async (subscriptionId, updates) => {
-  try {
-    const subscriptionRef = firestore.collection('subscriptions').doc(subscriptionId);
-    await subscriptionRef.update({
-      ...updates,
-      updatedAt: new Date()
+    const result = await firestoreManager.queryDocuments('subscriptions', {
+      userId: userId
     });
-    return { success: true };
-  } catch (error) {
-    console.error('Error updating subscription:', error);
-    return { success: false, error: error.message };
-  }
-};
-
-export const getUserSubscriptions = async (userId) => {
-  try {
-    const snapshot = await firestore
-      .collection('subscriptions')
-      .where('userId', '==', String(userId))
-      .orderBy('createdAt', 'desc')
-      .get();
-    
-    return snapshot.docs.map(doc => doc.data());
+    return result.success ? result.data : [];
   } catch (error) {
     console.error('Error getting user subscriptions:', error);
     return [];
   }
-};
+}
 
-// Payment Management
-export const createPayment = async (paymentData) => {
+export async function getAllSubscriptions() {
   try {
-    const paymentId = uuidv4();
-    const paymentRef = firestore.collection('payments').doc(paymentId);
-    
-    const payment = {
-      id: paymentId,
-      ...paymentData,
-      status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    await paymentRef.set(payment);
-    return { success: true, paymentId };
+    const result = await firestoreManager.getAllDocuments('subscriptions');
+    return result.success ? result.data : [];
   } catch (error) {
-    console.error('Error creating payment:', error);
-    return { success: false, error: error.message };
-  }
-};
-
-export const getPayment = async (paymentId) => {
-  try {
-    const paymentDoc = await firestore.collection('payments').doc(paymentId).get();
-    return paymentDoc.exists ? paymentDoc.data() : null;
-  } catch (error) {
-    console.error('Error getting payment:', error);
-    return null;
-  }
-};
-
-export const getAllPayments = async () => {
-  try {
-    const snapshot = await firestore.collection('payments').orderBy('createdAt', 'desc').get();
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      date: doc.data().createdAt ? new Date(doc.data().createdAt.toDate()).toLocaleDateString() : 'N/A'
-    }));
-  } catch (error) {
-    console.error('Error getting all payments:', error);
+    console.error('Error getting all subscriptions:', error);
     return [];
   }
-};
+}
 
-export const updatePaymentStatus = async (paymentId, status, transactionId = null) => {
+export async function updateSubscription(subscriptionId, updates) {
   try {
-    const paymentRef = firestore.collection('payments').doc(paymentId);
-    const updates = {
-      status,
-      updatedAt: new Date()
-    };
-    
-    if (transactionId) {
-      updates.transactionId = transactionId;
-    }
-    
-    await paymentRef.update(updates);
-    return { success: true };
+    const result = await firestoreManager.updateDocument('subscriptions', subscriptionId, updates);
+    return result;
   } catch (error) {
-    console.error('Error updating payment status:', error);
+    console.error('Error updating subscription:', error);
     return { success: false, error: error.message };
   }
-};
+}
 
-// Screenshot Management
-export const uploadScreenshot = async (subscriptionId, screenshotData) => {
+export async function getPendingSubscriptions() {
   try {
-    const screenshotRef = firestore.collection('screenshots').doc();
-    const screenshot = {
-      id: screenshotRef.id,
-      subscriptionId,
-      url: screenshotData.url,
-      createdAt: new Date(),
-      ...screenshotData
-    };
-    
-    await screenshotRef.set(screenshot);
-    
-    // Update subscription with screenshot info
-    await updateSubscription(subscriptionId, {
-      screenshotUploaded: true,
-      screenshotUrl: screenshotData.url
+    const result = await firestoreManager.queryDocuments('subscriptions', {
+      status: 'pending'
     });
-    
-    return { success: true, screenshotId: screenshotRef.id };
-  } catch (error) {
-    console.error('Error uploading screenshot:', error);
-    return { success: false, error: error.message };
-  }
-};
-
-// Admin Functions
-export const getAdminStats = async () => {
-  try {
-    const usersSnapshot = await firestore.collection('users').get();
-    const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
-    const paymentsSnapshot = await firestore.collection('payments').get();
-    const supportSnapshot = await firestore.collection('support').get();
-    
-    const stats = {
-      totalUsers: usersSnapshot.size,
-      totalSubscriptions: subscriptionsSnapshot.size,
-      totalPayments: paymentsSnapshot.size,
-      pendingSubscriptions: 0,
-      activeSubscriptions: 0,
-      cancelledSubscriptions: 0,
-      pendingPayments: 0,
-      completedPayments: 0,
-      failedPayments: 0,
-      pendingSupport: 0,
-      paidUsers: 0
-    };
-    
-    // Count subscription statuses
-    subscriptionsSnapshot.docs.forEach(doc => {
-      const data = doc.data();
-      switch (data.status) {
-        case 'pending':
-          stats.pendingSubscriptions++;
-          break;
-        case 'active':
-          stats.activeSubscriptions++;
-          break;
-        case 'cancelled':
-          stats.cancelledSubscriptions++;
-          break;
-      }
-    });
-    
-    // Count payment statuses and calculate revenue
-    let totalRevenue = 0;
-    paymentsSnapshot.docs.forEach(doc => {
-      const data = doc.data();
-      switch (data.status) {
-        case 'pending':
-          stats.pendingPayments++;
-          break;
-        case 'completed':
-          stats.completedPayments++;
-          totalRevenue += data.amount || 0;
-          break;
-        case 'failed':
-          stats.failedPayments++;
-          break;
-      }
-    });
-    
-    // Count support tickets
-    supportSnapshot.docs.forEach(doc => {
-      const data = doc.data();
-      if (data.status === 'open') {
-        stats.pendingSupport++;
-      }
-    });
-    
-    // Count paid users
-    usersSnapshot.docs.forEach(doc => {
-      const data = doc.data();
-      if (data.isPaid) {
-        stats.paidUsers++;
-      }
-    });
-    
-    stats.totalPayments = totalRevenue;
-    
-    return stats;
-  } catch (error) {
-    console.error('Error getting admin stats:', error);
-    return null;
-  }
-};
-
-export const getPendingSubscriptions = async () => {
-  try {
-    const snapshot = await firestore
-      .collection('subscriptions')
-      .where('status', '==', 'pending')
-      .orderBy('createdAt', 'desc')
-      .get();
-    
-    return snapshot.docs.map(doc => doc.data());
+    return result.success ? result.data : [];
   } catch (error) {
     console.error('Error getting pending subscriptions:', error);
     return [];
   }
-};
+}
 
-export const approveSubscription = async (subscriptionId, adminId) => {
+export async function approveSubscription(subscriptionId) {
   try {
-    const subscriptionRef = firestore.collection('subscriptions').doc(subscriptionId);
-    await subscriptionRef.update({
+    const result = await firestoreManager.updateDocument('subscriptions', subscriptionId, {
       status: 'active',
-      approvedBy: adminId,
       approvedAt: new Date(),
-      updatedAt: new Date()
+      startDate: new Date()
     });
-    
-    // Update payment status if exists
-    const subscription = await getSubscription(subscriptionId);
-    if (subscription.paymentId) {
-      await updatePaymentStatus(subscription.paymentId, 'completed');
-    }
-    
-    return { success: true };
+    return result;
   } catch (error) {
     console.error('Error approving subscription:', error);
     return { success: false, error: error.message };
   }
-};
+}
 
-export const rejectSubscription = async (subscriptionId, adminId, reason) => {
+export async function rejectSubscription(subscriptionId, reason = '') {
   try {
-    const subscriptionRef = firestore.collection('subscriptions').doc(subscriptionId);
-    await subscriptionRef.update({
-      status: 'cancelled',
-      rejectedBy: adminId,
+    const result = await firestoreManager.updateDocument('subscriptions', subscriptionId, {
+      status: 'rejected',
       rejectedAt: new Date(),
-      rejectionReason: reason,
-      updatedAt: new Date()
+      rejectionReason: reason
     });
-    
-    return { success: true };
+    return result;
   } catch (error) {
     console.error('Error rejecting subscription:', error);
     return { success: false, error: error.message };
   }
-};
+}
 
-export const createSupportMessage = async (messageData) => {
+// Payment Management Functions
+export async function createPayment(paymentData) {
   try {
-    const supportRef = firestore.collection('support').doc();
-    const message = {
-      id: supportRef.id,
-      status: 'open',
+    const result = await firestoreManager.createDocument('payments', {
+      ...paymentData,
+      status: 'pending',
       createdAt: new Date(),
-      updatedAt: new Date(),
-      ...messageData
-    };
+      updatedAt: new Date()
+    });
     
-    await supportRef.set(message);
-    return { success: true, messageId: supportRef.id };
+    return result;
+  } catch (error) {
+    console.error('Error creating payment:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getPayment(paymentId) {
+  try {
+    const result = await firestoreManager.getDocument('payments', paymentId);
+    return result.success ? result.data : null;
+  } catch (error) {
+    console.error('Error getting payment:', error);
+    return null;
+  }
+}
+
+export async function getAllPayments() {
+  try {
+    const result = await firestoreManager.getAllDocuments('payments');
+    return result.success ? result.data : [];
+  } catch (error) {
+    console.error('Error getting all payments:', error);
+    return [];
+  }
+}
+
+export async function updatePaymentStatus(paymentId, status, additionalData = {}) {
+  try {
+    const result = await firestoreManager.updateDocument('payments', paymentId, {
+      status,
+      ...additionalData,
+      updatedAt: new Date()
+    });
+    return result;
+  } catch (error) {
+    console.error('Error updating payment status:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Support Management Functions
+export async function createSupportMessage(messageData) {
+  try {
+    const result = await firestoreManager.createDocument('support_tickets', {
+      ...messageData,
+      status: 'open',
+      priority: messageData.priority || 'normal',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    return result;
   } catch (error) {
     console.error('Error creating support message:', error);
     return { success: false, error: error.message };
   }
-};
+}
 
-export const getSupportMessages = async (status = 'open', userId = null) => {
+export async function getSupportMessages() {
   try {
-    let query = firestore.collection('support');
-    
-    if (status !== 'all') {
-      query = query.where('status', '==', status);
-    }
-    
-    if (userId) {
-      query = query.where('userId', '==', String(userId));
-    }
-    
-    const snapshot = await query.orderBy('createdAt', 'desc').get();
-    
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      created: doc.data().createdAt ? new Date(doc.data().createdAt.toDate()).toLocaleDateString() : 'N/A'
-    }));
+    const result = await firestoreManager.getAllDocuments('support_tickets');
+    return result.success ? result.data : [];
   } catch (error) {
     console.error('Error getting support messages:', error);
     return [];
   }
-};
+}
+
+export async function updateSupportTicket(ticketId, updates) {
+  try {
+    const result = await firestoreManager.updateDocument('support_tickets', ticketId, updates);
+    return result;
+  } catch (error) {
+    console.error('Error updating support ticket:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Screenshot Management Functions
+export async function uploadScreenshot(screenshotData) {
+  try {
+    const result = await firestoreManager.createDocument('screenshots', {
+      ...screenshotData,
+      status: 'pending_verification',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error uploading screenshot:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Analytics and Admin Functions
+export async function getAdminStats() {
+  try {
+    const [users, subscriptions, payments, supportTickets] = await Promise.all([
+      firestoreManager.getAllDocuments('users'),
+      firestoreManager.getAllDocuments('subscriptions'),
+      firestoreManager.getAllDocuments('payments'),
+      firestoreManager.getAllDocuments('support_tickets')
+    ]);
+
+    const userData = users.success ? users.data : [];
+    const subscriptionData = subscriptions.success ? subscriptions.data : [];
+    const paymentData = payments.success ? payments.data : [];
+    const supportData = supportTickets.success ? supportTickets.data : [];
+
+    const stats = {
+      totalUsers: userData.length,
+      activeUsers: userData.filter(u => u.status === 'active').length,
+      paidUsers: userData.filter(u => u.isPaid).length,
+      totalSubscriptions: subscriptionData.length,
+      activeSubscriptions: subscriptionData.filter(s => s.status === 'active').length,
+      pendingSubscriptions: subscriptionData.filter(s => s.status === 'pending').length,
+      totalPayments: paymentData.length,
+      completedPayments: paymentData.filter(p => p.status === 'completed').length,
+      totalRevenue: paymentData
+        .filter(p => p.status === 'completed')
+        .reduce((sum, p) => sum + (p.amount || 0), 0),
+      pendingSupport: supportData.filter(t => t.status === 'open').length,
+      totalSupportTickets: supportData.length,
+      conversionRate: userData.length > 0 ? 
+        ((userData.filter(u => u.isPaid).length / userData.length) * 100).toFixed(2) : 0,
+      avgRevenuePerUser: userData.filter(u => u.isPaid).length > 0 ?
+        (paymentData.filter(p => p.status === 'completed')
+          .reduce((sum, p) => sum + (p.amount || 0), 0) / 
+         userData.filter(u => u.isPaid).length).toFixed(2) : 0
+    };
+
+    return stats;
+  } catch (error) {
+    console.error('Error getting admin stats:', error);
+    return {
+      totalUsers: 0,
+      activeUsers: 0,
+      paidUsers: 0,
+      totalSubscriptions: 0,
+      activeSubscriptions: 0,
+      pendingSubscriptions: 0,
+      totalPayments: 0,
+      completedPayments: 0,
+      totalRevenue: 0,
+      pendingSupport: 0,
+      totalSupportTickets: 0,
+      conversionRate: 0,
+      avgRevenuePerUser: 0
+    };
+  }
+}
+
+// Real-time listeners
+export function setupUsersListener(callback) {
+  return firestoreManager.setupListener('users', callback);
+}
+
+export function setupSubscriptionsListener(callback) {
+  return firestoreManager.setupListener('subscriptions', callback);
+}
+
+export function setupPaymentsListener(callback) {
+  return firestoreManager.setupListener('payments', callback);
+}
+
+export function setupSupportListener(callback) {
+  return firestoreManager.setupListener('support_tickets', callback);
+}
+
+// Services Management
+export async function getServices() {
+  try {
+    const result = await firestoreManager.getAllDocuments('services');
+    return result.success ? result.data : [];
+  } catch (error) {
+    console.error('Error getting services:', error);
+    return [];
+  }
+}
+
+export async function createService(serviceData) {
+  try {
+    const result = await firestoreManager.createDocument('services', {
+      ...serviceData,
+      status: 'active',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error creating service:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updateService(serviceId, updates) {
+  try {
+    const result = await firestoreManager.updateDocument('services', serviceId, updates);
+    return result;
+  } catch (error) {
+    console.error('Error updating service:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Data migration and backup functions
+export async function migrateServicesData() {
+  try {
+    // Check if services already exist
+    const existingServices = await firestoreManager.getAllDocuments('services');
+    
+    if (existingServices.success && existingServices.data.length > 0) {
+      console.log('Services already exist in Firebase, skipping migration');
+      return { success: true, message: 'Services already exist' };
+    }
+
+    // Import services from JSON file
+    const servicesData = [
+      {
+        serviceID: "netflix",
+        name: "Netflix",
+        price: 350,
+        billingCycle: "Monthly",
+        logoUrl: "/logos/netflix.svg",
+        approvalRequiredFlag: true,
+        description: "Stream movies, TV shows and more",
+        category: "streaming",
+        features: ["HD Streaming", "Multiple Devices", "Download for Offline"]
+      },
+      {
+        serviceID: "prime",
+        name: "Amazon Prime",
+        price: 300,
+        billingCycle: "Monthly",
+        logoUrl: "/logos/prime.svg",
+        approvalRequiredFlag: true,
+        description: "Prime Video, Music and Shopping benefits",
+        category: "streaming",
+        features: ["Prime Video", "Free Shipping", "Prime Music"]
+      },
+      {
+        serviceID: "spotify",
+        name: "Spotify Premium",
+        price: 250,
+        billingCycle: "Monthly",
+        logoUrl: "/logos/spotify.svg",
+        approvalRequiredFlag: true,
+        description: "Music streaming without ads",
+        category: "music",
+        features: ["Ad-free Music", "Offline Downloads", "High Quality Audio"]
+      },
+      {
+        serviceID: "disney",
+        name: "Disney+",
+        price: 280,
+        billingCycle: "Monthly",
+        logoUrl: "/logos/disney.svg",
+        approvalRequiredFlag: true,
+        description: "Disney, Marvel, Star Wars content",
+        category: "streaming",
+        features: ["Disney Content", "Marvel Movies", "Star Wars Series"]
+      },
+      {
+        serviceID: "hulu",
+        name: "Hulu",
+        price: 320,
+        billingCycle: "Monthly",
+        logoUrl: "/logos/hulu.svg",
+        approvalRequiredFlag: true,
+        description: "TV shows and movies streaming",
+        category: "streaming",
+        features: ["Current TV Shows", "Original Content", "Live TV Option"]
+      },
+      {
+        serviceID: "youtube",
+        name: "YouTube Premium",
+        price: 200,
+        billingCycle: "Monthly",
+        logoUrl: "/logos/youtube.svg",
+        approvalRequiredFlag: true,
+        description: "Ad-free YouTube with offline downloads",
+        category: "video",
+        features: ["Ad-free Videos", "Background Play", "YouTube Music"]
+      },
+      {
+        serviceID: "apple",
+        name: "Apple TV+",
+        price: 180,
+        billingCycle: "Monthly",
+        logoUrl: "/logos/apple.svg",
+        approvalRequiredFlag: true,
+        description: "Original shows and movies",
+        category: "streaming",
+        features: ["Original Content", "4K HDR", "Dolby Atmos"]
+      },
+      {
+        serviceID: "hbo",
+        name: "HBO Max",
+        price: 400,
+        billingCycle: "Monthly",
+        logoUrl: "/logos/hbo.svg",
+        approvalRequiredFlag: true,
+        description: "Premium movies and series",
+        category: "streaming",
+        features: ["HBO Originals", "Warner Bros Movies", "DC Content"]
+      },
+      {
+        serviceID: "paramount",
+        name: "Paramount+",
+        price: 220,
+        billingCycle: "Monthly",
+        logoUrl: "/logos/paramount.svg",
+        approvalRequiredFlag: true,
+        description: "CBS, Paramount movies and shows",
+        category: "streaming",
+        features: ["CBS Shows", "Paramount Movies", "Live Sports"]
+      },
+      {
+        serviceID: "peacock",
+        name: "Peacock Premium",
+        price: 190,
+        billingCycle: "Monthly",
+        logoUrl: "/logos/peacock.svg",
+        approvalRequiredFlag: true,
+        description: "NBC content and originals",
+        category: "streaming",
+        features: ["NBC Shows", "Live Sports", "Original Series"]
+      }
+    ];
+
+    // Migrate each service
+    const results = await Promise.all(
+      servicesData.map(service => 
+        firestoreManager.setDocument('services', service.serviceID, service)
+      )
+    );
+
+    const successCount = results.filter(r => r.success).length;
+    console.log(`✅ Migrated ${successCount}/${servicesData.length} services to Firebase`);
+
+    return { success: true, migrated: successCount, total: servicesData.length };
+  } catch (error) {
+    console.error('Error migrating services data:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Initialize services migration on startup
+migrateServicesData().catch(console.error);
