@@ -1,10 +1,13 @@
-# Use the official Node.js 20 image as the base image
-FROM node:20-alpine
+# Use the official Node.js 18 LTS image as the base image
+FROM node:18-alpine
 
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
-# Install dependencies first to leverage Docker cache
+# Install system dependencies
+RUN apk --no-cache add python3 make g++
+
+# Copy package files
 COPY package*.json ./
 
 # Install dependencies with clean install
