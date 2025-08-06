@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100">
+  <rect width="300" height="100" fill="#0064FF" rx="10"/>
+  <polygon points="50,20 70,50 30,50" fill="#FFFFFF"/>
+  <text x="90" y="45" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#FFFFFF">Paramount</text>
+  <text x="240" y="50" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF">+</text>
+</svg>

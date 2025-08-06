@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100">
+  <rect width="300" height="100" fill="#232F3E"/>
+  <path d="M50 20h200v15H50zM50 40h150v10H50zM50 55h180v10H50z" fill="#FF9900"/>
+  <text x="50" y="80" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF">Prime</text>
+  <path d="M220 65l15 10-15 10z" fill="#FF9900"/>
+</svg>
