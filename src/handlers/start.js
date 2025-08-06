@@ -117,7 +117,6 @@ Customer service available in Amharic and English.`;
         });
         return;
       }
-      const services = await loadServices();
       
       // Create service grid (2 services per row)
       const keyboard = [];
