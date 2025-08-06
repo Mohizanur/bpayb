@@ -79,6 +79,13 @@
             letter-spacing: 1px;
         }
         
+        .stat-detail {
+            color: #a0aec0;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            font-weight: 500;
+        }
+        
         .pending { color: #f6ad55; }
         .active { color: #48bb78; }
         .cancelled { color: #fc8181; }
@@ -358,25 +365,43 @@
                 <div class="stat-card">
                     <div class="stat-number pending" id="pendingCount">-</div>
                     <div class="stat-label">Pending Requests</div>
+                    <div class="stat-detail" id="pendingRevenue">Revenue: -</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number active" id="activeCount">-</div>
                     <div class="stat-label">Active Subscriptions</div>
+                    <div class="stat-detail" id="activeRevenue">Monthly Revenue: -</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number cancelled" id="cancelledCount">-</div>
-                    <div class="stat-label">Cancelled</div>
+                    <div class="stat-label">Cancelled This Month</div>
+                    <div class="stat-detail" id="cancelledRevenue">Lost Revenue: -</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number support" id="supportCount">-</div>
                     <div class="stat-label">Support Messages</div>
+                    <div class="stat-detail" id="supportPending">Unhandled: -</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" style="color: #805ad5;" id="totalUsers">-</div>
+                    <div class="stat-label">Total Users</div>
+                    <div class="stat-detail" id="newUsers">New This Month: -</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" style="color: #38b2ac;" id="totalRevenue">-</div>
+                    <div class="stat-label">Total Revenue (ETB)</div>
+                    <div class="stat-detail" id="monthlyGrowth">Monthly Growth: -</div>
                 </div>
             </div>
             
             <div class="tabs">
                 <button class="tab active" onclick="showTab('pending')">📋 Pending</button>
                 <button class="tab" onclick="showTab('active')">✅ Active</button>
+                <button class="tab" onclick="showTab('users')">👥 Users</button>
+                <button class="tab" onclick="showTab('analytics')">📊 Analytics</button>
+                <button class="tab" onclick="showTab('services')">🛠️ Services</button>
                 <button class="tab" onclick="showTab('support')">💬 Support</button>
+                <button onclick="loadAllData()" class="refresh-btn" title="Refresh Data">🔄</button>
             </div>
             
             <div id="pendingTab" class="tab-content">
@@ -389,8 +414,64 @@
                 <div id="activeList" class="loading">Loading...</div>
             </div>
             
+            <div id="usersTab" class="tab-content hidden">
+                <h2 style="margin-bottom: 20px; color: #4a5568;">👥 User Management</h2>
+                <div class="user-controls" style="margin-bottom: 20px;">
+                    <input type="text" id="userSearch" placeholder="Search users by name, email, or Telegram ID..." style="padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; width: 300px; margin-right: 10px;">
+                    <button onclick="searchUsers()" class="btn btn-approve">Search</button>
+                    <button onclick="exportUsers()" class="btn" style="background: #805ad5; color: white; margin-left: 10px;">Export Users</button>
+                </div>
+                <div id="usersList" class="loading">Loading...</div>
+            </div>
+            
+            <div id="analyticsTab" class="tab-content hidden">
+                <h2 style="margin-bottom: 20px; color: #4a5568;">📊 Analytics & Reports</h2>
+                <div class="analytics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                    <div class="analytics-card" style="background: #f7fafc; padding: 20px; border-radius: 10px; border-left: 4px solid #4299e1;">
+                        <h3>Revenue Trends</h3>
+                        <canvas id="revenueChart" width="300" height="200"></canvas>
+                    </div>
+                    <div class="analytics-card" style="background: #f7fafc; padding: 20px; border-radius: 10px; border-left: 4px solid #48bb78;">
+                        <h3>Service Popularity</h3>
+                        <div id="serviceStats">Loading...</div>
+                    </div>
+                    <div class="analytics-card" style="background: #f7fafc; padding: 20px; border-radius: 10px; border-left: 4px solid #f6ad55;">
+                        <h3>User Growth</h3>
+                        <div id="userGrowth">Loading...</div>
+                    </div>
+                    <div class="analytics-card" style="background: #f7fafc; padding: 20px; border-radius: 10px; border-left: 4px solid #fc8181;">
+                        <h3>Churn Rate</h3>
+                        <div id="churnRate">Loading...</div>
+                    </div>
+                </div>
+                <div class="report-controls">
+                    <button onclick="generateReport('monthly')" class="btn btn-approve">Monthly Report</button>
+                    <button onclick="generateReport('yearly')" class="btn" style="background: #805ad5; color: white;">Yearly Report</button>
+                    <button onclick="exportData()" class="btn" style="background: #38b2ac; color: white;">Export All Data</button>
+                </div>
+            </div>
+            
+            <div id="servicesTab" class="tab-content hidden">
+                <h2 style="margin-bottom: 20px; color: #4a5568;">🛠️ Service Management</h2>
+                <div class="service-controls" style="margin-bottom: 20px;">
+                    <button onclick="addNewService()" class="btn btn-approve">➕ Add New Service</button>
+                    <button onclick="updatePricing()" class="btn" style="background: #805ad5; color: white;">💰 Update Pricing</button>
+                    <button onclick="serviceSettings()" class="btn" style="background: #38b2ac; color: white;">⚙️ Settings</button>
+                </div>
+                <div id="servicesList" class="loading">Loading...</div>
+            </div>
+            
             <div id="supportTab" class="tab-content hidden">
                 <h2 style="margin-bottom: 20px; color: #4a5568;">💬 Support Messages</h2>
+                <div class="support-controls" style="margin-bottom: 20px;">
+                    <select id="supportFilter" onchange="filterSupport()" style="padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; margin-right: 10px;">
+                        <option value="all">All Messages</option>
+                        <option value="unhandled">Unhandled</option>
+                        <option value="handled">Handled</option>
+                        <option value="urgent">Urgent</option>
+                    </select>
+                    <button onclick="markAllHandled()" class="btn" style="background: #48bb78; color: white;">Mark All Handled</button>
+                </div>
                 <div id="supportList" class="loading">Loading...</div>
             </div>
         </div>
@@ -415,16 +496,27 @@
             loadAllData();
         }
         
-        function showTab(tab) {
-            // Update tab buttons
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabName + 'Tab').classList.remove('hidden');
             event.target.classList.add('active');
             
-            // Update tab content
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-            document.getElementById(tab + 'Tab').classList.remove('hidden');
-            
-            currentTab = tab;
+            // Load data for specific tabs
+            switch(tabName) {
+                case 'users':
+                    loadUsers();
+                    break;
+                case 'analytics':
+                    loadAnalytics();
+                    break;
+                case 'services':
+                    loadServices();
+                    break;
+            }
         }
         
         async function loadStats() {
@@ -688,8 +780,247 @@
             }
         }
         
+        // New comprehensive functions for enhanced admin panel
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_BASE}/api/users`, {
+                    headers: { 'Authorization': `Bearer ${adminId}` }
+                });
+                const users = await response.json();
+                
+                document.getElementById('usersList').innerHTML = users.map(user => `
+                    <div class="subscription-item">
+                        <div class="item-header">
+                            <div>
+                                <div class="service-name">${user.firstName || 'Unknown'} ${user.lastName || ''}</div>
+                                <div class="user-info">Telegram: @${user.username || user.telegramId}</div>
+                                <div class="user-info">Email: ${user.email || 'Not provided'}</div>
+                                <div class="user-info">Phone: ${user.phone || 'Not provided'}</div>
+                                <div class="user-info">Joined: ${new Date(user.createdAt).toLocaleDateString()}</div>
+                                <div class="user-info">Active Subs: ${user.activeSubscriptions || 0}</div>
+                                <div class="user-info">Total Spent: ${user.totalSpent || 0} ETB</div>
+                            </div>
+                            <div class="actions">
+                                <button onclick="viewUserDetails('${user.id}')" class="btn" style="background: #4299e1; color: white;">View Details</button>
+                                <button onclick="sendMessage('${user.telegramId}')" class="btn" style="background: #48bb78; color: white;">Send Message</button>
+                                ${user.status === 'active' ? 
+                                    `<button onclick="suspendUser('${user.id}')" class="btn btn-reject">Suspend</button>` :
+                                    `<button onclick="activateUser('${user.id}')" class="btn btn-approve">Activate</button>`
+                                }
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading users:', error);
+                document.getElementById('usersList').innerHTML = '<div class="empty-state"><h3>Error loading users</h3></div>';
+            }
+        }
+        
+        async function loadAnalytics() {
+            try {
+                const response = await fetch(`${API_BASE}/api/analytics`, {
+                    headers: { 'Authorization': `Bearer ${adminId}` }
+                });
+                const analytics = await response.json();
+                
+                // Service popularity
+                document.getElementById('serviceStats').innerHTML = analytics.serviceStats.map(service => `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span>${service.name}</span>
+                        <span><strong>${service.count}</strong> (${service.percentage}%)</span>
+                    </div>
+                `).join('');
+                
+                // User growth
+                document.getElementById('userGrowth').innerHTML = `
+                    <div>This Month: <strong>+${analytics.userGrowth.thisMonth}</strong></div>
+                    <div>Last Month: <strong>+${analytics.userGrowth.lastMonth}</strong></div>
+                    <div>Growth Rate: <strong>${analytics.userGrowth.growthRate}%</strong></div>
+                `;
+                
+                // Churn rate
+                document.getElementById('churnRate').innerHTML = `
+                    <div>Monthly Churn: <strong>${analytics.churnRate.monthly}%</strong></div>
+                    <div>Cancelled: <strong>${analytics.churnRate.cancelled}</strong></div>
+                    <div>Retention: <strong>${analytics.churnRate.retention}%</strong></div>
+                `;
+                
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+            }
+        }
+        
+        async function loadServices() {
+            try {
+                const response = await fetch(`${API_BASE}/api/services/manage`, {
+                    headers: { 'Authorization': `Bearer ${adminId}` }
+                });
+                const services = await response.json();
+                
+                document.getElementById('servicesList').innerHTML = services.map(service => `
+                    <div class="subscription-item">
+                        <div class="item-header">
+                            <div>
+                                <div class="service-name">${service.name}</div>
+                                <div class="user-info">Category: ${service.category}</div>
+                                <div class="user-info">Active Users: ${service.activeUsers || 0}</div>
+                                <div class="user-info">Monthly Revenue: ${service.monthlyRevenue || 0} ETB</div>
+                                <div class="user-info">Status: <span style="color: ${service.status === 'active' ? '#48bb78' : '#fc8181'}">${service.status}</span></div>
+                            </div>
+                            <div class="actions">
+                                <button onclick="editService('${service.id}')" class="btn" style="background: #4299e1; color: white;">Edit</button>
+                                <button onclick="viewServiceAnalytics('${service.id}')" class="btn" style="background: #805ad5; color: white;">Analytics</button>
+                                ${service.status === 'active' ? 
+                                    `<button onclick="deactivateService('${service.id}')" class="btn btn-reject">Deactivate</button>` :
+                                    `<button onclick="activateService('${service.id}')" class="btn btn-approve">Activate</button>`
+                                }
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading services:', error);
+                document.getElementById('servicesList').innerHTML = '<div class="empty-state"><h3>Error loading services</h3></div>';
+            }
+        }
+        
+        // Enhanced stats loading with revenue and detailed info
+        async function loadEnhancedStats() {
+            try {
+                const response = await fetch(`${API_BASE}/api/stats/enhanced`, {
+                    headers: { 'Authorization': `Bearer ${adminId}` }
+                });
+                const stats = await response.json();
+                
+                // Update all stat cards with detailed information
+                document.getElementById('pendingCount').textContent = stats.pending.count;
+                document.getElementById('pendingRevenue').textContent = `Revenue: ${stats.pending.revenue} ETB`;
+                
+                document.getElementById('activeCount').textContent = stats.active.count;
+                document.getElementById('activeRevenue').textContent = `Monthly Revenue: ${stats.active.monthlyRevenue} ETB`;
+                
+                document.getElementById('cancelledCount').textContent = stats.cancelled.thisMonth;
+                document.getElementById('cancelledRevenue').textContent = `Lost Revenue: ${stats.cancelled.lostRevenue} ETB`;
+                
+                document.getElementById('supportCount').textContent = stats.support.total;
+                document.getElementById('supportPending').textContent = `Unhandled: ${stats.support.unhandled}`;
+                
+                document.getElementById('totalUsers').textContent = stats.users.total;
+                document.getElementById('newUsers').textContent = `New This Month: ${stats.users.newThisMonth}`;
+                
+                document.getElementById('totalRevenue').textContent = `${stats.revenue.total} ETB`;
+                document.getElementById('monthlyGrowth').textContent = `Monthly Growth: ${stats.revenue.monthlyGrowth}%`;
+                
+            } catch (error) {
+                console.error('Error loading enhanced stats:', error);
+                // Fallback to basic stats
+                await loadStats();
+            }
+        }
+        
+        // Additional utility functions
+        async function searchUsers() {
+            const query = document.getElementById('userSearch').value;
+            if (!query) {
+                loadUsers();
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/users/search?q=${encodeURIComponent(query)}`, {
+                    headers: { 'Authorization': `Bearer ${adminId}` }
+                });
+                const users = await response.json();
+                // Update users list with search results
+                // Implementation similar to loadUsers but with filtered results
+            } catch (error) {
+                console.error('Error searching users:', error);
+            }
+        }
+        
+        async function exportUsers() {
+            try {
+                const response = await fetch(`${API_BASE}/api/users/export`, {
+                    headers: { 'Authorization': `Bearer ${adminId}` }
+                });
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `birrpay-users-${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+            } catch (error) {
+                console.error('Error exporting users:', error);
+                alert('Error exporting users');
+            }
+        }
+        
+        async function generateReport(type) {
+            try {
+                const response = await fetch(`${API_BASE}/api/reports/${type}`, {
+                    headers: { 'Authorization': `Bearer ${adminId}` }
+                });
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `birrpay-${type}-report-${new Date().toISOString().split('T')[0]}.pdf`;
+                a.click();
+            } catch (error) {
+                console.error('Error generating report:', error);
+                alert('Error generating report');
+            }
+        }
+        
+        async function addNewService() {
+            const name = prompt('Service Name:');
+            const category = prompt('Category:');
+            const description = prompt('Description:');
+            
+            if (!name || !category) {
+                alert('Name and category are required');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/services/add`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminId}` 
+                    },
+                    body: JSON.stringify({ name, category, description })
+                });
+                
+                if (response.ok) {
+                    loadServices();
+                    alert('Service added successfully');
+                } else {
+                    alert('Error adding service');
+                }
+            } catch (error) {
+                console.error('Error adding service:', error);
+                alert('Error adding service');
+            }
+        }
+        
+        async function filterSupport() {
+            const filter = document.getElementById('supportFilter').value;
+            try {
+                const response = await fetch(`${API_BASE}/api/support?filter=${filter}`, {
+                    headers: { 'Authorization': `Bearer ${adminId}` }
+                });
+                const messages = await response.json();
+                // Update support list with filtered results
+                // Implementation similar to loadSupport but with filtered results
+            } catch (error) {
+                console.error('Error filtering support:', error);
+            }
+        }
+        
         async function loadAllData() {
-            await loadStats();
+            await loadEnhancedStats();
             await loadPending();
             await loadActive();
             await loadSupport();
