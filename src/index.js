@@ -862,8 +862,8 @@ fastify.get('/health', async (request, reply) => {
   };
 });
 
-// API health check
-fastify.get('/api/health', async (request, reply) => {
+// API detailed health check (includes Firebase status)
+fastify.get('/api/health/detailed', async (request, reply) => {
   return { 
     status: 'healthy', 
     timestamp: new Date().toISOString(),
@@ -1106,7 +1106,7 @@ fastify.post('/api/support/handle', { preHandler: requireAdmin }, async (req, re
 });
 
 // Enhanced API endpoints for comprehensive admin panel
-fastify.get('/api/users', { preHandler: requireAdmin }, async (req, reply) => {
+fastify.get('/api/admin/users', { preHandler: requireAdmin }, async (req, reply) => {
   try {
     const usersSnapshot = await firestore.collection('users').get();
     const users = [];
