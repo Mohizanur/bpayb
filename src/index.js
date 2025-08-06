@@ -627,7 +627,7 @@ bot.action('admin_users', async (ctx) => {
         inline_keyboard: [
           [{ text: '🔄 Refresh Users', callback_data: 'admin_users' }],
           [{ text: '📊 User Stats', callback_data: 'admin_stats' }],
-          [{ text: '🔙 Back to Admin Menu', callback_data: 'admin_menu' }]
+          [{ text: '🔙 Back to Admin Menu', callback_data: 'back_to_admin' }]
         ]
       }
     });
@@ -710,7 +710,7 @@ bot.action('admin_settings', async (ctx) => {
         inline_keyboard: [
           [{ text: '🔄 Refresh Status', callback_data: 'admin_settings' }],
           [{ text: '🌐 Admin Panel', url: `http://localhost:${process.env.PORT || 3000}/panel` }],
-          [{ text: '🔙 Back to Admin Menu', callback_data: 'admin_menu' }]
+          [{ text: '🔙 Back to Admin Menu', callback_data: 'back_to_admin' }]
         ]
       }
     });
