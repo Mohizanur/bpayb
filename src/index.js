@@ -1635,3 +1635,15 @@ startServer();
 
 // No need to export anything in the main application file
 // The server is already started and running
+
+// Register /api/users route directly to avoid duplicate registration
+fastify.get('/api/users', async (req, reply) => {
+  try {
+    const snapshot = await require('./utils/firestore.js').firestore.collection('users').get();
+    const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return { success: true, users };
+  } catch (error) {
+    console.error('Error getting all users:', error);
+    return reply.status(500).send({ error: error.message });
+  }
+});
