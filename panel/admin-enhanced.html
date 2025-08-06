@@ -1185,39 +1185,216 @@
         }
 
         function exportUsers() {
-            alert('Exporting users data...');
+            const users = adminPanel.data.users;
+            if (users.length === 0) {
+                alert('No users to export');
+                return;
+            }
+            
+            const csvContent = [
+                ['ID', 'Name', 'Email', 'Status', 'Premium', 'Join Date'],
+                ...users.map(user => [
+                    user.id,
+                    user.name || 'N/A',
+                    user.email || 'N/A',
+                    user.status || 'active',
+                    user.isPaid ? 'Yes' : 'No',
+                    user.joinDate || 'N/A'
+                ])
+            ].map(row => row.join(',')).join('\n');
+            
+            downloadCSV(csvContent, 'birrpay-users.csv');
         }
 
         function exportSubscriptions() {
-            alert('Exporting subscriptions data...');
+            const subscriptions = adminPanel.data.subscriptions;
+            if (subscriptions.length === 0) {
+                alert('No subscriptions to export');
+                return;
+            }
+            
+            const csvContent = [
+                ['ID', 'User ID', 'Service', 'Status', 'Price', 'Start Date', 'End Date'],
+                ...subscriptions.map(sub => [
+                    sub.id,
+                    sub.userId,
+                    sub.service || 'N/A',
+                    sub.status || 'pending',
+                    sub.price || 0,
+                    sub.startDate || 'N/A',
+                    sub.endDate || 'N/A'
+                ])
+            ].map(row => row.join(',')).join('\n');
+            
+            downloadCSV(csvContent, 'birrpay-subscriptions.csv');
         }
 
         function exportPayments() {
-            alert('Exporting payments data...');
+            const payments = adminPanel.data.payments;
+            if (payments.length === 0) {
+                alert('No payments to export');
+                return;
+            }
+            
+            const csvContent = [
+                ['ID', 'User ID', 'Amount', 'Method', 'Status', 'Date', 'Reference'],
+                ...payments.map(payment => [
+                    payment.id,
+                    payment.userId,
+                    payment.amount || 0,
+                    payment.method || 'N/A',
+                    payment.status || 'pending',
+                    payment.date || 'N/A',
+                    payment.reference || 'N/A'
+                ])
+            ].map(row => row.join(',')).join('\n');
+            
+            downloadCSV(csvContent, 'birrpay-payments.csv');
         }
 
         function exportSupport() {
-            alert('Exporting support tickets...');
+            const support = adminPanel.data.support;
+            if (support.length === 0) {
+                alert('No support tickets to export');
+                return;
+            }
+            
+            const csvContent = [
+                ['ID', 'User ID', 'Type', 'Priority', 'Status', 'Created'],
+                ...support.map(ticket => [
+                    ticket.id,
+                    ticket.userId,
+                    ticket.type || 'N/A',
+                    ticket.priority || 'normal',
+                    ticket.status || 'open',
+                    ticket.created || 'N/A'
+                ])
+            ].map(row => row.join(',')).join('\n');
+            
+            downloadCSV(csvContent, 'birrpay-support.csv');
         }
 
         function exportAnalytics() {
-            alert('Generating analytics report...');
+            const stats = adminPanel.data.stats;
+            const csvContent = [
+                ['Metric', 'Value'],
+                ['Total Users', stats.totalUsers || 0],
+                ['Active Subscriptions', stats.activeSubscriptions || 0],
+                ['Total Revenue (ETB)', stats.totalPayments || 0],
+                ['Pending Support', stats.pendingSupport || 0],
+                ['Premium Users', stats.paidUsers || 0],
+                ['Conversion Rate (%)', stats.conversionRate || 0],
+                ['Avg Revenue Per User', stats.avgRevenuePerUser || 0]
+            ].map(row => row.join(',')).join('\n');
+            
+            downloadCSV(csvContent, 'birrpay-analytics.csv');
+        }
+
+        function downloadCSV(content, filename) {
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         function viewUser(id) {
-            alert(`Viewing user: ${id}`);
+            const user = adminPanel.data.users.find(u => u.id === id);
+            if (user) {
+                const details = `
+User Details:
+ID: ${user.id}
+Name: ${user.name || 'N/A'}
+Email: ${user.email || 'N/A'}
+Status: ${user.status || 'active'}
+Premium: ${user.isPaid ? 'Yes' : 'No'}
+Join Date: ${user.joinDate || 'N/A'}
+                `;
+                alert(details);
+            } else {
+                alert('User not found');
+            }
         }
 
         function viewSubscription(id) {
-            alert(`Viewing subscription: ${id}`);
+            const subscription = adminPanel.data.subscriptions.find(s => s.id === id);
+            if (subscription) {
+                const details = `
+Subscription Details:
+ID: ${subscription.id}
+User ID: ${subscription.userId}
+Service: ${subscription.service || 'N/A'}
+Status: ${subscription.status || 'pending'}
+Price: ${subscription.price || 0} ETB
+Start Date: ${subscription.startDate || 'N/A'}
+End Date: ${subscription.endDate || 'N/A'}
+                `;
+                alert(details);
+            } else {
+                alert('Subscription not found');
+            }
         }
 
         function viewPayment(id) {
-            alert(`Viewing payment: ${id}`);
+            const payment = adminPanel.data.payments.find(p => p.id === id);
+            if (payment) {
+                const details = `
+Payment Details:
+ID: ${payment.id}
+User ID: ${payment.userId}
+Amount: ${payment.amount || 0} ETB
+Method: ${payment.method || 'N/A'}
+Status: ${payment.status || 'pending'}
+Date: ${payment.date || 'N/A'}
+Reference: ${payment.reference || 'N/A'}
+                `;
+                alert(details);
+            } else {
+                alert('Payment not found');
+            }
         }
 
         function viewTicket(id) {
-            alert(`Viewing ticket: ${id}`);
+            const ticket = adminPanel.data.support.find(t => t.id === id);
+            if (ticket) {
+                const details = `
+Support Ticket Details:
+ID: ${ticket.id}
+User ID: ${ticket.userId}
+Type: ${ticket.type || 'N/A'}
+Priority: ${ticket.priority || 'normal'}
+Status: ${ticket.status || 'open'}
+Created: ${ticket.created || 'N/A'}
+                `;
+                alert(details);
+            } else {
+                alert('Support ticket not found');
+            }
+        }
+
+        function showAddUser() {
+            alert('Add User functionality - To be implemented with modal form');
+        }
+
+        function showAddSubscription() {
+            alert('Add Subscription functionality - To be implemented with modal form');
+        }
+
+        function reconcilePayments() {
+            alert('Payment Reconciliation - Checking for pending payments...');
+            // This would typically trigger a background job to reconcile payments
+        }
+
+        function showNewTicket() {
+            alert('New Support Ticket functionality - To be implemented with modal form');
+        }
+
+        function scheduleReport() {
+            alert('Schedule Report functionality - To be implemented with calendar integration');
         }
 
         // Search Functions
