@@ -14,7 +14,6 @@ import { loadServices } from "./utils/loadServices.js";
 import { firestore } from "./utils/firestore.js";
 import path from "path";
 import { fileURLToPath } from "url";
-import fastifyStatic from "@fastify/static";
 import startHandler from "./handlers/start.js";
 import subscribeHandler from "./handlers/subscribe.js";
 import supportHandler from "./handlers/support.js";
@@ -46,7 +45,9 @@ const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN, {
   handlerTimeout: 9000,
 });
 
-const fastify = Fastify();
+const fastify = Fastify({
+  logger: process.env.NODE_ENV === 'production' ? true : false
+});
 
 // Get current directory for serving static files
 const __filename = fileURLToPath(import.meta.url);
@@ -67,6 +68,17 @@ try {
     hero_subtitle: { en: "Choose your plan", am: "የእርስዎን እቅድ ይምረጡ" },
   };
   services = [];
+}
+
+// Register static file serving
+try {
+  await fastify.register(import('@fastify/static'), {
+    root: path.join(__dirname, '..', 'public'),
+    prefix: '/', // optional: default '/'
+  });
+  console.log("✅ Static file serving registered");
+} catch (error) {
+  console.error("❌ Error registering static files:", error);
 }
 
 // CRITICAL FIX: Register ALL handlers BEFORE middleware
@@ -840,22 +852,42 @@ firestoreListener(bot);
 // Text handler for non-command messages (AFTER all command handlers)
 // This is already handled by the earlier text handler, so we'll remove this duplicate
 
-// Serve static files
-fastify.register(fastifyStatic, {
-  root: path.join(__dirname, '../public'),
-  prefix: '/public/',
+// Health check endpoint
+fastify.get('/health', async (request, reply) => {
+  return { 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: '1.0.0'
+  };
+});
+
+// API health check
+fastify.get('/api/health', async (request, reply) => {
+  return { 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    firebase: firestore ? 'connected' : 'disconnected',
+    version: '1.0.0'
+  };
 });
 
 // Register API routes
 console.log("Registering API routes...");
-userRoutes(fastify);
-servicesRoutes(fastify);
-subscriptionRoutes(fastify);
-paymentRoutes(fastify);
-screenshotRoutes(fastify);
-adminRoutes(fastify);
-supportRoutes(fastify);
-utilityRoutes(fastify);
+try {
+  userRoutes(fastify);
+  servicesRoutes(fastify);
+  subscriptionRoutes(fastify);
+  paymentRoutes(fastify);
+  screenshotRoutes(fastify);
+  adminRoutes(fastify);
+  supportRoutes(fastify);
+  utilityRoutes(fastify);
+  console.log("✅ All API routes registered successfully");
+} catch (error) {
+  console.error("❌ Error registering API routes:", error);
+}
 console.log("API routes registered successfully!");
 
 // Root route

@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: birrpay-bot
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: TELEGRAM_BOT_TOKEN
+        fromDatabase:
+          name: birrpay-secrets
+          property: TELEGRAM_BOT_TOKEN
+      - key: FIREBASE_CONFIG
+        fromDatabase:
+          name: birrpay-secrets
+          property: FIREBASE_CONFIG
+      - key: ADMIN_USER_IDS
+        fromDatabase:
+          name: birrpay-secrets
+          property: ADMIN_USER_IDS
+
+databases:
+  - name: birrpay-secrets
+    plan: free

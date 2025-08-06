@@ -399,7 +399,16 @@ try {
     console.error("💥 CRITICAL ERROR: Firebase initialization failed");
     console.error("This is a production system that requires Firebase connection");
     console.error("Error details:", error.message);
-    process.exit(1); // Exit the application if Firebase fails
+    
+    // In production, try to continue with degraded functionality
+    if (process.env.NODE_ENV === 'production') {
+      console.log("⚠️  Running in degraded mode without Firebase");
+      firestore = createMockFirestore();
+      firestoreManager = new FirestoreManager(firestore);
+      isFirebaseConnected = false;
+    } else {
+      process.exit(1); // Exit the application if Firebase fails in development
+    }
   }
 }
 
