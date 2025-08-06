@@ -1,7 +1,7 @@
 import { firestore } from "../utils/firestore.js";
 
 export default function mySubscriptionsHandler(bot) {
-  bot.action('my_subscriptions', async (ctx) => {
+  bot.action('my_subs', async (ctx) => {
     try {
       const userID = ctx.from.id;
       const lang = ctx.userLang || 'en';
@@ -207,7 +207,7 @@ Price: ${service.price} ETB/month
           ], [
             {
               text: lang === 'am' ? '🔙 ወደ መዋቅሮች ተመለስ' : '🔙 Back to Subscriptions',
-              callback_data: 'my_subscriptions'
+              callback_data: 'my_subs'
             }
           ]]
         }
@@ -277,7 +277,7 @@ Price: ${service.price} ETB/month
           ], [
             {
               text: lang === 'am' ? '🔙 ወደ መዋቅሮች ተመለስ' : '🔙 Back to Subscriptions',
-              callback_data: 'my_subscriptions'
+              callback_data: 'my_subs'
             }
           ]]
         }

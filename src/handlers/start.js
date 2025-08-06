@@ -628,6 +628,58 @@ Choose your preferred language:`;
   });
   
   // Handle back to start
+  // Handle start callback (same as back_to_start)
+  bot.action("start", async (ctx) => {
+    try {
+      const lang = ctx.userLang || "en";
+      
+      // Main welcome message matching website hero section
+      const title = lang === "am" 
+        ? "🌍 BirrPay - የኢትዮጵያ የምዝገባ መከር"
+        : "🌍 BirrPay - Ethiopia's Premier Subscription Hub";
+      
+      const subtitle = lang === "am"
+        ? "ሁሉንም የዲጂታል ምዝገባዎችዎን በአንድ የተጠቃማ ቦታ ይአስተዳድሩ። Netflix፣ Amazon Prime፣ Spotify እና ተጨማሪዎችን በቀላሉ በብር ያግኙ።"
+        : "Manage all your digital subscriptions in one secure place. Access Netflix, Amazon Prime, Spotify, and more with ease using Ethiopian Birr.";
+
+      // Create main menu matching website structure
+      const keyboard = [
+        // Features row
+        [
+          { text: lang === "en" ? "🎯 Features" : "🎯 ባህሪያት", callback_data: "features" },
+          { text: lang === "en" ? "📱 Services" : "📱 አገልግሎቶች", callback_data: "services" }
+        ],
+        // Plans and subscriptions row
+        [
+          { text: lang === "en" ? "💳 Plans" : "💳 እቅዶች", callback_data: "plans" },
+          { text: lang === "en" ? "📊 My Subs" : "📊 የእኔ ምዝገባዎች", callback_data: "my_subs" }
+        ],
+        // How to use and FAQ row
+        [
+          { text: lang === "en" ? "📖 How to Use" : "📖 እንዴት እንደሚጠቀሙ", callback_data: "how_to_use" },
+          { text: lang === "en" ? "❓ FAQ" : "❓ ጥያቄዎች", callback_data: "faq_menu" }
+        ],
+        // Contact and support row
+        [
+          { text: lang === "en" ? "📞 Contact" : "📞 አግኙን", callback_data: "contact" },
+          { text: lang === "en" ? "🛠️ Support" : "🛠️ ድጋፍ", callback_data: "support" }
+        ],
+        // Language settings
+        [
+          { text: lang === "en" ? "🌐 Language" : "🌐 ቋንቋ", callback_data: "language_settings" }
+        ]
+      ];
+
+      await ctx.editMessageText(`${title}\n\n${subtitle}\n\n${lang === "en" ? "Choose an option below:" : "ከታች አንዱን ይምረጡ:"}`, {
+        reply_markup: { inline_keyboard: keyboard }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in start action:', error);
+      await ctx.answerCbQuery();
+    }
+  });
+
   bot.action("back_to_start", async (ctx) => {
     try {
       const lang = ctx.userLang;

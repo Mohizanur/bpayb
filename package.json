@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@fastify/static": "^6.10.0",
-    "@fastify/send": "^1.0.0",
+    "@fastify/send": "^2.1.0",
     "dotenv": "^17.2.1",
     "express": "^4.18.2",
     "fastify": "^4.15.0",

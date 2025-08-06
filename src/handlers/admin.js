@@ -1,5 +1,4 @@
 import { firestore } from "../utils/firestore.js";
-import { escapeMarkdownV2 } from "../utils/i18n.js";
 
 export default function adminHandler(bot) {
   // Admin panel main menu

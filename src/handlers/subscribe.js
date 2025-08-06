@@ -175,8 +175,8 @@ Price: ${service.price} ETB/month
         reply_markup: {
           inline_keyboard: [[
             {
-              text: lang === 'am' ? '📋 የእኔ ማግኘቶች' : '📋 My Subscriptions',
-              callback_data: 'my_subscriptions'
+                             text: lang === 'am' ? '📋 የእኔ ማግኘቶች' : '📋 My Subscriptions',
+               callback_data: 'my_subs'
             }
           ], [
             {
@@ -304,6 +304,59 @@ Use /admin to review and approve.`;
         ? '❌ ሰነድ መላክ አልተሳካም። እባክዎ እንደገና ይሞክሩ።'
         : '❌ Failed to upload document. Please try again.';
       await ctx.reply(errorMsg);
+    }
+  });
+
+  // Handle back to services navigation
+  bot.action('back_to_services', async (ctx) => {
+    try {
+      // Redirect to main services menu
+      ctx.match = ['services']; // Simulate services callback
+      // You could also call start handler services action here
+      await ctx.answerCbQuery();
+      await ctx.editMessageText('Please use /start to return to the main menu.', {
+        reply_markup: {
+          inline_keyboard: [[
+            {
+              text: ctx.userLang === 'am' ? '🏠 ዋና ምናሌ' : '🏠 Main Menu',
+              callback_data: 'start'
+            }
+          ]]
+        }
+      });
+    } catch (error) {
+      console.error('Error in back_to_services:', error);
+      await ctx.answerCbQuery();
+    }
+  });
+
+  // Handle cancel upload
+  bot.action('cancel_upload', async (ctx) => {
+    try {
+      const lang = ctx.userLang || 'en';
+      // Clear pending screenshot session
+      if (ctx.session) {
+        delete ctx.session.pendingScreenshot;
+      }
+      
+      const cancelMsg = lang === 'am' 
+        ? '❌ ስክሪን ሾት መላክ ተሰርዟል'
+        : '❌ Screenshot upload cancelled';
+        
+      await ctx.editMessageText(cancelMsg, {
+        reply_markup: {
+          inline_keyboard: [[
+            {
+              text: lang === 'am' ? '🏠 ዋና ምናሌ' : '🏠 Main Menu',
+              callback_data: 'start'
+            }
+          ]]
+        }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in cancel_upload:', error);
+      await ctx.answerCbQuery();
     }
   });
 }
