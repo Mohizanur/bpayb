@@ -1,5 +1,6 @@
 import { escapeMarkdownV2 } from "../utils/i18n.js";
 import { firestore } from "../utils/firestore.js";
+import { loadServices } from "../utils/loadServices.js";
 
 export default function startHandler(bot) {
   bot.start(async (ctx) => {
@@ -103,8 +104,8 @@ Customer service available in Amharic and English.`;
   // Services section handler
   bot.action("services", async (ctx) => {
     try {
-      const lang = ctx.userLang;
-      const services = ctx.services;
+      const lang = ctx.userLang || 'en';
+      const services = await loadServices();
       
       // Create service grid (2 services per row)
       const keyboard = [];
@@ -113,13 +114,13 @@ Customer service available in Amharic and English.`;
         if (services[i]) {
           row.push({
             text: `📱 ${services[i].name}`,
-            callback_data: `service_details_${services[i].serviceID}`
+            callback_data: `select_service_${services[i].serviceID}`
           });
         }
         if (services[i + 1]) {
           row.push({
             text: `📱 ${services[i + 1].name}`,
-            callback_data: `service_details_${services[i + 1].serviceID}`
+            callback_data: `select_service_${services[i + 1].serviceID}`
           });
         }
         keyboard.push(row);

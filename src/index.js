@@ -25,6 +25,17 @@ import cancelSubscriptionHandler from "./handlers/cancelSubscription.js";
 import firestoreListener from "./handlers/firestoreListener.js";
 import adminHandler from "./handlers/admin.js";
 import helpHandler from "./handlers/help.js";
+import screenshotUploadHandler from "./handlers/screenshotUpload.js";
+import { 
+    userRoutes, 
+    servicesRoutes, 
+    subscriptionRoutes, 
+    paymentRoutes, 
+    screenshotRoutes, 
+    adminRoutes, 
+    supportRoutes, 
+    utilityRoutes 
+} from "./api/routes.js";
 
 console.log("Starting bot initialization...");
 console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
@@ -723,6 +734,8 @@ console.log("Registering mySubscriptions handler...");
 mySubscriptionsHandler(bot);
 console.log("Registering cancelSubscription handler...");
 cancelSubscriptionHandler(bot);
+console.log("Registering screenshotUpload handler...");
+screenshotUploadHandler(bot);
 console.log("Registering firestoreListener...");
 firestoreListener(bot);
 console.log("All remaining handlers registered successfully!");
@@ -798,6 +811,7 @@ startHandler(bot);
 subscribeHandler(bot);
 mySubscriptionsHandler(bot);
 cancelSubscriptionHandler(bot);
+screenshotUploadHandler(bot);
 firestoreListener(bot);
 
 // Text handler for non-command messages (AFTER all command handlers)
@@ -808,6 +822,18 @@ fastify.register(fastifyStatic, {
   root: path.join(__dirname, '../public'),
   prefix: '/public/',
 });
+
+// Register API routes
+console.log("Registering API routes...");
+userRoutes(fastify);
+servicesRoutes(fastify);
+subscriptionRoutes(fastify);
+paymentRoutes(fastify);
+screenshotRoutes(fastify);
+adminRoutes(fastify);
+supportRoutes(fastify);
+utilityRoutes(fastify);
+console.log("API routes registered successfully!");
 
 // Root route
 fastify.get('/', async (req, reply) => {

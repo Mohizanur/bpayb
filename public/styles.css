@@ -393,10 +393,21 @@ body {
 
 /* Action Buttons */
 .action-buttons {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 2rem;
-    margin-top: 3rem;
+    display: flex;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.action-buttons .btn-primary {
+    padding: 15px 30px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.action-buttons .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .action-card {
@@ -792,4 +803,297 @@ body {
         padding: 0.875rem 1.5rem;
         font-size: 1rem;
     }
+}
+
+/* Duration Section */
+.duration-section {
+    margin-top: 40px;
+    padding: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+}
+
+.duration-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.duration-card {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 25px;
+    border-radius: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.duration-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.duration-card.selected {
+    border-color: #4CAF50;
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.duration-card h4 {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+}
+
+.duration-card .price {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #4CAF50;
+    margin-bottom: 10px;
+}
+
+.duration-card .description {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* Payment Section */
+.payment-section {
+    margin-top: 40px;
+    padding: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+}
+
+.payment-methods {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.payment-method {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 25px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.payment-method:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.payment-method.selected {
+    border-color: #2196F3;
+    background: rgba(33, 150, 243, 0.1);
+}
+
+.method-icon {
+    font-size: 2rem;
+    color: #2196F3;
+    width: 50px;
+    text-align: center;
+}
+
+.method-info h4 {
+    color: #333;
+    margin-bottom: 5px;
+    font-size: 1.1rem;
+}
+
+.method-info p {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* Payment Instructions */
+.payment-instructions {
+    margin-top: 40px;
+    padding: 30px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+}
+
+.payment-summary h3 {
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.payment-details {
+    background: rgba(76, 175, 80, 0.1);
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.payment-details p {
+    margin: 10px 0;
+    color: #333;
+}
+
+.payment-instructions h4 {
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.payment-instructions p {
+    color: #666;
+    line-height: 1.6;
+    white-space: pre-line;
+}
+
+.payment-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 25px;
+    flex-wrap: wrap;
+}
+
+.payment-success {
+    text-align: center;
+    padding: 20px;
+}
+
+.payment-success h3 {
+    color: #4CAF50;
+    margin-bottom: 15px;
+}
+
+.payment-success p {
+    color: #666;
+    margin-bottom: 10px;
+}
+
+/* Notifications */
+.notification {
+    position: fixed;
+    top: 100px;
+    right: 20px;
+    background: #333;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    max-width: 350px;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+}
+
+.notification.show {
+    transform: translateX(0);
+}
+
+.notification-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.notification-message {
+    flex: 1;
+}
+
+.notification-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notification-success {
+    background: #4CAF50;
+}
+
+.notification-error {
+    background: #f44336;
+}
+
+.notification-warning {
+    background: #ff9800;
+}
+
+.notification-info {
+    background: #2196F3;
+}
+
+/* Service Cards Updates */
+.service-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.service-card.selected {
+    border-color: #4CAF50;
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.service-logo {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.service-logo img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.service-price {
+    margin-top: 15px;
+    text-align: center;
+}
+
+.service-price .price {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #4CAF50;
+}
+
+.service-price .period {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.btn-select-service {
+    margin-top: 15px;
+    width: 100%;
+    padding: 12px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-select-service:hover {
+    background: #45a049;
+    transform: translateY(-2px);
 }
