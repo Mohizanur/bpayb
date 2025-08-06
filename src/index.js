@@ -1640,6 +1640,19 @@ fastify.post("/telegram", async (req, reply) => {
   }
 });
 
+// Global error handlers
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  // Don't exit the process for uncaught exceptions in production
+  // process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit the process for unhandled rejections in production
+  // process.exit(1);
+});
+
 const PORT = process.env.PORT || 3000;
 fastify.listen({ port: PORT, host: "0.0.0.0" }, async (err, address) => {
   if (err) {
@@ -1659,5 +1672,3 @@ fastify.listen({ port: PORT, host: "0.0.0.0" }, async (err, address) => {
     console.error("⚠️ Error setting up bot menu:", error);
   }
 });
-}
-);
