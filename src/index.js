@@ -25,6 +25,7 @@ import cancelSubscriptionHandler from "./handlers/cancelSubscription.js";
 import firestoreListener from "./handlers/firestoreListener.js";
 import adminHandler from "./handlers/admin.js";
 import helpHandler from "./handlers/help.js";
+import screenshotHandler from "./handlers/screenshot.js";
 
 console.log("Starting bot initialization...");
 console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
@@ -249,8 +250,9 @@ const setupBotMenu = async () => {
   }
 };
 
-// Initialize admin handler
+// Initialize all handlers
 adminHandler(bot);
+screenshotHandler(bot);
 
 // Add admin command
 bot.command("admin", async (ctx) => {

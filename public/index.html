@@ -162,6 +162,107 @@
                 </div>
             </div>
 
+            <!-- Payment Selection -->
+            <div class="payment-selection" style="display: none;">
+                <h3>Select Payment Method</h3>
+                <div class="payment-grid">
+                    <div class="payment-method-card">
+                        <div class="payment-icon">
+                            <i class="fas fa-university"></i>
+                        </div>
+                        <h4>Commercial Bank of Ethiopia</h4>
+                        <p>Bank transfer to CBE account</p>
+                    </div>
+                    <div class="payment-method-card">
+                        <div class="payment-icon">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <h4>Telebirr</h4>
+                        <p>Mobile money transfer</p>
+                    </div>
+                    <div class="payment-method-card">
+                        <div class="payment-icon">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                        <h4>Amole</h4>
+                        <p>Digital wallet payment</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Instructions -->
+            <div class="payment-instructions" style="display: none;">
+                <h3>Payment Instructions</h3>
+                <div class="payment-details">
+                    <div class="detail-row">
+                        <span class="label">Service:</span>
+                        <span class="value service-name">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Duration:</span>
+                        <span class="value duration-text">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Price:</span>
+                        <span class="value price-text">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Reference:</span>
+                        <span class="value reference-text">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Account:</span>
+                        <span class="value account-info">-</span>
+                    </div>
+                </div>
+                <div class="payment-steps">
+                    <h4>Payment Steps:</h4>
+                    <ol>
+                        <li>Send payment to the account above</li>
+                        <li>Include your reference number</li>
+                        <li>Take a screenshot of the payment confirmation</li>
+                        <li>Upload the screenshot below</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Screenshot Upload -->
+            <div class="screenshot-upload" style="display: none;">
+                <h3>Upload Payment Screenshot</h3>
+                <div class="upload-container">
+                    <input type="file" id="screenshot-upload" accept="image/*" style="display: none;">
+                    <button class="btn-secondary" onclick="document.getElementById('screenshot-upload').click()">
+                        <i class="fas fa-upload"></i> Choose Screenshot
+                    </button>
+                    <div id="screenshot-preview" style="display: none;"></div>
+                    <button id="upload-button" class="btn-primary" style="margin-top: 1rem;">
+                        Upload Screenshot
+                    </button>
+                </div>
+            </div>
+
+            <!-- Next Steps -->
+            <div class="next-steps" style="display: none;">
+                <h3>What Happens Next?</h3>
+                <div class="steps-grid">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <h4>Payment Review</h4>
+                        <p>We'll review your payment screenshot within 24 hours</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <h4>Account Activation</h4>
+                        <p>Your subscription will be activated once payment is verified</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <h4>Credentials Sent</h4>
+                        <p>Login credentials will be sent to your email/phone</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Action Buttons -->
             <div class="action-buttons">
                 <div class="action-card">

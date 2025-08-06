@@ -18,6 +18,73 @@ function updateTime() {
 setInterval(updateTime, 60000);
 updateTime(); // Initial call
 
+// Service data
+const services = [
+    {
+        id: 'netflix',
+        name: 'Netflix',
+        price: 350,
+        description: 'Stream movies, TV shows and more',
+        logo: '/logos/netflix.png'
+    },
+    {
+        id: 'prime',
+        name: 'Amazon Prime',
+        price: 300,
+        description: 'Prime Video, Music and Shopping benefits',
+        logo: '/logos/prime.png'
+    },
+    {
+        id: 'spotify',
+        name: 'Spotify Premium',
+        price: 250,
+        description: 'Music streaming without ads',
+        logo: '/logos/spotify.png'
+    },
+    {
+        id: 'disney',
+        name: 'Disney+',
+        price: 280,
+        description: 'Disney, Marvel, Star Wars content',
+        logo: '/logos/disney.png'
+    },
+    {
+        id: 'hulu',
+        name: 'Hulu',
+        price: 320,
+        description: 'TV shows and movies streaming',
+        logo: '/logos/hulu.png'
+    },
+    {
+        id: 'youtube',
+        name: 'YouTube Premium',
+        price: 200,
+        description: 'Ad-free YouTube with offline downloads',
+        logo: '/logos/youtube.png'
+    }
+];
+
+// Duration options
+const durations = [
+    { id: '1month', name: '1 Month', multiplier: 1 },
+    { id: '3months', name: '3 Months', multiplier: 3 },
+    { id: '6months', name: '6 Months', multiplier: 6 },
+    { id: '12months', name: '12 Months', multiplier: 12 }
+];
+
+// Payment methods
+const paymentMethods = [
+    { id: 'cbe', name: 'Commercial Bank of Ethiopia', account: '1000123456789' },
+    { id: 'telebirr', name: 'Telebirr', account: '+251912345678' },
+    { id: 'amole', name: 'Amole', account: '+251912345678' }
+];
+
+// Global state
+let selectedService = null;
+let selectedDuration = null;
+let selectedPaymentMethod = null;
+let currentStep = 'services';
+
 // FAQ Toggle Functionality
 document.addEventListener('DOMContentLoaded', function() {
     const faqItems = document.querySelectorAll('.faq-item');
@@ -69,8 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function() {
     const serviceCards = document.querySelectorAll('.service-card');
     const durationCards = document.querySelectorAll('.duration-card');
-    let selectedService = null;
-    let selectedDuration = null;
+    const paymentCards = document.querySelectorAll('.payment-method-card');
     
     // Service card selection
     serviceCards.forEach(card => {
@@ -80,9 +146,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Add active class to clicked card
             this.classList.add('selected');
-            selectedService = this.querySelector('h3').textContent;
+            selectedService = services.find(s => s.name === this.querySelector('h3').textContent);
             
-            updateActionButtons();
+            showDurationSelection();
         });
     });
     
@@ -94,29 +160,168 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Add active class to clicked card
             this.classList.add('selected');
-            selectedDuration = {
-                period: this.querySelector('h4').textContent,
-                price: this.querySelector('p').textContent
-            };
+            const durationName = this.querySelector('h4').textContent;
+            selectedDuration = durations.find(d => d.name === durationName);
             
-            updateActionButtons();
+            showPaymentSelection();
         });
     });
     
-    function updateActionButtons() {
-        const startNewBtn = document.querySelector('.action-card .btn-primary');
-        const renewBtn = document.querySelector('.action-card .btn-secondary');
+    // Payment method selection
+    paymentCards.forEach(card => {
+        card.addEventListener('click', function() {
+            // Remove active class from all payment cards
+            paymentCards.forEach(c => c.classList.remove('selected'));
+            
+            // Add active class to clicked card
+            this.classList.add('selected');
+            const methodName = this.querySelector('h4').textContent;
+            selectedPaymentMethod = paymentMethods.find(p => p.name === methodName);
+            
+            showPaymentInstructions();
+        });
+    });
+});
+
+// Show duration selection
+function showDurationSelection() {
+    if (!selectedService) return;
+    
+    const durationSection = document.querySelector('.duration-selection');
+    if (durationSection) {
+        durationSection.style.display = 'block';
+        durationSection.scrollIntoView({ behavior: 'smooth' });
         
-        if (selectedService && selectedDuration) {
-            startNewBtn.textContent = `Start ${selectedService} - ${selectedDuration.price}`;
-            renewBtn.textContent = `Renew ${selectedService} - ${selectedDuration.price}`;
+        // Update duration cards with prices
+        const durationCards = durationSection.querySelectorAll('.duration-card');
+        durationCards.forEach((card, index) => {
+            const duration = durations[index];
+            const price = selectedService.price * duration.multiplier;
+            const priceElement = card.querySelector('p');
+            if (priceElement) {
+                priceElement.textContent = formatETB(price);
+            }
+        });
+    }
+}
+
+// Show payment selection
+function showPaymentSelection() {
+    if (!selectedService || !selectedDuration) return;
+    
+    const paymentSection = document.querySelector('.payment-selection');
+    if (paymentSection) {
+        paymentSection.style.display = 'block';
+        paymentSection.scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+// Show payment instructions
+function showPaymentInstructions() {
+    if (!selectedService || !selectedDuration || !selectedPaymentMethod) return;
+    
+    const totalPrice = selectedService.price * selectedDuration.multiplier;
+    const reference = generateReference();
+    
+    const instructionsSection = document.querySelector('.payment-instructions');
+    if (instructionsSection) {
+        instructionsSection.style.display = 'block';
+        instructionsSection.scrollIntoView({ behavior: 'smooth' });
+        
+        // Update payment details
+        const serviceName = instructionsSection.querySelector('.service-name');
+        const durationText = instructionsSection.querySelector('.duration-text');
+        const priceText = instructionsSection.querySelector('.price-text');
+        const referenceText = instructionsSection.querySelector('.reference-text');
+        const accountInfo = instructionsSection.querySelector('.account-info');
+        
+        if (serviceName) serviceName.textContent = selectedService.name;
+        if (durationText) durationText.textContent = selectedDuration.name;
+        if (priceText) priceText.textContent = formatETB(totalPrice);
+        if (referenceText) referenceText.textContent = reference;
+        if (accountInfo) accountInfo.textContent = selectedPaymentMethod.account;
+        
+        // Show screenshot upload section
+        const screenshotSection = document.querySelector('.screenshot-upload');
+        if (screenshotSection) {
+            screenshotSection.style.display = 'block';
         }
+    }
+}
+
+// Generate unique reference number
+function generateReference() {
+    return 'BP' + Date.now() + Math.random().toString(36).substr(2, 5).toUpperCase();
+}
+
+// Handle screenshot upload
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.querySelector('#screenshot-upload');
+    const uploadButton = document.querySelector('#upload-button');
+    const previewContainer = document.querySelector('#screenshot-preview');
+    
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    showNotification('Please select an image file (JPEG, PNG)', 'error');
+                    return;
+                }
+                
+                // Validate file size (10MB limit)
+                if (file.size > 10 * 1024 * 1024) {
+                    showNotification('File size must be less than 10MB', 'error');
+                    return;
+                }
+                
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    if (previewContainer) {
+                        previewContainer.innerHTML = `
+                            <img src="${e.target.result}" alt="Screenshot preview" style="max-width: 200px; max-height: 200px;">
+                            <p>${file.name}</p>
+                        `;
+                        previewContainer.style.display = 'block';
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+    
+    if (uploadButton) {
+        uploadButton.addEventListener('click', function() {
+            const file = fileInput?.files[0];
+            if (!file) {
+                showNotification('Please select a screenshot first', 'error');
+                return;
+            }
+            
+            // Simulate upload
+            uploadButton.textContent = 'Uploading...';
+            uploadButton.disabled = true;
+            
+            setTimeout(() => {
+                showNotification('Screenshot uploaded successfully! We will review your payment shortly.', 'success');
+                uploadButton.textContent = 'Upload Complete';
+                
+                // Show next steps
+                const nextSteps = document.querySelector('.next-steps');
+                if (nextSteps) {
+                    nextSteps.style.display = 'block';
+                }
+            }, 2000);
+        });
     }
 });
 
-// Contact Form Handling
+// Handle form submissions
 document.addEventListener('DOMContentLoaded', function() {
-    const contactForm = document.getElementById('contactForm');
+    const contactForm = document.querySelector('#contact-form');
+    const loginForm = document.querySelector('#login-form');
     
     if (contactForm) {
         contactForm.addEventListener('submit', function(e) {
@@ -127,7 +332,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const email = formData.get('email');
             const message = formData.get('message');
             
-            // Basic validation
             if (!name || !email || !message) {
                 showNotification('Please fill in all fields', 'error');
                 return;
@@ -139,26 +343,45 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Simulate form submission
-            showNotification('Thank you for your message! We will get back to you soon.', 'success');
+            showNotification('Message sent successfully! We will get back to you soon.', 'success');
             this.reset();
+        });
+    }
+    
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const email = formData.get('email');
+            const password = formData.get('password');
+            
+            if (!email || !password) {
+                showNotification('Please fill in all fields', 'error');
+                return;
+            }
+            
+            if (!isValidEmail(email)) {
+                showNotification('Please enter a valid email address', 'error');
+                return;
+            }
+            
+            // Simulate login
+            showNotification('Login successful! Redirecting to dashboard...', 'success');
+            setTimeout(() => {
+                window.location.href = '/dashboard';
+            }, 1500);
         });
     }
 });
 
-// Email validation helper
+// Utility functions
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
 }
 
-// Notification system
 function showNotification(message, type = 'info') {
-    // Remove existing notifications
-    const existingNotification = document.querySelector('.notification');
-    if (existingNotification) {
-        existingNotification.remove();
-    }
-    
     // Create notification element
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
@@ -167,208 +390,90 @@ function showNotification(message, type = 'info') {
     // Add styles
     notification.style.cssText = `
         position: fixed;
-        top: 100px;
+        top: 20px;
         right: 20px;
-        background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+        padding: 15px 20px;
+        border-radius: 5px;
         color: white;
-        padding: 1rem 1.5rem;
-        border-radius: 8px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-        z-index: 10000;
         font-weight: 500;
+        z-index: 1000;
         max-width: 300px;
-        word-wrap: break-word;
-        animation: slideIn 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
     `;
     
-    // Add animation keyframes
-    if (!document.querySelector('#notification-styles')) {
-        const style = document.createElement('style');
-        style.id = 'notification-styles';
-        style.textContent = `
-            @keyframes slideIn {
-                from {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-            
-            @keyframes slideOut {
-                from {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-                to {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-            }
-        `;
-        document.head.appendChild(style);
+    // Set background color based on type
+    switch (type) {
+        case 'success':
+            notification.style.backgroundColor = '#48bb78';
+            break;
+        case 'error':
+            notification.style.backgroundColor = '#f56565';
+            break;
+        case 'warning':
+            notification.style.backgroundColor = '#ed8936';
+            break;
+        default:
+            notification.style.backgroundColor = '#4299e1';
     }
     
     // Add to page
     document.body.appendChild(notification);
     
-    // Auto remove after 5 seconds
+    // Animate in
     setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
+        notification.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Remove after 5 seconds
+    setTimeout(() => {
+        notification.style.transform = 'translateX(100%)';
         setTimeout(() => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
+            document.body.removeChild(notification);
         }, 300);
     }, 5000);
 }
 
-// Mobile Menu Toggle (if needed for responsive design)
-document.addEventListener('DOMContentLoaded', function() {
-    // Add mobile menu functionality if nav becomes too crowded on small screens
-    const navbar = document.querySelector('.navbar');
-    let lastScrollY = window.scrollY;
-    
-    window.addEventListener('scroll', () => {
-        if (window.scrollY > lastScrollY && window.scrollY > 100) {
-            // Scrolling down
-            navbar.style.transform = 'translateY(-100%)';
-        } else {
-            // Scrolling up
-            navbar.style.transform = 'translateY(0)';
-        }
-        lastScrollY = window.scrollY;
-    });
-});
-
-// Add loading animation for buttons
-document.addEventListener('DOMContentLoaded', function() {
-    const buttons = document.querySelectorAll('.btn-primary, .btn-secondary');
-    
-    buttons.forEach(button => {
-        button.addEventListener('click', function(e) {
-            // Don't add loading to navigation buttons
-            if (this.closest('.nav-actions') || this.getAttribute('href')) {
-                return;
-            }
-            
-            const originalText = this.textContent;
-            this.disabled = true;
-            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-            
-            // Simulate processing time
-            setTimeout(() => {
-                this.disabled = false;
-                this.textContent = originalText;
-            }, 2000);
-        });
-    });
-});
-
-// Add intersection observer for animations
-document.addEventListener('DOMContentLoaded', function() {
-    const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
-    };
-    
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.style.opacity = '1';
-                entry.target.style.transform = 'translateY(0)';
-            }
-        });
-    }, observerOptions);
-    
-    // Observe elements for animation
-    const animatedElements = document.querySelectorAll('.feature-card, .service-card, .step, .action-card');
-    
-    animatedElements.forEach(el => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(30px)';
-        el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-        observer.observe(el);
-    });
-});
-
-// Add Ethiopian Birr currency formatting
 function formatETB(amount) {
     return new Intl.NumberFormat('en-ET', {
         style: 'currency',
-        currency: 'ETB',
-        minimumFractionDigits: 0
+        currency: 'ETB'
     }).format(amount);
 }
 
-// Update pricing display with proper formatting
+// Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    const priceElements = document.querySelectorAll('.duration-card p');
+    console.log('BirrPay Web Application initialized');
     
-    priceElements.forEach(el => {
-        const priceText = el.textContent;
-        const priceMatch = priceText.match(/(\d+)/);
-        
-        if (priceMatch) {
-            const amount = parseInt(priceMatch[1]);
-            el.textContent = formatETB(amount);
-        }
-    });
-});
-
-// Add search functionality for services
-document.addEventListener('DOMContentLoaded', function() {
-    // Create search input
-    const servicesHeader = document.querySelector('.services-header');
-    const searchContainer = document.createElement('div');
-    searchContainer.className = 'search-container';
-    searchContainer.style.cssText = `
-        margin: 1rem 0;
-        max-width: 400px;
-        margin-left: auto;
-        margin-right: auto;
-    `;
-    
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.placeholder = 'Search services...';
-    searchInput.className = 'service-search';
-    searchInput.style.cssText = `
-        width: 100%;
-        padding: 0.75rem 1rem;
-        border: 2px solid #e0e0e0;
-        border-radius: 25px;
-        font-size: 1rem;
-        transition: border-color 0.3s ease;
-    `;
-    
-    searchContainer.appendChild(searchInput);
-    servicesHeader.appendChild(searchContainer);
-    
-    // Search functionality
-    searchInput.addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
-        const serviceCards = document.querySelectorAll('.service-card');
-        
-        serviceCards.forEach(card => {
-            const serviceName = card.querySelector('h3').textContent.toLowerCase();
-            const serviceDesc = card.querySelector('p').textContent.toLowerCase();
-            
-            if (serviceName.includes(searchTerm) || serviceDesc.includes(searchTerm)) {
-                card.style.display = 'block';
-            } else {
-                card.style.display = 'none';
+    // Add loading states to buttons
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(button => {
+        button.addEventListener('click', function() {
+            if (this.classList.contains('btn-primary') || this.classList.contains('btn-secondary')) {
+                const originalText = this.textContent;
+                this.textContent = 'Loading...';
+                this.disabled = true;
+                
+                setTimeout(() => {
+                    this.textContent = originalText;
+                    this.disabled = false;
+                }, 2000);
             }
         });
     });
     
-    searchInput.addEventListener('focus', function() {
-        this.style.borderColor = '#4CAF50';
-    });
-    
-    searchInput.addEventListener('blur', function() {
-        this.style.borderColor = '#e0e0e0';
+    // Add hover effects to service cards
+    const serviceCards = document.querySelectorAll('.service-card');
+    serviceCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.boxShadow = '0 10px 25px rgba(0,0,0,0.15)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+        });
     });
 });

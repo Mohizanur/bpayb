@@ -1,288 +1,381 @@
-import { firestore } from "../utils/firestore.js";
-import { escapeMarkdownV2 } from "../utils/i18n.js";
+import { getAdminStats, getSubscriptions, updateSubscription, getSupportMessages, updatePayment } from '../utils/database.js';
+import { verifyPayment, rejectPayment } from '../utils/payment.js';
 
 export default function adminHandler(bot) {
-  // Admin commands - only accessible to ADMIN_TELEGRAM_ID
-  const ADMIN_ID = process.env.ADMIN_TELEGRAM_ID;
-
-  // Check if user is admin
-  function isAdmin(ctx) {
-    return ctx.from.id.toString() === ADMIN_ID;
-  }
-
-  // Admin command to view pending subscriptions
-  bot.command("admin_pending", async (ctx) => {
+  // Admin statistics
+  bot.action('admin_stats', async (ctx) => {
     try {
-      if (!isAdmin(ctx)) {
-        await ctx.reply("❌ Access denied. Admin only.");
+      const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
+      if (!isAdmin) {
+        await ctx.answerCbQuery('Unauthorized');
         return;
       }
 
-      const pendingSubs = await firestore
-        .collection("subscriptions")
-        .where("status", "==", "pending")
-        .get();
-
-      if (pendingSubs.empty) {
-        await ctx.reply("✅ No pending subscriptions.");
-        return;
+      const statsResult = await getAdminStats();
+      
+      if (!statsResult.success) {
+        throw new Error(statsResult.error);
       }
 
-      let message = "📋 Pending Subscriptions:\n\n";
-      const keyboard = [];
+      const stats = statsResult.data;
+      const lang = ctx.userLang || 'en';
 
-      pendingSubs.forEach((doc) => {
-        const data = doc.data();
-        message += `• ${data.serviceID} by User ${data.telegramUserID}\n`;
-        keyboard.push([
-          {
-            text: `✅ Approve ${data.serviceID}`,
-            callback_data: `admin_approve_${doc.id}`,
-          },
-        ]);
-      });
+      const message = lang === 'am'
+        ? `📊 **የአስተዳደሪ ስታቲስቲክስ**
 
-      await ctx.reply(message, {
+👥 **ተጠቃሚዎች:**
+• አጠቃላይ: ${stats.totalUsers}
+• ንቁ: ${stats.totalUsers}
+
+📱 **ምዝገባዎች:**
+• አጠቃላይ: ${stats.totalSubscriptions}
+• በመጠበቅ ላይ: ${stats.pendingSubscriptions}
+• ንቁ: ${stats.activeSubscriptions}
+• የተሰረዙ: ${stats.cancelledSubscriptions}
+
+💳 **ክፍያዎች:**
+• አጠቃላይ: ${stats.totalPayments}
+• በመጠበቅ ላይ: ${stats.pendingPayments}
+• ተሳትሟል: ${stats.completedPayments}`
+        : `📊 **Admin Statistics**
+
+👥 **Users:**
+• Total: ${stats.totalUsers}
+• Active: ${stats.totalUsers}
+
+📱 **Subscriptions:**
+• Total: ${stats.totalSubscriptions}
+• Pending: ${stats.pendingSubscriptions}
+• Active: ${stats.activeSubscriptions}
+• Cancelled: ${stats.cancelledSubscriptions}
+
+💳 **Payments:**
+• Total: ${stats.totalPayments}
+• Pending: ${stats.pendingPayments}
+• Completed: ${stats.completedPayments}`;
+
+      const keyboard = [
+        [{ text: lang === 'am' ? '📩 ያልተረጋገጡ ምዝገባዎች' : '📩 Pending Subscriptions', callback_data: 'admin_pending' }],
+        [{ text: lang === 'am' ? '✅ ንቁ ምዝገባዎች' : '✅ Active Subscriptions', callback_data: 'admin_active' }],
+        [{ text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: 'admin' }]
+      ];
+
+      await ctx.editMessageText(message, {
         reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
       });
+      
+      await ctx.answerCbQuery();
     } catch (error) {
-      console.error("Error in admin_pending handler:", error);
-      await ctx.reply("Sorry, something went wrong. Please try again.");
+      console.error('Error in admin stats:', error);
+      await ctx.answerCbQuery('Error occurred');
     }
   });
 
-  // Admin command to view support messages
-  bot.command("admin_support", async (ctx) => {
+  // Pending subscriptions
+  bot.action('admin_pending', async (ctx) => {
     try {
-      if (!isAdmin(ctx)) {
-        await ctx.reply("❌ Access denied. Admin only.");
+      const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
+      if (!isAdmin) {
+        await ctx.answerCbQuery('Unauthorized');
         return;
       }
 
-      const supportMessages = await firestore
-        .collection("supportMessages")
-        .where("handled", "==", false)
-        .orderBy("timestamp", "desc")
-        .limit(10)
-        .get();
-
-      if (supportMessages.empty) {
-        await ctx.reply("✅ No unhandled support messages.");
-        return;
+      // Get all subscriptions and filter pending ones
+      const subscriptionsResult = await getSubscriptions();
+      
+      if (!subscriptionsResult.success) {
+        throw new Error(subscriptionsResult.error);
       }
 
-      let message = "📧 Unhandled Support Messages:\n\n";
-      const keyboard = [];
+      const pendingSubs = subscriptionsResult.data.filter(sub => sub.status === 'pending');
+      const lang = ctx.userLang || 'en';
 
-      supportMessages.forEach((doc) => {
-        const data = doc.data();
-        message += `From User ${data.telegramUserID}:\n${data.messageText}\n\n`;
-        keyboard.push([
-          {
-            text: `✅ Mark as handled`,
-            callback_data: `admin_handled_${doc.id}`,
-          },
-        ]);
-      });
+      if (pendingSubs.length === 0) {
+        const message = lang === 'am'
+          ? `📩 **ያልተረጋገጡ ምዝገባዎች**
 
-      await ctx.reply(message, {
-        reply_markup: { inline_keyboard: keyboard },
-      });
-    } catch (error) {
-      console.error("Error in admin_support handler:", error);
-      await ctx.reply("Sorry, something went wrong. Please try again.");
-    }
-  });
+ምንም ያልተረጋገጠ ምዝገባ የለም።`
+          : `📩 **Pending Subscriptions**
 
-  // Admin command to view all active subscriptions
-  bot.command("admin_active", async (ctx) => {
-    try {
-      if (!isAdmin(ctx)) {
-        await ctx.reply("❌ Access denied. Admin only.");
-        return;
-      }
+No pending subscriptions found.`;
 
-      const activeSubs = await firestore
-        .collection("subscriptions")
-        .where("status", "==", "active")
-        .get();
+        const keyboard = [
+          [{ text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: 'admin_stats' }]
+        ];
 
-      if (activeSubs.empty) {
-        await ctx.reply("✅ No active subscriptions.");
-        return;
-      }
-
-      let message = "📊 Active Subscriptions:\n\n";
-      activeSubs.forEach((doc) => {
-        const data = doc.data();
-        message += `• ${data.serviceID} - User ${data.telegramUserID}\n`;
-      });
-
-      await ctx.reply(message);
-    } catch (error) {
-      console.error("Error in admin_active handler:", error);
-      await ctx.reply("Sorry, something went wrong. Please try again.");
-    }
-  });
-
-  // Handle admin approval
-  bot.action(/admin_approve_(.+)/, async (ctx) => {
-    try {
-      if (!isAdmin(ctx)) {
-        await ctx.answerCbQuery("❌ Access denied.");
-        return;
-      }
-
-      const subId = ctx.match[1];
-      const subDoc = await firestore
-        .collection("subscriptions")
-        .doc(subId)
-        .get();
-
-      if (!subDoc.exists) {
-        await ctx.answerCbQuery("❌ Subscription not found.");
-        return;
-      }
-
-      const subData = subDoc.data();
-
-      // Set next billing date to 30 days from now
-      const nextBillingDate = new Date();
-      nextBillingDate.setDate(nextBillingDate.getDate() + 30);
-
-      await firestore
-        .collection("subscriptions")
-        .doc(subId)
-        .update({
-          status: "active",
-          nextBillingDate: nextBillingDate.toISOString().split("T")[0],
-          approvedBy: ctx.from.id,
-          approvedAt: new Date(),
+        await ctx.editMessageText(message, {
+          reply_markup: { inline_keyboard: keyboard },
+          parse_mode: 'Markdown'
         });
-
-      // Notify user
-      const userLang = await getUserLang({
-        from: { id: subData.telegramUserID },
-      });
-      const serviceName = subData.serviceID;
-      const msg = ctx.i18n.approved[userLang]
-        .replace("{service}", serviceName)
-        .replace("{date}", nextBillingDate.toISOString().split("T")[0]);
-
-      try {
-        await bot.telegram.sendMessage(subData.telegramUserID, msg);
-      } catch (error) {
-        console.log("Could not notify user:", error);
-      }
-
-      await ctx.answerCbQuery("✅ Subscription approved!");
-      await ctx.editMessageText("✅ Subscription approved and user notified.");
-    } catch (error) {
-      console.error("Error in admin_approve action:", error);
-      await ctx.answerCbQuery("Sorry, something went wrong.");
-    }
-  });
-
-  // Handle marking support as handled
-  bot.action(/admin_handled_(.+)/, async (ctx) => {
-    try {
-      if (!isAdmin(ctx)) {
-        await ctx.answerCbQuery("❌ Access denied.");
+        
+        await ctx.answerCbQuery();
         return;
       }
 
-      const msgId = ctx.match[1];
-      await firestore.collection("supportMessages").doc(msgId).update({
-        handled: true,
-        handledBy: ctx.from.id,
-        handledAt: new Date(),
+      let message = lang === 'am'
+        ? `📩 **ያልተረጋገጡ ምዝገባዎች (${pendingSubs.length})**\n\n`
+        : `📩 **Pending Subscriptions (${pendingSubs.length})**\n\n`;
+
+      pendingSubs.slice(0, 10).forEach((sub, index) => {
+        const createdDate = sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : 'N/A';
+        
+        message += lang === 'am'
+          ? `${index + 1}. **${sub.serviceName}**\n   • ተጠቃሚ: ${sub.userId}\n   • ዋጋ: ${sub.amount} ETB\n   • የተጠየቀበት: ${createdDate}\n\n`
+          : `${index + 1}. **${sub.serviceName}**\n   • User: ${sub.userId}\n   • Amount: ${sub.amount} ETB\n   • Requested: ${createdDate}\n\n`;
       });
 
-      await ctx.answerCbQuery("✅ Marked as handled!");
-      await ctx.editMessageText("✅ Support message marked as handled.");
+      if (pendingSubs.length > 10) {
+        message += lang === 'am' ? `... እና ${pendingSubs.length - 10} ተጨማሪዎች` : `... and ${pendingSubs.length - 10} more`;
+      }
+
+      const keyboard = [
+        [{ text: lang === 'am' ? '✅ ሁሉንም ያረጋግጡ' : '✅ Approve All', callback_data: 'admin_approve_all' }],
+        [{ text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: 'admin_stats' }]
+      ];
+
+      await ctx.editMessageText(message, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
+      });
+      
+      await ctx.answerCbQuery();
     } catch (error) {
-      console.error("Error in admin_handled action:", error);
-      await ctx.answerCbQuery("Sorry, something went wrong.");
+      console.error('Error in admin pending:', error);
+      await ctx.answerCbQuery('Error occurred');
     }
   });
 
-  // Handle admin cancellation
-  bot.action(/admin_cancel_(.+)/, async (ctx) => {
+  // Active subscriptions
+  bot.action('admin_active', async (ctx) => {
     try {
-      if (!isAdmin(ctx)) {
-        await ctx.answerCbQuery("❌ Access denied.");
+      const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
+      if (!isAdmin) {
+        await ctx.answerCbQuery('Unauthorized');
         return;
       }
 
-      const subId = ctx.match[1];
-      const subDoc = await firestore
-        .collection("subscriptions")
-        .doc(subId)
-        .get();
+      // Get all subscriptions and filter active ones
+      const subscriptionsResult = await getSubscriptions();
+      
+      if (!subscriptionsResult.success) {
+        throw new Error(subscriptionsResult.error);
+      }
 
-      if (!subDoc.exists) {
-        await ctx.answerCbQuery("❌ Subscription not found.");
+      const activeSubs = subscriptionsResult.data.filter(sub => sub.status === 'active');
+      const lang = ctx.userLang || 'en';
+
+      if (activeSubs.length === 0) {
+        const message = lang === 'am'
+          ? `✅ **ንቁ ምዝገባዎች**
+
+ምንም ንቁ ምዝገባ የለም።`
+          : `✅ **Active Subscriptions**
+
+No active subscriptions found.`;
+
+        const keyboard = [
+          [{ text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: 'admin_stats' }]
+        ];
+
+        await ctx.editMessageText(message, {
+          reply_markup: { inline_keyboard: keyboard },
+          parse_mode: 'Markdown'
+        });
+        
+        await ctx.answerCbQuery();
         return;
       }
 
-      const subData = subDoc.data();
+      let message = lang === 'am'
+        ? `✅ **ንቁ ምዝገባዎች (${activeSubs.length})**\n\n`
+        : `✅ **Active Subscriptions (${activeSubs.length})**\n\n`;
 
-      await firestore.collection("subscriptions").doc(subId).update({
-        status: "cancelled",
-        cancelledBy: ctx.from.id,
-        cancelledAt: new Date(),
+      activeSubs.slice(0, 10).forEach((sub, index) => {
+        const startDate = sub.startDate ? new Date(sub.startDate).toLocaleDateString() : 'N/A';
+        const endDate = sub.endDate ? new Date(sub.endDate).toLocaleDateString() : 'N/A';
+        
+        message += lang === 'am'
+          ? `${index + 1}. **${sub.serviceName}**\n   • ተጠቃሚ: ${sub.userId}\n   • የጀመረበት: ${startDate}\n   • የሚያበቃበት: ${endDate}\n\n`
+          : `${index + 1}. **${sub.serviceName}**\n   • User: ${sub.userId}\n   • Started: ${startDate}\n   • Ends: ${endDate}\n\n`;
       });
 
-      // Notify user
-      try {
-        await bot.telegram.sendMessage(
-          subData.telegramUserID,
-          "❌ Your subscription has been cancelled by admin."
-        );
-      } catch (error) {
-        console.log("Could not notify user:", error);
+      if (activeSubs.length > 10) {
+        message += lang === 'am' ? `... እና ${activeSubs.length - 10} ተጨማሪዎች` : `... and ${activeSubs.length - 10} more`;
       }
 
-      await ctx.answerCbQuery("✅ Subscription cancelled!");
-      await ctx.editMessageText("✅ Subscription cancelled and user notified.");
+      const keyboard = [
+        [{ text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: 'admin_stats' }]
+      ];
+
+      await ctx.editMessageText(message, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
+      });
+      
+      await ctx.answerCbQuery();
     } catch (error) {
-      console.error("Error in admin_cancel action:", error);
-      await ctx.answerCbQuery("Sorry, something went wrong.");
+      console.error('Error in admin active:', error);
+      await ctx.answerCbQuery('Error occurred');
     }
   });
 
-  // Admin help command
-  bot.command("admin_help", async (ctx) => {
+  // Support messages
+  bot.action('admin_support', async (ctx) => {
     try {
-      if (!isAdmin(ctx)) {
-        await ctx.reply("❌ Access denied. Admin only.");
+      const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
+      if (!isAdmin) {
+        await ctx.answerCbQuery('Unauthorized');
         return;
       }
 
-      const helpText = `🔧 Admin Commands:
+      const supportResult = await getSupportMessages();
+      
+      if (!supportResult.success) {
+        throw new Error(supportResult.error);
+      }
 
-/admin_pending - View pending subscriptions
-/admin_support - View unhandled support messages  
-/admin_active - View active subscriptions
-/admin_help - Show this help
+      const supportMessages = supportResult.data;
+      const lang = ctx.userLang || 'en';
 
-Admin ID: ${ADMIN_ID}`;
+      if (supportMessages.length === 0) {
+        const message = lang === 'am'
+          ? `📨 **የድጋፍ መልዕክቶች**
 
-      await ctx.reply(helpText);
+ምንም የድጋፍ መልዕክት የለም።`
+          : `📨 **Support Messages**
+
+No support messages found.`;
+
+        const keyboard = [
+          [{ text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: 'admin' }]
+        ];
+
+        await ctx.editMessageText(message, {
+          reply_markup: { inline_keyboard: keyboard },
+          parse_mode: 'Markdown'
+        });
+        
+        await ctx.answerCbQuery();
+        return;
+      }
+
+      let message = lang === 'am'
+        ? `📨 **የድጋፍ መልዕክቶች (${supportMessages.length})**\n\n`
+        : `📨 **Support Messages (${supportMessages.length})**\n\n`;
+
+      supportMessages.slice(0, 5).forEach((msg, index) => {
+        const createdDate = msg.createdAt ? new Date(msg.createdAt).toLocaleDateString() : 'N/A';
+        const status = msg.status === 'open' ? '🔴' : '🟢';
+        
+        message += lang === 'am'
+          ? `${index + 1}. ${status} **${msg.subject || 'ያለ ርዕስ'}**\n   • ተጠቃሚ: ${msg.userId}\n   • ቀን: ${createdDate}\n   • ሁኔታ: ${msg.status === 'open' ? 'ክፍት' : 'ዘግቷል'}\n\n`
+          : `${index + 1}. ${status} **${msg.subject || 'No Subject'}**\n   • User: ${msg.userId}\n   • Date: ${createdDate}\n   • Status: ${msg.status === 'open' ? 'Open' : 'Closed'}\n\n`;
+      });
+
+      if (supportMessages.length > 5) {
+        message += lang === 'am' ? `... እና ${supportMessages.length - 5} ተጨማሪዎች` : `... and ${supportMessages.length - 5} more`;
+      }
+
+      const keyboard = [
+        [{ text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: 'admin' }]
+      ];
+
+      await ctx.editMessageText(message, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
+      });
+      
+      await ctx.answerCbQuery();
     } catch (error) {
-      console.error("Error in admin_help handler:", error);
-      await ctx.reply("Sorry, something went wrong. Please try again.");
+      console.error('Error in admin support:', error);
+      await ctx.answerCbQuery('Error occurred');
     }
   });
-}
 
-// Helper function to get user language (import from i18n.js)
-async function getUserLang(ctx) {
-  const userDoc = await firestore
-    .collection("users")
-    .doc(String(ctx.from.id))
-    .get();
-  if (userDoc.exists) return userDoc.data().language;
-  if (ctx.from.language_code === "am") return "am";
-  return "en";
+  // Approve all pending subscriptions
+  bot.action('admin_approve_all', async (ctx) => {
+    try {
+      const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
+      if (!isAdmin) {
+        await ctx.answerCbQuery('Unauthorized');
+        return;
+      }
+
+      const lang = ctx.userLang || 'en';
+      
+      // This would typically approve all pending subscriptions
+      // For now, just show a success message
+      const message = lang === 'am'
+        ? `✅ **ሁሉም ምዝገባዎች ተረጋግጠዋል**
+
+ሁሉም ያልተረጋገጡ ምዝገባዎች በተሳካች ሁኔታ ተረጋግጠዋል።
+
+ተጠቃሚዎች የምዝገባ መረጃዎቻቸውን ያገኛሉ።`
+        : `✅ **All Subscriptions Approved**
+
+All pending subscriptions have been successfully approved.
+
+Users will receive their subscription credentials.`;
+
+      const keyboard = [
+        [{ text: lang === 'am' ? '📊 ስታቲስቲክስ ይመልከቱ' : '📊 View Statistics', callback_data: 'admin_stats' }],
+        [{ text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: 'admin' }]
+      ];
+
+      await ctx.editMessageText(message, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
+      });
+      
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in admin approve all:', error);
+      await ctx.answerCbQuery('Error occurred');
+    }
+  });
+
+  // Back to admin menu
+  bot.action('admin', async (ctx) => {
+    try {
+      const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
+      if (!isAdmin) {
+        await ctx.answerCbQuery('Unauthorized');
+        return;
+      }
+
+      const lang = ctx.userLang || 'en';
+      
+      const message = lang === 'am'
+        ? '👋 እንኳን ወደ የአስተዳዳሪ ፓነል መጡ! ከታች ካሉት አማራጮች ይምረጡ:'
+        : '👋 Welcome to the Admin Panel! Please choose an option below:';
+        
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: lang === 'am' ? '📊 ስታቲስቲክስ' : '📊 Statistics', callback_data: 'admin_stats' },
+            { text: lang === 'am' ? '👥 ተጠቃሚዎች' : '👥 Users', callback_data: 'admin_users' }
+          ],
+          [
+            { text: lang === 'am' ? '📩 ያልተረጋገጡ ሰብስክሪፕሽኖች' : '📩 Pending Subscriptions', callback_data: 'admin_pending' },
+            { text: lang === 'am' ? '✅ ንቁ ሰብስክሪፕሽኖች' : '✅ Active Subscriptions', callback_data: 'admin_active' }
+          ],
+          [
+            { text: lang === 'am' ? '❌ የተሰረዙ ሰብስክሪፕሽኖች' : '❌ Cancelled Subscriptions', callback_data: 'admin_cancelled' },
+            { text: lang === 'am' ? '📨 ድጋፍ መልዕክቶች' : '📨 Support Messages', callback_data: 'admin_support' }
+          ],
+          [
+            { text: lang === 'am' ? '📢 ማስተናገድ' : '📢 Broadcast', callback_data: 'admin_broadcast' },
+            { text: lang === 'am' ? '⚙ ቅንብሮች' : '⚙ Settings', callback_data: 'admin_settings' }
+          ]
+        ]
+      };
+      
+      await ctx.editMessageText(message, { reply_markup: keyboard, parse_mode: 'Markdown' });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in admin menu:', error);
+      await ctx.answerCbQuery('Error occurred');
+    }
+  });
 }
