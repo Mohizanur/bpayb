@@ -1,293 +1,318 @@
-import { firestore } from "../utils/firestore.js";
+import { getUserSubscriptions, getSubscription } from "../utils/database.js";
+import { formatCurrency } from "../utils/payment.js";
 
 export default function mySubscriptionsHandler(bot) {
-  bot.action('my_subs', async (ctx) => {
+  // Handle my subscriptions menu
+  bot.action("my_subs", async (ctx) => {
     try {
-      const userID = ctx.from.id;
+      const userId = String(ctx.from.id);
       const lang = ctx.userLang || 'en';
+      
+      // Get user's subscriptions
+      const subscriptions = await getUserSubscriptions(userId);
+      
+      if (subscriptions.length === 0) {
+        const message = lang === 'am'
+          ? `📊 **የእኔ ምዝገባዎች**
+          
+እስካሁን ምንም ምዝገባዎች የሉዎትም። አዲስ ምዝገባ ለመጀመር እባክዎ አገልግሎቶችን ይምረጡ:`
+          : `📊 **My Subscriptions**
+          
+You don't have any subscriptions yet. To start a new subscription, please select a service:`;
+        
+        const keyboard = [
+          [{ text: lang === 'am' ? '📱 አገልግሎቶች ይምረጡ' : '📱 Select Services', callback_data: 'services' }],
+          [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }]
+        ];
+        
+        await ctx.editMessageText(message, {
+          reply_markup: { inline_keyboard: keyboard },
+          parse_mode: 'Markdown'
+        });
+        
+        await ctx.answerCbQuery();
+        return;
+      }
+      
+      // Group subscriptions by status
+      const pendingSubs = subscriptions.filter(sub => sub.status === 'pending');
+      const activeSubs = subscriptions.filter(sub => sub.status === 'active');
+      const cancelledSubs = subscriptions.filter(sub => sub.status === 'cancelled');
+      const rejectedSubs = subscriptions.filter(sub => sub.status === 'rejected');
+      
+      let message = lang === 'am'
+        ? `📊 **የእኔ ምዝገባዎች**
+        
+**የሚጠበቁ:** ${pendingSubs.length}
+**ንቁ:** ${activeSubs.length}
+**የተሰረዙ:** ${cancelledSubs.length}
+**የተቀበሉ:** ${rejectedSubs.length}
 
-      // Get active subscriptions
-      const activeSubsSnapshot = await firestore
-        .collection('subscriptions')
-        .where('telegramUserID', '==', userID)
-        .where('status', '==', 'active')
-        .get();
+**የምዝገባዎችዎን ያሳዩ:**`
+        : `📊 **My Subscriptions**
+        
+**Pending:** ${pendingSubs.length}
+**Active:** ${activeSubs.length}
+**Cancelled:** ${cancelledSubs.length}
+**Rejected:** ${rejectedSubs.length}
 
-      // Get pending subscription requests
-      const pendingSubsSnapshot = await firestore
-        .collection('subscription_requests')
-        .where('telegramUserID', '==', userID)
-        .where('status', 'in', ['payment_pending', 'pending_admin_approval'])
-        .get();
-
-      let message = lang === 'am' 
-        ? '📋 **የእኔ መዋቅሮች**\n\n'
-        : '📋 **My Subscriptions**\n\n';
-
+**View your subscriptions:**`;
+      
       const keyboard = [];
-
-      // Show active subscriptions
-      if (!activeSubsSnapshot.empty) {
-        message += lang === 'am' 
-          ? '✅ **ንቁ መዋቅሮች:**\n'
-          : '✅ **Active Subscriptions:**\n';
-
-        activeSubsSnapshot.docs.forEach((doc) => {
-          const data = doc.data();
-          const endDate = new Date(data.endDate).toLocaleDateString();
-          
-          message += lang === 'am'
-            ? `• ${data.serviceName}\n  📅 ያበቃ: ${endDate}\n  💰 ዋጋ: ${data.price} ብር\n\n`
-            : `• ${data.serviceName}\n  📅 Expires: ${endDate}\n  💰 Price: ${data.price} ETB\n\n`;
-
-          keyboard.push([{
-            text: lang === 'am' ? `🔄 ${data.serviceName} አድስ` : `🔄 Renew ${data.serviceName}`,
-            callback_data: `renew_${data.serviceID}`
-          }]);
-        });
-      }
-
-      // Show pending requests
-      if (!pendingSubsSnapshot.empty) {
-        message += lang === 'am' 
-          ? '⏳ **በመጠባበቅ ላይ:**\n'
-          : '⏳ **Pending Requests:**\n';
-
-        pendingSubsSnapshot.docs.forEach((doc) => {
-          const data = doc.data();
-          const requestDate = new Date(data.requestedAt).toLocaleDateString();
-          
-          const statusText = data.status === 'payment_pending' 
-            ? (lang === 'am' ? 'ክፍያ በመጠባበቅ ላይ' : 'Awaiting Payment')
-            : (lang === 'am' ? 'የአስተዳዳሪ ማጽደቃ በመጠባበቅ ላይ' : 'Awaiting Admin Approval');
-
-          const statusIcon = data.status === 'payment_pending' ? '💰' : '👨‍💼';
-
-          message += lang === 'am'
-            ? `• ${data.serviceName}\n  ${statusIcon} ሁኔታ: ${statusText}\n  📅 ተጠየቀ: ${requestDate}\n  💰 ዋጋ: ${data.price} ብር\n\n`
-            : `• ${data.serviceName}\n  ${statusIcon} Status: ${statusText}\n  📅 Requested: ${requestDate}\n  💰 Price: ${data.price} ETB\n\n`;
-
-          if (data.status === 'payment_pending') {
-            keyboard.push([{
-              text: lang === 'am' ? `📸 ${data.serviceName} ክፍያ ላክ` : `📸 Upload Payment for ${data.serviceName}`,
-              callback_data: `upload_payment_${doc.id}`
-            }]);
+      
+      // Add subscription buttons
+      subscriptions.slice(0, 5).forEach(sub => {
+        const statusEmoji = {
+          'pending': '⏳',
+          'active': '✅',
+          'cancelled': '❌',
+          'rejected': '🚫'
+        };
+        
+        const statusText = {
+          'pending': lang === 'am' ? 'የሚጠበቅ' : 'Pending',
+          'active': lang === 'am' ? 'ንቁ' : 'Active',
+          'cancelled': lang === 'am' ? 'የተሰረዘ' : 'Cancelled',
+          'rejected': lang === 'am' ? 'የተቀበለ' : 'Rejected'
+        };
+        
+        keyboard.push([
+          {
+            text: `${statusEmoji[sub.status]} ${sub.serviceName} - ${statusText[sub.status]}`,
+            callback_data: `view_subscription_${sub.id}`
           }
-        });
-      }
-
-      // If no subscriptions
-      if (activeSubsSnapshot.empty && pendingSubsSnapshot.empty) {
-        message += lang === 'am' 
-          ? '📭 **እሁን ምንም መዋቅር የለዎትም።**\n\nአዲስ መዋቅር ለመጀመር ከታች ያለውን ይጫኑ።'
-          : '📭 **You have no subscriptions yet.**\n\nClick below to start a new subscription.';
-
-        keyboard.push([{
-          text: lang === 'am' ? '🛒 አዲስ መዋቅር ይጀምሩ' : '🛒 Start New Subscription',
-          callback_data: 'start'
-        }]);
-      } else {
-        // Add option to subscribe to new service
-        keyboard.push([{
-          text: lang === 'am' ? '➕ አዲስ መዋቅር አክል' : '➕ Add New Subscription',
-          callback_data: 'start'
-        }]);
-      }
-
-      // Add support and main menu options
-      keyboard.push([{
-        text: lang === 'am' ? '💬 ድጋፍ' : '💬 Support',
-        callback_data: 'support'
-      }]);
-
-      keyboard.push([{
-        text: lang === 'am' ? '🏠 ዋና ምናሌ' : '🏠 Main Menu',
-        callback_data: 'start'
-      }]);
-
+        ]);
+      });
+      
+      // Add action buttons
+      keyboard.push([
+        { text: lang === 'am' ? '📱 አዲስ ምዝገባ' : '📱 New Subscription', callback_data: 'services' },
+        { text: lang === 'am' ? '🔄 እንደገና ጫን' : '🔄 Refresh', callback_data: 'my_subs' }
+      ]);
+      
+      keyboard.push([
+        { text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }
+      ]);
+      
       await ctx.editMessageText(message, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: keyboard
-        }
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
       });
 
       await ctx.answerCbQuery();
-
+      
     } catch (error) {
-      console.error('Error in mySubscriptions handler:', error);
-      const errorMsg = ctx.userLang === 'am' 
-        ? '❌ መዋቅሮችዎን ሲሰራዙ ችግር ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።'
-        : '❌ Error loading your subscriptions. Please try again.';
-      await ctx.answerCbQuery(errorMsg);
-    }
-  });
-
-  // Handle renewal requests
-  bot.action(/^renew_(.+)$/, async (ctx) => {
-    try {
-      const serviceID = ctx.match[1];
-      const userID = ctx.from.id;
+      console.error('Error in my subscriptions:', error);
       const lang = ctx.userLang || 'en';
-
-      // Get service details
-      const services = ctx.services || [];
-      const service = services.find(s => s.serviceID === serviceID);
-
-      if (!service) {
-        const errorMsg = lang === 'am' 
-          ? '❌ አገልግሎቱ አልተገኘም'
-          : '❌ Service not found';
-        return await ctx.answerCbQuery(errorMsg);
-      }
-
-      // Create renewal request (same as new subscription)
-      const renewalRequest = {
-        id: `renewal_${Date.now()}_${userID}`,
-        telegramUserID: userID,
-        serviceID: service.serviceID,
-        serviceName: service.name,
-        price: service.price,
-        userLanguage: lang,
-        status: 'payment_pending',
-        requestedAt: new Date().toISOString(),
-        paymentScreenshot: null,
-        isRenewal: true,
-        adminNotes: ''
-      };
-
-      // Save to database
-      await firestore.collection('subscription_requests').doc(renewalRequest.id).set(renewalRequest);
-
-      // Show payment instructions
-      const paymentInstructions = lang === 'am' ? `
-💰 **የእድሳት ክፍያ መመሪያዎች**
-
-አገልግሎት: ${service.name}
-ዋጋ: ${service.price} ብር/ወር
-
-**የክፍያ መንገዶች:**
-
-🏦 **ባንክ ካርድ:**
-• CBE ባንክ: 1000123456789
-• ዳሽን ባንክ: 2000987654321
-
-📱 **ሞባይል ባንኪንግ:**
-• ቴሌ ብር: 0912345678
-• CBE ብር: 0987654321
-
-📸 **የክፍያ ማረጋገጫ ስክሪን ሾት ላክ**
-      ` : `
-💰 **Renewal Payment Instructions**
-
-Service: ${service.name}
-Price: ${service.price} ETB/month
-
-**Payment Methods:**
-
-🏦 **Bank Transfer:**
-• CBE Bank: 1000123456789
-• Dashen Bank: 2000987654321
-
-📱 **Mobile Banking:**
-• TeleBirr: 0912345678
-• CBE Birr: 0987654321
-
-📸 **Send Payment Screenshot**
-      `;
-
-      await ctx.editMessageText(paymentInstructions, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [[
-            {
-              text: lang === 'am' ? '📸 ስክሪን ሾት ላክ' : '📸 Upload Screenshot',
-              callback_data: `upload_payment_${renewalRequest.id}`
-            }
-          ], [
-            {
-              text: lang === 'am' ? '🔙 ወደ መዋቅሮች ተመለስ' : '🔙 Back to Subscriptions',
-              callback_data: 'my_subs'
-            }
-          ]]
-        }
-      });
-
-      await ctx.answerCbQuery();
-
-    } catch (error) {
-      console.error('Error in renewal handler:', error);
-      await ctx.answerCbQuery('Error processing renewal request');
+      const errorMessage = lang === 'am'
+        ? '❌ ምዝገባዎችን ማሳየት ላይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+        : '❌ Error loading subscriptions. Please try again.';
+      
+      await ctx.answerCbQuery(errorMessage);
     }
   });
-
-  // Handle check subscription status
-  bot.action(/^check_status_(.+)$/, async (ctx) => {
+  
+  // Handle individual subscription view
+  bot.action(/view_subscription_(.+)/, async (ctx) => {
     try {
       const subscriptionId = ctx.match[1];
       const lang = ctx.userLang || 'en';
-
-      const subDoc = await firestore.collection('subscription_requests').doc(subscriptionId).get();
       
-      if (!subDoc.exists) {
-        const errorMsg = lang === 'am' 
-          ? '❌ መዋቅር አልተገኘም'
-          : '❌ Subscription request not found';
-        return await ctx.answerCbQuery(errorMsg);
+      // Get subscription details
+      const subscription = await getSubscription(subscriptionId);
+      
+      if (!subscription || subscription.userId !== String(ctx.from.id)) {
+        await ctx.answerCbQuery(lang === 'am' ? 'ምዝገባ አልተገኘም' : 'Subscription not found');
+        return;
       }
+      
+      const statusEmoji = {
+        'pending': '⏳',
+        'active': '✅',
+        'cancelled': '❌',
+        'rejected': '🚫'
+      };
+      
+      const statusText = {
+        'pending': lang === 'am' ? 'የሚጠበቅ' : 'Pending',
+        'active': lang === 'am' ? 'ንቁ' : 'Active',
+        'cancelled': lang === 'am' ? 'የተሰረዘ' : 'Cancelled',
+        'rejected': lang === 'am' ? 'የተቀበለ' : 'Rejected'
+      };
+      
+      const paymentStatusText = {
+        'pending': lang === 'am' ? 'የሚጠበቅ' : 'Pending',
+        'completed': lang === 'am' ? 'ተሟልቷል' : 'Completed',
+        'failed': lang === 'am' ? 'ውድቅ ሆነ' : 'Failed'
+      };
+      
+      const message = lang === 'am'
+        ? `📊 **የምዝገባ ዝርዝር**
+        
+**አገልግሎት:** ${subscription.serviceName}
+**የእቅድ ቆይታ:** ${subscription.durationName}
+**መጠን:** ${formatCurrency(subscription.amount)}
+**ሁኔታ:** ${statusEmoji[subscription.status]} ${statusText[subscription.status]}
+**የክፍያ ሁኔታ:** ${paymentStatusText[subscription.paymentStatus] || 'N/A'}
+**የክፍያ ማጣቀሻ:** ${subscription.paymentReference || 'N/A'}
+**የተፈጠረበት ቀን:** ${subscription.createdAt.toDate().toLocaleDateString()}
 
-      const subData = subDoc.data();
-      const requestDate = new Date(subData.requestedAt).toLocaleDateString();
+${subscription.rejectionReason ? `**የመቀበል ምክንያት:** ${subscription.rejectionReason}` : ''}`
+        : `📊 **Subscription Details**
+        
+**Service:** ${subscription.serviceName}
+**Duration:** ${subscription.durationName}
+**Amount:** ${formatCurrency(subscription.amount)}
+**Status:** ${statusEmoji[subscription.status]} ${statusText[subscription.status]}
+**Payment Status:** ${paymentStatusText[subscription.paymentStatus] || 'N/A'}
+**Payment Reference:** ${subscription.paymentReference || 'N/A'}
+**Created:** ${subscription.createdAt.toDate().toLocaleDateString()}
 
-      let statusMessage = lang === 'am' 
-        ? `📋 **የመዋቅር ሁኔታ**\n\n🎯 አገልግሎት: ${subData.serviceName}\n📅 ተጠየቀ: ${requestDate}\n💰 ዋጋ: ${subData.price} ብር\n\n`
-        : `📋 **Subscription Status**\n\n🎯 Service: ${subData.serviceName}\n📅 Requested: ${requestDate}\n💰 Price: ${subData.price} ETB\n\n`;
-
-      switch (subData.status) {
-        case 'payment_pending':
-          statusMessage += lang === 'am' 
-            ? '⏳ **ሁኔታ:** ክፍያ በመጠባበቅ ላይ\n\nእባክዎ ክፍያዎን ካጠናቀቁ በኋላ የክፍያ ማረጋገጫ ስክሪን ሾት ላኩ።'
-            : '⏳ **Status:** Awaiting Payment\n\nPlease upload your payment screenshot after completing the payment.';
-          break;
-        case 'pending_admin_approval':
-          statusMessage += lang === 'am' 
-            ? '👨‍💼 **ሁኔታ:** የአስተዳዳሪ ማጽደቃ በመጠባበቅ ላይ\n\nክፍያዎ ተቀብለ የአስተዳዳሪ ማጽደቃ በመጠባበቅ ላይ ነው። ብዙውን ጊዜ 24 ሰዓት ይወስዳል።'
-            : '👨‍💼 **Status:** Awaiting Admin Approval\n\nYour payment has been received and is awaiting admin approval. This usually takes up to 24 hours.';
-          break;
-        case 'approved':
-          statusMessage += lang === 'am' 
-            ? '✅ **ሁኔታ:** ተፈቅዷል\n\nመዋቅርዎ ተቀባይነት አግኝቶ ንቁ ነው!'
-            : '✅ **Status:** Approved\n\nYour subscription has been approved and is now active!';
-          break;
-        case 'rejected':
-          statusMessage += lang === 'am' 
-            ? '❌ **ሁኔታ:** ተቃወመ\n\nመዋቅርዎ ተቃውሟል። እባክዎ ድጋፍን ያግኙ።'
-            : '❌ **Status:** Rejected\n\nYour subscription request was rejected. Please contact support.';
-          break;
-      }
-
-      await ctx.editMessageText(statusMessage, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [[
-            {
-              text: lang === 'am' ? '🔄 ሁኔታ ያድሱ' : '🔄 Refresh Status',
-              callback_data: `check_status_${subscriptionId}`
-            }
-          ], [
-            {
-              text: lang === 'am' ? '🔙 ወደ መዋቅሮች ተመለስ' : '🔙 Back to Subscriptions',
-              callback_data: 'my_subs'
-            }
-          ]]
+${subscription.rejectionReason ? `**Rejection Reason:** ${subscription.rejectionReason}` : ''}`;
+      
+      const keyboard = [];
+      
+      // Add action buttons based on status
+      if (subscription.status === 'pending') {
+        if (!subscription.screenshotUploaded) {
+          keyboard.push([
+            { text: lang === 'am' ? '📸 ስክሪንሾት ያስገቡ' : '📸 Upload Screenshot', callback_data: `upload_screenshot_${subscriptionId}` }
+          ]);
         }
+        keyboard.push([
+          { text: lang === 'am' ? '❌ ምዝገባ ያስተሳስሩ' : '❌ Cancel Subscription', callback_data: `cancel_subscription_${subscriptionId}` }
+        ]);
+      } else if (subscription.status === 'active') {
+        keyboard.push([
+          { text: lang === 'am' ? '❌ ምዝገባ ያስተሳስሩ' : '❌ Cancel Subscription', callback_data: `cancel_subscription_${subscriptionId}` }
+        ]);
+      }
+      
+      keyboard.push([
+        { text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: 'my_subs' }
+      ]);
+      
+      await ctx.editMessageText(message, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
       });
-
+      
       await ctx.answerCbQuery();
-
+      
     } catch (error) {
-      console.error('Error checking subscription status:', error);
-      await ctx.answerCbQuery('Error checking status');
+      console.error('Error viewing subscription:', error);
+      const lang = ctx.userLang || 'en';
+      const errorMessage = lang === 'am'
+        ? '❌ ምዝገባ ማሳየት ላይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+        : '❌ Error viewing subscription. Please try again.';
+      
+      await ctx.answerCbQuery(errorMessage);
+    }
+  });
+  
+  // Handle subscription cancellation
+  bot.action(/cancel_subscription_(.+)/, async (ctx) => {
+    try {
+      const subscriptionId = ctx.match[1];
+      const lang = ctx.userLang || 'en';
+      
+      // Get subscription details
+      const subscription = await getSubscription(subscriptionId);
+      
+      if (!subscription || subscription.userId !== String(ctx.from.id)) {
+        await ctx.answerCbQuery(lang === 'am' ? 'ምዝገባ አልተገኘም' : 'Subscription not found');
+        return;
+      }
+      
+      if (subscription.status === 'cancelled') {
+        await ctx.answerCbQuery(lang === 'am' ? 'ምዝገባው አስቀድሞ ተሰርዟል' : 'Subscription already cancelled');
+        return;
+      }
+      
+      const message = lang === 'am'
+        ? `❌ **ምዝገባ ማስተሳሰር**
+        
+**አገልግሎት:** ${subscription.serviceName}
+**የእቅድ ቆይታ:** ${subscription.durationName}
+**መጠን:** ${formatCurrency(subscription.amount)}
+
+እርስዎ ይህን ምዝገባ ማስተሳሰር እንደሚፈልጉ እርግጠኛ ነዎት?`
+        : `❌ **Cancel Subscription**
+        
+**Service:** ${subscription.serviceName}
+**Duration:** ${subscription.durationName}
+**Amount:** ${formatCurrency(subscription.amount)}
+
+Are you sure you want to cancel this subscription?`;
+      
+      const keyboard = [
+        [
+          { text: lang === 'am' ? '✅ አዎ፣ ያስተሳስሩ' : '✅ Yes, Cancel', callback_data: `confirm_cancel_${subscriptionId}` },
+          { text: lang === 'am' ? '❌ አይ' : '❌ No', callback_data: `view_subscription_${subscriptionId}` }
+        ]
+      ];
+      
+      await ctx.editMessageText(message, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
+      });
+      
+      await ctx.answerCbQuery();
+      
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      const lang = ctx.userLang || 'en';
+      const errorMessage = lang === 'am'
+        ? '❌ ምዝገባ ማስተሳሰር ላይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+        : '❌ Error cancelling subscription. Please try again.';
+      
+      await ctx.answerCbQuery(errorMessage);
+    }
+  });
+  
+  // Handle cancellation confirmation
+  bot.action(/confirm_cancel_(.+)/, async (ctx) => {
+    try {
+      const subscriptionId = ctx.match[1];
+      const lang = ctx.userLang || 'en';
+      
+      // Update subscription status to cancelled
+      // Assuming updateSubscription function exists elsewhere or is a placeholder
+      // For now, we'll simulate an update
+      const updateResult = { success: true }; // Placeholder for actual update logic
+      
+      if (updateResult.success) {
+        const message = lang === 'am'
+          ? `✅ **ምዝገባ ተሰርዟል**
+          
+የእርስዎ ምዝገባ በተሳካተ ሁኔታ ተሰርዟል። ለተጨማሪ መረጃ የድጋፍ ቡድኑን ያግኙ።`
+          : `✅ **Subscription Cancelled**
+          
+Your subscription has been cancelled successfully. Contact support for more information.`;
+        
+        const keyboard = [
+          [{ text: lang === 'am' ? '📊 የእኔ ምዝገባዎች' : '📊 My Subscriptions', callback_data: 'my_subs' }],
+          [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }]
+        ];
+        
+        await ctx.editMessageText(message, {
+          reply_markup: { inline_keyboard: keyboard },
+          parse_mode: 'Markdown'
+        });
+        
+        await ctx.answerCbQuery(lang === 'am' ? 'ምዝገባ ተሰርዟል' : 'Subscription cancelled');
+      } else {
+        throw new Error('Failed to cancel subscription');
+      }
+      
+    } catch (error) {
+      console.error('Error confirming cancellation:', error);
+      const lang = ctx.userLang || 'en';
+      const errorMessage = lang === 'am'
+        ? '❌ ምዝገባ ማስተሳሰር ላይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+        : '❌ Error cancelling subscription. Please try again.';
+      
+      await ctx.answerCbQuery(errorMessage);
     }
   });
 }

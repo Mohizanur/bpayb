@@ -93,90 +93,38 @@
                 <span class="custom-subscription">Custom Subscription</span>
             </div>
             <div class="services-grid">
-                <div class="service-card">
-                    <h3>Netflix</h3>
-                    <p>Stream your favorite movies and TV shows</p>
-                </div>
-                <div class="service-card">
-                    <h3>Spotify</h3>
-                    <p>Millions of songs and podcasts</p>
-                </div>
-                <div class="service-card">
-                    <h3>Adobe Creative Cloud</h3>
-                    <p>Professional creative applications</p>
-                </div>
-                <div class="service-card">
-                    <h3>Zoom Pro</h3>
-                    <p>Professional video conferencing solution</p>
-                </div>
-                <div class="service-card">
-                    <h3>Duolingo Plus</h3>
-                    <p>Premium language learning experience</p>
-                </div>
-                <div class="service-card">
-                    <h3>Amazon Prime</h3>
-                    <p>Shopping, streaming, and more</p>
-                </div>
-                <div class="service-card">
-                    <h3>Xbox Game Pass</h3>
-                    <p>Access hundreds of high-quality games</p>
-                </div>
-                <div class="service-card">
-                    <h3>Google Workspace</h3>
-                    <p>Professional email and collaboration tools</p>
-                </div>
-                <div class="service-card">
-                    <h3>AI Subscription</h3>
-                    <p>Custom AI service subscriptions</p>
-                </div>
-                <div class="service-card">
-                    <h3>Disney+</h3>
-                    <p>Stream Disney, Marvel, Star Wars and more</p>
-                </div>
-                <div class="service-card">
-                    <h3>Application Fee</h3>
-                    <p>Custom application service fee</p>
-                </div>
+                <!-- Services will be loaded dynamically from API -->
             </div>
-
-            <!-- Duration Selection -->
-            <div class="duration-section">
+            
+            <!-- Duration Selection Section -->
+            <div class="duration-section" style="display: none;">
                 <h3>Select Duration</h3>
-                <div class="duration-grid">
-                    <div class="duration-card">
-                        <h4>1 Month</h4>
-                        <p>All Services Available</p>
-                    </div>
-                    <div class="duration-card">
-                        <h4>3 Months</h4>
-                        <p>All Services Available</p>
-                    </div>
-                    <div class="duration-card">
-                        <h4>6 Months</h4>
-                        <p>All Services Available</p>
-                    </div>
-                    <div class="duration-card">
-                        <h4>12 Months</h4>
-                        <p>All Services Available</p>
-                    </div>
+                <div class="duration-options">
+                    <!-- Duration options will be loaded dynamically -->
                 </div>
             </div>
-
+            
+            <!-- Payment Methods Section -->
+            <div class="payment-section" style="display: none;">
+                <h3>Select Payment Method</h3>
+                <div class="payment-methods">
+                    <!-- Payment methods will be loaded dynamically -->
+                </div>
+            </div>
+            
+            <!-- Payment Instructions Section -->
+            <div class="payment-instructions" style="display: none;">
+                <!-- Payment instructions will be shown here -->
+            </div>
+            
             <!-- Action Buttons -->
             <div class="action-buttons">
-                <div class="action-card">
-                    <div class="action-icon">
-                        <i class="fas fa-plus"></i>
-                    </div>
-                    <h3>Start New Plan</h3>
-                    <p>Choose your plan and begin your journey with our premium subscription services.</p>
-                    <button class="btn-primary btn-full">Start New Plan</button>
-                    <ul class="action-features">
-                        <li><i class="fas fa-check"></i> Choose from multiple services</li>
-                        <li><i class="fas fa-check"></i> Flexible payment options</li>
-                        <li><i class="fas fa-check"></i> 24/7 customer support</li>
-                    </ul>
-                </div>
+                <button id="btn-proceed-payment" class="btn-primary" disabled>
+                    Proceed to Payment
+                </button>
+            </div>
+
+
                 <div class="action-card">
                     <div class="action-icon">
                         <i class="fas fa-sync-alt"></i>

@@ -1,362 +1,244 @@
-import { firestore } from "../utils/firestore.js";
+import { createSubscription, getUser } from "../utils/database.js";
+import { processPayment, PAYMENT_METHODS, calculateAmount, formatCurrency } from "../utils/payment.js";
+import { loadServices } from "../utils/loadServices.js";
 
 export default function subscribeHandler(bot) {
-  // Handle subscription requests
-  bot.action(/^subscribe_(.+)$/, async (ctx) => {
+  // Handle service selection
+  bot.action(/select_service_(.+)/, async (ctx) => {
     try {
-      const serviceID = ctx.match[1];
-      const userID = ctx.from.id;
+      const serviceId = ctx.match[1];
       const lang = ctx.userLang || 'en';
       
-      // Get service details
-      const services = ctx.services || [];
-      const service = services.find(s => s.serviceID === serviceID);
+      // Load services
+      const services = await loadServices();
+      const selectedService = services.find(s => s.serviceID === serviceId);
       
-      if (!service) {
-        const errorMsg = lang === 'am' 
-          ? '❌ አገልግሎቱ አልተገኘም'
-          : '❌ Service not found';
-        return await ctx.answerCbQuery(errorMsg);
-      }
-
-      // Create subscription request
-      const subscriptionRequest = {
-        id: `sub_${Date.now()}_${userID}`,
-        telegramUserID: userID,
-        serviceID: service.serviceID,
-        serviceName: service.name,
-        price: service.price,
-        userLanguage: lang,
-        status: 'payment_pending',
-        requestedAt: new Date().toISOString(),
-        paymentScreenshot: null,
-        adminNotes: ''
-      };
-
-      // Save to database
-      await firestore.collection('subscription_requests').doc(subscriptionRequest.id).set(subscriptionRequest);
-
-      // Payment instructions message
-      const paymentInstructions = lang === 'am' ? `
-💰 **የክፍያ መመሪያዎች**
-
-አገልግሎት: ${service.name}
-ዋጋ: ${service.price} ብር/ወር
-
-**የክፍያ መንገዶች:**
-
-🏦 **ባንክ ካርድ:**
-• CBE ባንክ: 1000123456789
-• ዳሽን ባንክ: 2000987654321
-• አቢሲኒያ ባንክ: 3000555444333
-
-📱 **ሞባይል ባንኪንግ:**
-• ቴሌ ብር: 0912345678
-• CBE ብር: 0987654321
-
-**ማስታወሻ:** ከተከፈለ በኋላ የክፍያ ማረጋገጫ ስክሪን ሾት ላክልን
-      ` : `
-💰 **Payment Instructions**
-
-Service: ${service.name}
-Price: ${service.price} ETB/month
-
-**Payment Methods:**
-
-🏦 **Bank Transfer:**
-• CBE Bank: 1000123456789
-• Dashen Bank: 2000987654321
-• Abyssinia Bank: 3000555444333
-
-📱 **Mobile Banking:**
-• TeleBirr: 0912345678
-• CBE Birr: 0987654321
-
-**Note:** After payment, send us the payment screenshot for verification
-      `;
-
-      const uploadInstructions = lang === 'am' 
-        ? '\n📸 **የክፍያ ማረጋገጫ ስክሪን ሾት ላክ**\n\nየክፍያ ማረጋገጫ ስክሪን ሾት ወይም ሪሲት ፎቶ ላኩልን፣ ወዲያውኑ አገልግሎትዎን እንጀምራለን።'
-        : '\n📸 **Send Payment Screenshot**\n\nSend us your payment screenshot or receipt photo, and we\'ll activate your service immediately.';
-
-      await ctx.editMessageText(paymentInstructions + uploadInstructions, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [[
-            {
-              text: lang === 'am' ? '📸 ስክሪን ሾት ላክ' : '📸 Upload Screenshot',
-              callback_data: `upload_payment_${subscriptionRequest.id}`
-            }
-          ], [
-            {
-              text: lang === 'am' ? '🔙 ተመለስ' : '🔙 Back',
-              callback_data: 'back_to_services'
-            }
-          ]]
-        }
-      });
-
-      await ctx.answerCbQuery();
-      
-    } catch (error) {
-      console.error('Error in subscribe handler:', error);
-      await ctx.answerCbQuery('Error processing subscription request');
-    }
-  });
-
-  // Handle payment screenshot upload request
-  bot.action(/^upload_payment_(.+)$/, async (ctx) => {
-    try {
-      const subscriptionId = ctx.match[1];
-      const lang = ctx.userLang || 'en';
-
-      const instructionMsg = lang === 'am' 
-        ? '📸 እባክዎ የክፍያ ማረጋገጫ ስክሪን ሾት ወይም ሪሲት ፎቶ ላኩ (JPG, PNG formats)'
-        : '📸 Please send your payment screenshot or receipt photo (JPG, PNG formats)';
-
-      await ctx.editMessageText(instructionMsg, {
-        reply_markup: {
-          inline_keyboard: [[
-            {
-              text: lang === 'am' ? '❌ ተወው' : '❌ Cancel',
-              callback_data: 'cancel_upload'
-            }
-          ]]
-        }
-      });
-
-      // Store the subscription ID for this user
-      ctx.session = ctx.session || {};
-      ctx.session.pendingScreenshot = subscriptionId;
-
-      await ctx.answerCbQuery();
-    } catch (error) {
-      console.error('Error in upload payment handler:', error);
-      await ctx.answerCbQuery('Error processing upload request');
-    }
-  });
-
-  // Handle photo uploads for payment verification
-  bot.on('photo', async (ctx) => {
-    try {
-      const userID = ctx.from.id;
-      const lang = ctx.userLang || 'en';
-      
-      // Check if user has pending screenshot upload
-      const pendingScreenshot = ctx.session?.pendingScreenshot;
-      if (!pendingScreenshot) {
-        const noRequestMsg = lang === 'am' 
-          ? '❌ የክፍያ ማረጋገጫ ጥያቄ አልተገኘም። እባክዎ በመጀመሪያ አገልግሎት ይምረጡ።'
-          : '❌ No payment verification request found. Please select a service first.';
-        return await ctx.reply(noRequestMsg);
-      }
-
-      // Get the largest photo size
-      const photo = ctx.message.photo[ctx.message.photo.length - 1];
-      
-      // Update subscription request with photo
-      await firestore.collection('subscription_requests').doc(pendingScreenshot).update({
-        paymentScreenshot: {
-          file_id: photo.file_id,
-          file_size: photo.file_size,
-          uploadedAt: new Date().toISOString()
-        },
-        status: 'pending_admin_approval'
-      });
-
-      // Clear pending screenshot
-      delete ctx.session.pendingScreenshot;
-
-      const successMsg = lang === 'am' 
-        ? '✅ ክፍያ ማረጋገጫ ስክሪን ሾት በተሳካ ሁኔታ ተልኳል!\n\n👨‍💼 አስተዳዳሪዎች ይመረመራሉ እና በቅርቡ አገልግሎትዎን ያገጥሙታል።\n\n⏰ ብዙ ጊዜ ወስዶ 24 ሰዓት ውስጥ ይሆናል።'
-        : '✅ Payment screenshot uploaded successfully!\n\n👨‍💼 Admins will review and activate your service soon.\n\n⏰ This usually takes up to 24 hours.';
-
-      await ctx.reply(successMsg, {
-        reply_markup: {
-          inline_keyboard: [[
-            {
-                             text: lang === 'am' ? '📋 የእኔ ማግኘቶች' : '📋 My Subscriptions',
-               callback_data: 'my_subs'
-            }
-          ], [
-            {
-              text: lang === 'am' ? '🏠 ዋና ምናሌ' : '🏠 Main Menu',
-              callback_data: 'start'
-            }
-          ]]
-        }
-      });
-
-      // Notify admin about new payment screenshot
-      const adminId = process.env.ADMIN_TELEGRAM_ID;
-      if (adminId) {
-        try {
-          // Get subscription details
-          const subDoc = await firestore.collection('subscription_requests').doc(pendingScreenshot).get();
-          const subData = subDoc.data();
-
-          const adminNotification = `🔔 **New Payment Screenshot**
-
-📋 **Subscription ID:** ${pendingScreenshot}
-👤 **User:** ${ctx.from.first_name} ${ctx.from.last_name || ''} (@${ctx.from.username || 'no_username'})
-📱 **Telegram ID:** ${userID}
-🎯 **Service:** ${subData.serviceName}
-💰 **Amount:** ${subData.price} ETB
-
-⏰ **Submitted:** ${new Date().toLocaleString()}
-
-Use /admin to review and approve.`;
-
-          await bot.telegram.sendMessage(adminId, adminNotification, { parse_mode: 'Markdown' });
-          await bot.telegram.sendPhoto(adminId, photo.file_id, {
-            caption: `Payment screenshot for subscription: ${pendingScreenshot}`
-          });
-        } catch (adminError) {
-          console.log("Could not notify admin:", adminError.message);
-        }
-      }
-
-    } catch (error) {
-      console.error('Error handling photo upload:', error);
-      const errorMsg = ctx.userLang === 'am' 
-        ? '❌ ስክሪን ሾት መላክ አልተሳካም። እባክዎ እንደገና ይሞክሩ።'
-        : '❌ Failed to upload screenshot. Please try again.';
-      await ctx.reply(errorMsg);
-    }
-  });
-
-  // Handle document uploads (for PDF receipts)
-  bot.on('document', async (ctx) => {
-    try {
-      const document = ctx.message.document;
-      const userID = ctx.from.id;
-      const lang = ctx.userLang || 'en';
-      
-      // Check if it's a PDF or image
-      const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png'];
-      if (!allowedMimeTypes.includes(document.mime_type)) {
-        const errorMsg = lang === 'am' 
-          ? '❌ እባክዎ PDF, JPG ወይም PNG ፋይል ብቻ ላኩ'
-          : '❌ Please send only PDF, JPG or PNG files';
-        return await ctx.reply(errorMsg);
-      }
-
-      // Check if user has pending screenshot upload
-      const pendingScreenshot = ctx.session?.pendingScreenshot;
-      if (!pendingScreenshot) {
-        const noRequestMsg = lang === 'am' 
-          ? '❌ የክፍያ ማረጋገጫ ጥያቄ አልተገኘም። እባክዎ በመጀመሪያ አገልግሎት ይምረጡ።'
-          : '❌ No payment verification request found. Please select a service first.';
-        return await ctx.reply(noRequestMsg);
-      }
-
-      // Update subscription request with document
-      await firestore.collection('subscription_requests').doc(pendingScreenshot).update({
-        paymentScreenshot: {
-          file_id: document.file_id,
-          file_name: document.file_name,
-          file_size: document.file_size,
-          mime_type: document.mime_type,
-          uploadedAt: new Date().toISOString()
-        },
-        status: 'pending_admin_approval'
-      });
-
-      // Clear pending screenshot
-      delete ctx.session.pendingScreenshot;
-
-      const successMsg = lang === 'am' 
-        ? '✅ ክፍያ ማረጋገጫ በተሳካ ሁኔታ ተልኳል!\n\n👨‍💼 አስተዳዳሪዎች ይመረመራሉ እና በቅርቡ አገልግሎትዎን ያገጥሙታል።'
-        : '✅ Payment verification uploaded successfully!\n\n👨‍💼 Admins will review and activate your service soon.';
-
-      await ctx.reply(successMsg);
-
-      // Notify admin
-      const adminId = process.env.ADMIN_TELEGRAM_ID;
-      if (adminId) {
-        try {
-          const subDoc = await firestore.collection('subscription_requests').doc(pendingScreenshot).get();
-          const subData = subDoc.data();
-
-          const adminNotification = `🔔 **New Payment Document**
-
-📋 **Subscription ID:** ${pendingScreenshot}
-👤 **User:** ${ctx.from.first_name} ${ctx.from.last_name || ''} (@${ctx.from.username || 'no_username'})
-📱 **Telegram ID:** ${userID}
-🎯 **Service:** ${subData.serviceName}
-💰 **Amount:** ${subData.price} ETB
-📄 **File:** ${document.file_name}
-
-Use /admin to review and approve.`;
-
-          await bot.telegram.sendMessage(adminId, adminNotification, { parse_mode: 'Markdown' });
-          await bot.telegram.sendDocument(adminId, document.file_id, {
-            caption: `Payment document for subscription: ${pendingScreenshot}`
-          });
-        } catch (adminError) {
-          console.log("Could not notify admin:", adminError.message);
-        }
-      }
-
-    } catch (error) {
-      console.error('Error handling document upload:', error);
-      const errorMsg = ctx.userLang === 'am' 
-        ? '❌ ሰነድ መላክ አልተሳካም። እባክዎ እንደገና ይሞክሩ።'
-        : '❌ Failed to upload document. Please try again.';
-      await ctx.reply(errorMsg);
-    }
-  });
-
-  // Handle back to services navigation
-  bot.action('back_to_services', async (ctx) => {
-    try {
-      // Redirect to main services menu
-      ctx.match = ['services']; // Simulate services callback
-      // You could also call start handler services action here
-      await ctx.answerCbQuery();
-      await ctx.editMessageText('Please use /start to return to the main menu.', {
-        reply_markup: {
-          inline_keyboard: [[
-            {
-              text: ctx.userLang === 'am' ? '🏠 ዋና ምናሌ' : '🏠 Main Menu',
-              callback_data: 'start'
-            }
-          ]]
-        }
-      });
-    } catch (error) {
-      console.error('Error in back_to_services:', error);
-      await ctx.answerCbQuery();
-    }
-  });
-
-  // Handle cancel upload
-  bot.action('cancel_upload', async (ctx) => {
-    try {
-      const lang = ctx.userLang || 'en';
-      // Clear pending screenshot session
-      if (ctx.session) {
-        delete ctx.session.pendingScreenshot;
+      if (!selectedService) {
+        await ctx.answerCbQuery(lang === 'am' ? 'አገልግሎት አልተገኘም' : 'Service not found');
+        return;
       }
       
-      const cancelMsg = lang === 'am' 
-        ? '❌ ስክሪን ሾት መላክ ተሰርዟል'
-        : '❌ Screenshot upload cancelled';
+      // Show duration options
+      const durationOptions = [
+        { id: '1_month', name: lang === 'am' ? '1 ወር' : '1 Month', price: selectedService.price },
+        { id: '3_months', name: lang === 'am' ? '3 ወር' : '3 Months', price: calculateAmount(selectedService.price, '3_months') },
+        { id: '6_months', name: lang === 'am' ? '6 ወር' : '6 Months', price: calculateAmount(selectedService.price, '6_months') },
+        { id: '12_months', name: lang === 'am' ? '12 ወር' : '12 Months', price: calculateAmount(selectedService.price, '12_months') }
+      ];
+      
+      const keyboard = durationOptions.map(duration => [
+        {
+          text: `${duration.name} - ${formatCurrency(duration.price)}`,
+          callback_data: `select_duration_${serviceId}_${duration.id}`
+        }
+      ]);
+      
+      keyboard.push([
+        { text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: 'services' }
+      ]);
+      
+      const message = lang === 'am'
+        ? `📱 **${selectedService.name}**
         
-      await ctx.editMessageText(cancelMsg, {
-        reply_markup: {
-          inline_keyboard: [[
-            {
-              text: lang === 'am' ? '🏠 ዋና ምናሌ' : '🏠 Main Menu',
-              callback_data: 'start'
-            }
-          ]]
-        }
+${selectedService.description}
+
+**የእቅድ አማራጮችን ይምረጡ:**`
+        : `📱 **${selectedService.name}**
+        
+${selectedService.description}
+
+**Select your plan:**`;
+      
+      await ctx.editMessageText(message, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
       });
+      
       await ctx.answerCbQuery();
+      
     } catch (error) {
-      console.error('Error in cancel_upload:', error);
+      console.error('Error in service selection:', error);
+      await ctx.answerCbQuery('Error occurred');
+    }
+  });
+  
+  // Handle duration selection
+  bot.action(/select_duration_(.+)_(.+)/, async (ctx) => {
+    try {
+      const serviceId = ctx.match[1];
+      const durationId = ctx.match[2];
+      const lang = ctx.userLang || 'en';
+      
+      // Load services
+      const services = await loadServices();
+      const selectedService = services.find(s => s.serviceID === serviceId);
+      
+      if (!selectedService) {
+        await ctx.answerCbQuery(lang === 'am' ? 'አገልግሎት አልተገኘም' : 'Service not found');
+        return;
+      }
+      
+      const amount = calculateAmount(selectedService.price, durationId);
+      const durationNames = {
+        '1_month': lang === 'am' ? '1 ወር' : '1 Month',
+        '3_months': lang === 'am' ? '3 ወር' : '3 Months',
+        '6_months': lang === 'am' ? '6 ወር' : '6 Months',
+        '12_months': lang === 'am' ? '12 ወር' : '12 Months'
+      };
+      
+      // Show payment methods
+      const paymentMethods = Object.values(PAYMENT_METHODS);
+      const keyboard = paymentMethods.map(method => [
+        {
+          text: lang === 'am' ? method.name_am : method.name,
+          callback_data: `select_payment_${serviceId}_${durationId}_${method.id}`
+        }
+      ]);
+      
+      keyboard.push([
+        { text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: `select_service_${serviceId}` }
+      ]);
+      
+      const message = lang === 'am'
+        ? `💳 **የክፍያ ዘዴ ይምረጡ**
+        
+**አገልግሎት:** ${selectedService.name}
+**የእቅድ ቆይታ:** ${durationNames[durationId]}
+**መጠን:** ${formatCurrency(amount)}
+
+**የክፍያ ዘዴውን ይምረጡ:**`
+        : `💳 **Select Payment Method**
+        
+**Service:** ${selectedService.name}
+**Duration:** ${durationNames[durationId]}
+**Amount:** ${formatCurrency(amount)}
+
+**Select your payment method:**`;
+      
+      await ctx.editMessageText(message, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
+      });
+      
       await ctx.answerCbQuery();
+      
+    } catch (error) {
+      console.error('Error in duration selection:', error);
+      await ctx.answerCbQuery('Error occurred');
+    }
+  });
+  
+  // Handle payment method selection
+  bot.action(/select_payment_(.+)_(.+)_(.+)/, async (ctx) => {
+    try {
+      const serviceId = ctx.match[1];
+      const durationId = ctx.match[2];
+      const paymentMethodId = ctx.match[3];
+      const lang = ctx.userLang || 'en';
+      
+      // Load services
+      const services = await loadServices();
+      const selectedService = services.find(s => s.serviceID === serviceId);
+      
+      if (!selectedService) {
+        await ctx.answerCbQuery(lang === 'am' ? 'አገልግሎት አልተገኘም' : 'Service not found');
+        return;
+      }
+      
+      const paymentMethod = PAYMENT_METHODS[paymentMethodId];
+      if (!paymentMethod) {
+        await ctx.answerCbQuery(lang === 'am' ? 'የክፍያ ዘዴ አልተገኘም' : 'Payment method not found');
+        return;
+      }
+      
+      const amount = calculateAmount(selectedService.price, durationId);
+      const durationNames = {
+        '1_month': lang === 'am' ? '1 ወር' : '1 Month',
+        '3_months': lang === 'am' ? '3 ወር' : '3 Months',
+        '6_months': lang === 'am' ? '6 ወር' : '6 Months',
+        '12_months': lang === 'am' ? '12 ወር' : '12 Months'
+      };
+      
+      // Create subscription
+      const subscriptionData = {
+        userId: String(ctx.from.id),
+        serviceId: serviceId,
+        serviceName: selectedService.name,
+        duration: durationId,
+        durationName: durationNames[durationId],
+        amount: amount,
+        basePrice: selectedService.price,
+        paymentMethod: paymentMethodId
+      };
+      
+      const subscriptionResult = await createSubscription(subscriptionData);
+      
+      if (!subscriptionResult.success) {
+        throw new Error('Failed to create subscription');
+      }
+      
+      // Process payment
+      const paymentResult = await processPayment({
+        ...subscriptionData,
+        subscriptionId: subscriptionResult.subscriptionId
+      }, paymentMethodId);
+      
+      if (!paymentResult.success) {
+        throw new Error('Failed to process payment');
+      }
+      
+      // Show payment instructions
+      const instructions = lang === 'am' 
+        ? paymentMethod.instructions_am.replace('{reference}', paymentResult.paymentReference)
+        : paymentMethod.instructions.replace('{reference}', paymentResult.paymentReference);
+      
+      const message = lang === 'am'
+        ? `💳 **የክፍያ መመሪያዎች**
+        
+**አገልግሎት:** ${selectedService.name}
+**የእቅድ ቆይታ:** ${durationNames[durationId]}
+**መጠን:** ${formatCurrency(amount)}
+**የክፍያ ዘዴ:** ${paymentMethod.name_am}
+**የክፍያ ማጣቀሻ:** ${paymentResult.paymentReference}
+
+**የክፍያ መመሪያዎች:**
+${instructions}
+
+**ክፍያውን ካደረጉ በኋላ ስክሪንሾትዎን ያስገቡ:**`
+        : `💳 **Payment Instructions**
+        
+**Service:** ${selectedService.name}
+**Duration:** ${durationNames[durationId]}
+**Amount:** ${formatCurrency(amount)}
+**Payment Method:** ${paymentMethod.name}
+**Payment Reference:** ${paymentResult.paymentReference}
+
+**Payment Instructions:**
+${instructions}
+
+**After making the payment, upload your screenshot:**`;
+      
+      const keyboard = [
+        [{ text: lang === 'am' ? '📸 ስክሪንሾት ያስገቡ' : '📸 Upload Screenshot', callback_data: `upload_screenshot_${subscriptionResult.subscriptionId}` }],
+        [{ text: lang === 'am' ? '📊 የእኔ ምዝገባዎች' : '📊 My Subscriptions', callback_data: 'my_subs' }],
+        [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }]
+      ];
+      
+      await ctx.editMessageText(message, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
+      });
+      
+      await ctx.answerCbQuery();
+      
+    } catch (error) {
+      console.error('Error in payment method selection:', error);
+      const lang = ctx.userLang || 'en';
+      const errorMessage = lang === 'am'
+        ? '❌ ምዝገባ ማድረጊያ ላይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+        : '❌ Error creating subscription. Please try again.';
+      
+      await ctx.answerCbQuery(errorMessage);
     }
   });
 }
