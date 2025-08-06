@@ -32,6 +32,12 @@ let usersRouteRegistered = false;
 
 // User Management API
 export const userRoutes = (fastify) => {
+  if (usersRouteRegistered) {
+    console.log('⚠️ User routes already registered, skipping...');
+    return;
+  }
+  usersRouteRegistered = true;
+  
   // Get all users (Admin)
   fastify.get('/api/users', async (req, reply) => {
     try {
@@ -100,7 +106,15 @@ export const userRoutes = (fastify) => {
 };
 
 // Services API
+let servicesRouteRegistered = false;
+
 export const servicesRoutes = (fastify) => {
+  if (servicesRouteRegistered) {
+    console.log('⚠️ Services routes already registered, skipping...');
+    return;
+  }
+  servicesRouteRegistered = true;
+  
   // Get all services
   fastify.get('/api/services', async (req, reply) => {
     try {
@@ -114,7 +128,15 @@ export const servicesRoutes = (fastify) => {
 };
 
 // Subscription API
+let subscriptionRouteRegistered = false;
+
 export const subscriptionRoutes = (fastify) => {
+  if (subscriptionRouteRegistered) {
+    console.log('⚠️ Subscription routes already registered, skipping...');
+    return;
+  }
+  subscriptionRouteRegistered = true;
+  
   // Get all subscriptions (Admin)
   fastify.get('/api/subscriptions', async (req, reply) => {
     try {
@@ -192,7 +214,15 @@ export const subscriptionRoutes = (fastify) => {
 };
 
 // Payment API
+let paymentRouteRegistered = false;
+
 export const paymentRoutes = (fastify) => {
+  if (paymentRouteRegistered) {
+    console.log('⚠️ Payment routes already registered, skipping...');
+    return;
+  }
+  paymentRouteRegistered = true;
+  
   // Get all payments (Admin)
   fastify.get('/api/payments', async (req, reply) => {
     try {
@@ -258,7 +288,15 @@ export const paymentRoutes = (fastify) => {
 };
 
 // Screenshot API
+let screenshotRouteRegistered = false;
+
 export const screenshotRoutes = (fastify) => {
+  if (screenshotRouteRegistered) {
+    console.log('⚠️ Screenshot routes already registered, skipping...');
+    return;
+  }
+  screenshotRouteRegistered = true;
+  
   // Upload screenshot
   fastify.post('/api/screenshot', async (req, reply) => {
     try {
@@ -278,7 +316,15 @@ export const screenshotRoutes = (fastify) => {
 };
 
 // Admin API
+let adminRouteRegistered = false;
+
 export const adminRoutes = (fastify) => {
+  if (adminRouteRegistered) {
+    console.log('⚠️ Admin routes already registered, skipping...');
+    return;
+  }
+  adminRouteRegistered = true;
+  
   // Get admin stats
   fastify.get('/api/admin/stats', async (req, reply) => {
     try {
@@ -405,7 +451,15 @@ export const adminRoutes = (fastify) => {
 };
 
 // Support API
+let supportRouteRegistered = false;
+
 export const supportRoutes = (fastify) => {
+  if (supportRouteRegistered) {
+    console.log('⚠️ Support routes already registered, skipping...');
+    return;
+  }
+  supportRouteRegistered = true;
+  
   // Create support message
   fastify.post('/api/support', async (req, reply) => {
     try {
@@ -437,7 +491,15 @@ export const supportRoutes = (fastify) => {
 };
 
 // Utility API
+let utilityRouteRegistered = false;
+
 export const utilityRoutes = (fastify) => {
+  if (utilityRouteRegistered) {
+    console.log('⚠️ Utility routes already registered, skipping...');
+    return;
+  }
+  utilityRouteRegistered = true;
+  
   // Health check
   fastify.get('/api/health', async (req, reply) => {
     try {
