@@ -80,6 +80,18 @@ export const userRoutes = (fastify) => {
       return reply.status(500).send({ error: error.message });
     }
   });
+
+  // Get all users (for admin panel)
+  fastify.get('/api/users', async (req, reply) => {
+    try {
+      const snapshot = await require('../utils/firestore.js').firestore.collection('users').get();
+      const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return { success: true, users };
+    } catch (error) {
+      console.error('Error getting all users:', error);
+      return reply.status(500).send({ error: error.message });
+    }
+  });
 };
 
 // Services API
@@ -181,6 +193,18 @@ export const subscriptionRoutes = (fastify) => {
       return reply.status(500).send({ error: error.message });
     }
   });
+
+  // Get all subscriptions (for admin panel)
+  fastify.get('/api/subscriptions', async (req, reply) => {
+    try {
+      const snapshot = await require('../utils/firestore.js').firestore.collection('subscriptions').get();
+      const subscriptions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return { success: true, subscriptions };
+    } catch (error) {
+      console.error('Error getting all subscriptions:', error);
+      return reply.status(500).send({ error: error.message });
+    }
+  });
 };
 
 // Payments API
@@ -228,6 +252,18 @@ export const paymentRoutes = (fastify) => {
       return { success: true, message: 'Payment status updated successfully' };
     } catch (error) {
       console.error('Error updating payment status:', error);
+      return reply.status(500).send({ error: error.message });
+    }
+  });
+
+  // Get all payments (for admin panel)
+  fastify.get('/api/payments', async (req, reply) => {
+    try {
+      const snapshot = await require('../utils/firestore.js').firestore.collection('payments').get();
+      const payments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return { success: true, payments };
+    } catch (error) {
+      console.error('Error getting all payments:', error);
       return reply.status(500).send({ error: error.message });
     }
   });
