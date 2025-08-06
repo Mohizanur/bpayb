@@ -1,3 +1,11 @@
+// @ts-check
+'use strict';
+
+// Enable ES modules
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
+// Load environment variables
 import "dotenv/config";
 import { Telegraf } from "telegraf";
 import Fastify from "fastify";
@@ -241,122 +249,55 @@ const setupBotMenu = async () => {
   }
 };
 
+// Initialize admin handler
+adminHandler(bot);
+
 // Add admin command
 bot.command("admin", async (ctx) => {
   try {
     console.log("🚀 ADMIN COMMAND TRIGGERED!");
-    console.log("Admin command - User ID:", ctx.from?.id);
-    console.log("Admin command - Expected Admin ID:", process.env.ADMIN_TELEGRAM_ID);
-    
-    // Check if user is admin
     const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
-    console.log("Is admin:", isAdmin);
-    
     if (!isAdmin) {
-      await ctx.reply("⚠️ Access denied. This command is for administrators only.");
+      await ctx.reply("❌ Unauthorized access. This command is for administrators only.");
       return;
     }
     
-    const adminMenu = {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: "📊 View Statistics", callback_data: "admin_stats" },
-            { text: "💰 Revenue Report", callback_data: "admin_revenue" }
-          ],
-          [
-            { text: "👥 User Management", callback_data: "admin_users" },
-            { text: "📦 Subscription Management", callback_data: "admin_subs" }
-          ],
-          [
-            { text: "📢 Send Broadcast", callback_data: "admin_broadcast" },
-            { text: "⚙️ System Settings", callback_data: "admin_settings" }
-          ],
-          [
-            { text: "🌐 Admin Panel", url: "https://bpayb.onrender.com/panel" }
-          ]
+    const lang = ctx.userLang || 'en';
+    const message = lang === 'am' 
+      ? '👋 እንኳን ወደ የአስተዳዳሪ ፓነል መጡ! ከታች ካሉት አማራጮች ይምረጡ:'
+      : '👋 Welcome to the Admin Panel! Please choose an option below:';
+      
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: lang === 'am' ? '📊 ስታቲስቲክስ' : '📊 Statistics', callback_data: 'admin_stats' },
+          { text: lang === 'am' ? '👥 ተጠቃሚዎች' : '👥 Users', callback_data: 'admin_users' }
+        ],
+        [
+          { text: lang === 'am' ? '📩 ያልተረጋገጡ ሰብስክሪፕሽኖች' : '📩 Pending Subscriptions', callback_data: 'admin_pending' },
+          { text: lang === 'am' ? '✅ ንቁ ሰብስክሪፕሽኖች' : '✅ Active Subscriptions', callback_data: 'admin_active' }
+        ],
+        [
+          { text: lang === 'am' ? '❌ የተሰረዙ ሰብስክሪፕሽኖች' : '❌ Cancelled Subscriptions', callback_data: 'admin_cancelled' },
+          { text: lang === 'am' ? '📨 ድጋፍ መልዕክቶች' : '📨 Support Messages', callback_data: 'admin_support' }
+        ],
+        [
+          { text: lang === 'am' ? '📢 ማስተናገድ' : '📢 Broadcast', callback_data: 'admin_broadcast' },
+          { text: lang === 'am' ? '⚙ ቅንብሮች' : '⚙ Settings', callback_data: 'admin_settings' }
         ]
-      }
+      ]
     };
     
-    await ctx.reply("🔑 **Admin Control Panel**\n\nWelcome, Administrator! Choose an option:", adminMenu);
+    await ctx.reply(message, { reply_markup: keyboard, parse_mode: 'Markdown' });
     console.log("✅ Admin menu sent successfully!");
   } catch (error) {
-    console.error("⚠️ Error in admin command:", error);
-    await ctx.reply("Sorry, something went wrong. Please try again.");
-  }
-
-// Add admin callback handlers
-bot.action('admin_stats', async (ctx) => {
-  if (!isAdmin(ctx)) {
-    await ctx.answerCbQuery('❌ Access denied');
-    return;
-  }
-  
-  try {
-    await ctx.answerCbQuery();
-    
-    // Get real statistics from Firestore
-    const [usersSnapshot, subscriptionsSnapshot, supportSnapshot] = await Promise.all([
-      firestore.collection('users').get(),
-      firestore.collection('subscriptions').get(),
-      firestore.collection('supportMessages').get()
-    ]);
-    
-    const totalUsers = usersSnapshot.size;
-    const verifiedUsers = usersSnapshot.docs.filter(doc => doc.data().phoneVerified).length;
-    const totalSubscriptions = subscriptionsSnapshot.size;
-    const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => doc.data().status === 'active').length;
-    const pendingSupport = supportSnapshot.docs.filter(doc => !doc.data().handled).length;
-    
-    // Calculate revenue
-    let totalRevenue = 0;
-    let monthlyRevenue = 0;
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    
-    subscriptionsSnapshot.docs.forEach(doc => {
-      const data = doc.data();
-      if (data.status === 'active' && data.amount) {
-        totalRevenue += data.amount;
-        const subDate = data.createdAt?.toDate();
-        if (subDate && subDate.getMonth() === currentMonth && subDate.getFullYear() === currentYear) {
-          monthlyRevenue += data.amount;
-        }
-      }
-    });
-    
-    const statsMsg = `📊 **BirrPay Statistics**\n\n` +
-      `👥 **Users:**\n` +
-      `• Total Users: ${totalUsers}\n` +
-      `• Verified Users: ${verifiedUsers}\n` +
-      `• Unverified: ${totalUsers - verifiedUsers}\n\n` +
-      `📦 **Subscriptions:**\n` +
-      `• Total: ${totalSubscriptions}\n` +
-      `• Active: ${activeSubscriptions}\n` +
-      `• Inactive: ${totalSubscriptions - activeSubscriptions}\n\n` +
-      `💰 **Revenue:**\n` +
-      `• Total: ${totalRevenue.toLocaleString()} ETB\n` +
-      `• This Month: ${monthlyRevenue.toLocaleString()} ETB\n\n` +
-      `📞 **Support:**\n` +
-      `• Pending Messages: ${pendingSupport}\n\n` +
-      `🕒 **Updated:** ${new Date().toLocaleString()}`;
-    
-    await ctx.reply(statsMsg, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔄 Refresh Stats', callback_data: 'admin_stats' }],
-          [{ text: '🔙 Back to Admin Menu', callback_data: 'admin_menu' }]
-        ]
-      }
-    });
-    
-  } catch (error) {
-    console.error('Error in admin_stats:', error);
-    await ctx.reply('❌ Error loading statistics. Please try again.');
+    console.error("Error in admin command:", error);
+    await ctx.reply("An error occurred while processing your request. Please try again later.");
   }
 });
+
+// Add admin callback handlers
+// Admin stats handler is defined later in the file
 
 // Add mysubs command
 bot.command("mysubs", async (ctx) => {
@@ -839,18 +780,7 @@ bot.catch((err, ctx) => {
 });
 
 // Note: Main command handlers (help, faq, lang, support, admin, mysubs) are registered above
-// Only register handlers that aren't duplicated
-console.log("Registering additional handlers...");
-console.log("Registering start handler...");
-startHandler(bot);
-console.log("Registering subscribe handler...");
-subscribeHandler(bot);
-console.log("Registering mySubscriptions handler...");
-mySubscriptionsHandler(bot);
-console.log("Registering cancelSubscription handler...");
-cancelSubscriptionHandler(bot);
-console.log("Registering firestoreListener...");
-firestoreListener(bot);
+
 
 console.log("All additional handlers registered successfully!");
 
@@ -862,26 +792,16 @@ console.log("Bot middleware:", bot.middleware?.length || 0);
 
 
 
-// Add a simple text handler for non-command messages (AFTER all command handlers)
-bot.on("text", async (ctx) => {
-  try {
-    // Skip if it's a command (starts with /)
-    if (ctx.message.text.startsWith("/")) {
-      console.log("Command not handled:", ctx.message.text);
-      return;
-    }
-    
-    console.log("Text handler triggered for:", ctx.message?.text);
-    const lang = ctx.userLang || "en";
-    const helpText =
-      lang === "en"
-        ? "I don't understand that message. Use /help to see available commands."
-        : "ያ መልእክት አልገባኝም። የሚገኙ ትዕዛዞችን ለማየት /help ይጠቀሙ።";
-    await ctx.reply(helpText);
-  } catch (error) {
-    console.error("Error in text handler:", error);
-  }
-});
+// Register additional handlers
+console.log("Registering additional handlers...");
+startHandler(bot);
+subscribeHandler(bot);
+mySubscriptionsHandler(bot);
+cancelSubscriptionHandler(bot);
+firestoreListener(bot);
+
+// Text handler for non-command messages (AFTER all command handlers)
+// This is already handled by the earlier text handler, so we'll remove this duplicate
 
 // Serve static files
 fastify.register(fastifyStatic, {
@@ -1613,19 +1533,7 @@ fastify.put('/api/services/:id', { preHandler: requireAdmin }, async (req, reply
   }
 });
 
-// Setup bot menu commands
-async function setupBotMenu() {
-  const commands = [
-    { command: "start", description: "🏠 Main menu and services" },
-    { command: "help", description: "❓ Show help information" },
-    { command: "faq", description: "❓ Frequently asked questions" },
-    { command: "lang", description: "🌐 Change language settings" },
-    { command: "mysubs", description: "📊 View your subscriptions" },
-    { command: "support", description: "🛠️ Contact customer support" }
-  ];
-  
-  await bot.telegram.setMyCommands(commands);
-}
+// Bot menu commands are already set up in the main command handlers
 
 // Telegram webhook endpoint
 fastify.post("/telegram", async (req, reply) => {
@@ -1653,22 +1561,37 @@ process.on('unhandledRejection', (reason, promise) => {
   // process.exit(1);
 });
 
-const PORT = process.env.PORT || 3000;
-fastify.listen({ port: PORT, host: "0.0.0.0" }, async (err, address) => {
-  if (err) {
+// Check for required environment variables
+if (!process.env.TELEGRAM_BOT_TOKEN) {
+  console.error('❌ Error: TELEGRAM_BOT_TOKEN environment variable is not set');
+  process.exit(1);
+}
+
+if (!process.env.ADMIN_TELEGRAM_ID) {
+  console.warn('⚠️  Warning: ADMIN_TELEGRAM_ID environment variable is not set. Admin features will be disabled.');
+}
+
+// Start the server
+const startServer = async () => {
+  try {
+    const PORT = process.env.PORT || 3000;
+    await fastify.listen({ port: PORT, host: "0.0.0.0" });
+    
+    console.log(`🚀 BirrPay Bot & Admin Panel running on port ${PORT}`);
+    console.log(`📱 Telegram Bot: Webhook ready at /telegram`);
+    console.log(`🔧 Admin Panel: http://localhost:${PORT}/panel`);
+    console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID}`);
+    
+    // Bot menu commands are already set up in the main command handlers
+    console.log(`📝 Bot menu commands configured!`);
+  } catch (err) {
     console.error("Error starting server:", err);
     process.exit(1);
   }
-  console.log(`🚀 BirrPay Bot & Admin Panel running on port ${PORT}`);
-  console.log(`📱 Telegram Bot: Webhook ready at /telegram`);
-  console.log(`🔧 Admin Panel: http://localhost:${PORT}/panel`);
-  console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID}`);
-  
-  // Set up bot menu after server starts
-  try {
-    await setupBotMenu();
-    console.log(`📝 Bot menu commands configured!`);
-  } catch (error) {
-    console.error("⚠️ Error setting up bot menu:", error);
-  }
-});
+};
+
+// Start the application
+startServer();
+
+// No need to export anything in the main application file
+// The server is already started and running
