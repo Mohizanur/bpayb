@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { firestore } from "./firestore.js";
 
 const services = [

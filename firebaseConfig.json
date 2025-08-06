@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "birrpay-20e82",
+  "private_key_id": "8bf65f49e75eb8a18bb4c803474b7316e913b5b2",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7Bx6QFNvCzOQ/\nB2vGfbhughIkoJeCa0i13BII4PkUTr3vRKgPs9Svn10Mh2m8m15nnQHmCqRe5M1n\ne7fnAoi6GpqsxnqSFDIHgXMLTFhXsClDUWSsRmV/OO3rHVssm1j2zmJNi6WzBf3m\nSRzHUAcdtKjklsA5pL3Cxl9OEtYQGlKsZkjXTpZd+jFuMRqBvQBHOuTAvZOF5ADy\nIj6TAlDQgm50wXjFx8sw98havz5DoZ1t3HRQZp0Lb+xdQ3MLJ/Kwxzpl6cV9wB45\nJwHTV6enYjdYhg7/rkb9+byM4quZMrblhBux9SgXw/rSRFaR/aPfjdrECH/9EZhO\nM2x00lD3AgMBAAECggEAWV7HC3l0I+tNfBLbPM+xlFjiO49jpsYGSiSdl5GNZFdW\nKmIH3u0DSmKgD48bhy1FGMTtddQLBG9X+cWkNKbA2BFDbSEwy+ILoAuLAlCafFho\n90qLDUlcUcVN50YxXajkA5fOYJjE9r17vJGeR12l8Nt1wzmIJGNk7BBn1UJp+OoQ\n+Uqhyj1XnEGgAiTN3/NUvSxKtrgqkh66EnHU8WofuQ0pfm7dQ7Hn4t7X5PM6o0s1\nm2XsBOpxcl2uFzLDmV4ItSMPNluju3fzCOdKRB7LPK67MEEYAJt6gcn0CnL2Tmlv\nvEaAhCeruKfQdqj/ky7Klx7Bh65a5hKSqg7ibv1t3QKBgQDyM2i4B8T4+8pHrZtR\nukftjWQPRlq5tNsmi5Fl4JJcP3Kg3ar4YRHGG/2prvsNW8gnZKGitv4Hp2i63x4g\nrgrVAWjY5Qmd3J7iWUnZMAwHwegn8MWjzBaV/ue4mDrbij2v3Qyfhy4zjyKsylZB\n79HKGHaKDrkHVvcf3ZnV5faJfQKBgQDFrv22TwPts8rU+nmfZKMNwoQrTI9uycb1\nzO7eG0nQywuOVqHeZp9a56SUHgBZ8BpcLcxyJ2XLBZPjBYny3OLD2EB0cuC31jOz\nRiEvuM5vj2YCSQAkTCYyxjIlqhpk4dkB//egs8QCX+66xyedmgGGQixbACZeZIGr\nOCuWLMOugwKBgHhKChdkXHKgcx1YXsyfbPvRfkGL2qFi7njdVnA3sdk49dBpZ3GG\nnFI9MqWkrzE6RVUzSIfMxKu+fGhbSdZHOkACPDWEw1rw6MRYPjItB7yOlKPJlA8+\n3HTQrftjN9Azf2GpsoxEkjCvRTR2JZMH7bSmo7D7kO/RRFlCMRYn6WLtAoGAcegy\nU1FWXyqBTpWBbUHs3mneBKEZ6Omllk7euOaacw/8eakbnm4dlqDxaVOcOjaqycCu\nFHz1H7X4EBFJ+sIifFzoTvE+4U8w/TUEvF3NveSwD9MGnOOwAwPHM4K/sK+efpOC\mXvcDs4+XiuRfTOXe0g4DLuaYDujqAg2vVLP8ocCgYEA2x/g3Bb/20g8eXBC1Hv5\nIEefCNd5a9ryfAG9rS/0yRSYNKW/cLMegU5T/sSYd/D45AVJ1ZMIrm9/SO8HMxyu\n/lhyXA10cel60tGViKSnxTsuoDG4TnNlN0cglGXBTTTwmJtMWuJ6VLd8HupvD01V\ne/hW3EP++wxITpME/ejKtE0=\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@birrpay-20e82.iam.gserviceaccount.com",
+  "client_id": "106171997582448403116",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40birrpay-20e82.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
