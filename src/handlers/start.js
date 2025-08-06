@@ -5,6 +5,16 @@ import { loadServices } from "../utils/loadServices.js";
 export default function startHandler(bot) {
   bot.start(async (ctx) => {
     try {
+      // Save/update user info in Firestore on every /start
+      await firestore.collection('users').doc(String(ctx.from.id)).set({
+        telegramId: ctx.from.id,
+        firstName: ctx.from.first_name,
+        lastName: ctx.from.last_name || '',
+        username: ctx.from.username || '',
+        language: ctx.from.language_code || 'en',
+        updatedAt: new Date(),
+        createdAt: new Date()
+      }, { merge: true });
       const lang = ctx.userLang || "en";
       
       // Main welcome message matching website hero section
