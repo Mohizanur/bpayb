@@ -31,6 +31,20 @@ export const getUser = async (userId) => {
   }
 };
 
+export const getAllUsers = async () => {
+  try {
+    const snapshot = await firestore.collection('users').orderBy('createdAt', 'desc').get();
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      joinDate: doc.data().createdAt ? new Date(doc.data().createdAt.toDate()).toLocaleDateString() : 'N/A'
+    }));
+  } catch (error) {
+    console.error('Error getting all users:', error);
+    return [];
+  }
+};
+
 export const updateUser = async (userId, updates) => {
   try {
     const userRef = firestore.collection('users').doc(String(userId));
@@ -88,6 +102,21 @@ export const getSubscription = async (subscriptionId) => {
   }
 };
 
+export const getAllSubscriptions = async () => {
+  try {
+    const snapshot = await firestore.collection('subscriptions').orderBy('createdAt', 'desc').get();
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      startDate: doc.data().startDate ? new Date(doc.data().startDate.toDate()).toLocaleDateString() : 'N/A',
+      endDate: doc.data().endDate ? new Date(doc.data().endDate.toDate()).toLocaleDateString() : 'N/A'
+    }));
+  } catch (error) {
+    console.error('Error getting all subscriptions:', error);
+    return [];
+  }
+};
+
 export const updateSubscription = async (subscriptionId, updates) => {
   try {
     const subscriptionRef = firestore.collection('subscriptions').doc(subscriptionId);
@@ -104,13 +133,13 @@ export const updateSubscription = async (subscriptionId, updates) => {
 
 export const getUserSubscriptions = async (userId) => {
   try {
-    const subscriptionsSnapshot = await firestore
+    const snapshot = await firestore
       .collection('subscriptions')
       .where('userId', '==', String(userId))
       .orderBy('createdAt', 'desc')
       .get();
     
-    return subscriptionsSnapshot.docs.map(doc => doc.data());
+    return snapshot.docs.map(doc => doc.data());
   } catch (error) {
     console.error('Error getting user subscriptions:', error);
     return [];
@@ -139,6 +168,30 @@ export const createPayment = async (paymentData) => {
   }
 };
 
+export const getPayment = async (paymentId) => {
+  try {
+    const paymentDoc = await firestore.collection('payments').doc(paymentId).get();
+    return paymentDoc.exists ? paymentDoc.data() : null;
+  } catch (error) {
+    console.error('Error getting payment:', error);
+    return null;
+  }
+};
+
+export const getAllPayments = async () => {
+  try {
+    const snapshot = await firestore.collection('payments').orderBy('createdAt', 'desc').get();
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      date: doc.data().createdAt ? new Date(doc.data().createdAt.toDate()).toLocaleDateString() : 'N/A'
+    }));
+  } catch (error) {
+    console.error('Error getting all payments:', error);
+    return [];
+  }
+};
+
 export const updatePaymentStatus = async (paymentId, status, transactionId = null) => {
   try {
     const paymentRef = firestore.collection('payments').doc(paymentId);
@@ -159,23 +212,27 @@ export const updatePaymentStatus = async (paymentId, status, transactionId = nul
   }
 };
 
-// Screenshot Upload Management
+// Screenshot Management
 export const uploadScreenshot = async (subscriptionId, screenshotData) => {
   try {
-    const subscriptionRef = firestore.collection('subscriptions').doc(subscriptionId);
+    const screenshotRef = firestore.collection('screenshots').doc();
+    const screenshot = {
+      id: screenshotRef.id,
+      subscriptionId,
+      url: screenshotData.url,
+      createdAt: new Date(),
+      ...screenshotData
+    };
     
-    await subscriptionRef.update({
+    await screenshotRef.set(screenshot);
+    
+    // Update subscription with screenshot info
+    await updateSubscription(subscriptionId, {
       screenshotUploaded: true,
-      screenshotUrl: screenshotData.url,
-      screenshotMetadata: {
-        filename: screenshotData.filename,
-        size: screenshotData.size,
-        uploadedAt: new Date()
-      },
-      updatedAt: new Date()
+      screenshotUrl: screenshotData.url
     });
     
-    return { success: true };
+    return { success: true, screenshotId: screenshotRef.id };
   } catch (error) {
     console.error('Error uploading screenshot:', error);
     return { success: false, error: error.message };
@@ -188,6 +245,7 @@ export const getAdminStats = async () => {
     const usersSnapshot = await firestore.collection('users').get();
     const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
     const paymentsSnapshot = await firestore.collection('payments').get();
+    const supportSnapshot = await firestore.collection('support').get();
     
     const stats = {
       totalUsers: usersSnapshot.size,
@@ -198,7 +256,9 @@ export const getAdminStats = async () => {
       cancelledSubscriptions: 0,
       pendingPayments: 0,
       completedPayments: 0,
-      failedPayments: 0
+      failedPayments: 0,
+      pendingSupport: 0,
+      paidUsers: 0
     };
     
     // Count subscription statuses
@@ -217,7 +277,8 @@ export const getAdminStats = async () => {
       }
     });
     
-    // Count payment statuses
+    // Count payment statuses and calculate revenue
+    let totalRevenue = 0;
     paymentsSnapshot.docs.forEach(doc => {
       const data = doc.data();
       switch (data.status) {
@@ -226,12 +287,31 @@ export const getAdminStats = async () => {
           break;
         case 'completed':
           stats.completedPayments++;
+          totalRevenue += data.amount || 0;
           break;
         case 'failed':
           stats.failedPayments++;
           break;
       }
     });
+    
+    // Count support tickets
+    supportSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      if (data.status === 'open') {
+        stats.pendingSupport++;
+      }
+    });
+    
+    // Count paid users
+    usersSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      if (data.isPaid) {
+        stats.paidUsers++;
+      }
+    });
+    
+    stats.totalPayments = totalRevenue;
     
     return stats;
   } catch (error) {
@@ -282,10 +362,10 @@ export const rejectSubscription = async (subscriptionId, adminId, reason) => {
   try {
     const subscriptionRef = firestore.collection('subscriptions').doc(subscriptionId);
     await subscriptionRef.update({
-      status: 'rejected',
+      status: 'cancelled',
       rejectedBy: adminId,
-      rejectionReason: reason,
       rejectedAt: new Date(),
+      rejectionReason: reason,
       updatedAt: new Date()
     });
     
@@ -296,37 +376,44 @@ export const rejectSubscription = async (subscriptionId, adminId, reason) => {
   }
 };
 
-// Support Messages
 export const createSupportMessage = async (messageData) => {
   try {
-    const messageId = uuidv4();
-    const messageRef = firestore.collection('support_messages').doc(messageId);
-    
+    const supportRef = firestore.collection('support').doc();
     const message = {
-      id: messageId,
-      ...messageData,
+      id: supportRef.id,
       status: 'open',
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      ...messageData
     };
     
-    await messageRef.set(message);
-    return { success: true, messageId };
+    await supportRef.set(message);
+    return { success: true, messageId: supportRef.id };
   } catch (error) {
     console.error('Error creating support message:', error);
     return { success: false, error: error.message };
   }
 };
 
-export const getSupportMessages = async (status = 'open') => {
+export const getSupportMessages = async (status = 'open', userId = null) => {
   try {
-    const snapshot = await firestore
-      .collection('support_messages')
-      .where('status', '==', status)
-      .orderBy('createdAt', 'desc')
-      .get();
+    let query = firestore.collection('support');
     
-    return snapshot.docs.map(doc => doc.data());
+    if (status !== 'all') {
+      query = query.where('status', '==', status);
+    }
+    
+    if (userId) {
+      query = query.where('userId', '==', String(userId));
+    }
+    
+    const snapshot = await query.orderBy('createdAt', 'desc').get();
+    
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      created: doc.data().createdAt ? new Date(doc.data().createdAt.toDate()).toLocaleDateString() : 'N/A'
+    }));
   } catch (error) {
     console.error('Error getting support messages:', error);
     return [];
