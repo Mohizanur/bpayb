@@ -593,25 +593,31 @@ class ServiceManager {
                         </div>
                     </div>
                 </div>
-                <div class="payment-methods">
-                    <h5>Payment Method</h5>
-                    <div class="payment-options">
-                        <label class="payment-option">
-                            <input type="radio" name="payment" value="telebirr" checked>
-                            <span>TeleBirr</span>
-                        </label>
-                        <label class="payment-option">
-                            <input type="radio" name="payment" value="cbe">
-                            <span>CBE Mobile Banking</span>
-                        </label>
-                        <label class="payment-option">
-                            <input type="radio" name="payment" value="dashen">
-                            <span>Dashen Bank</span>
-                        </label>
+                <div class="payment-instructions">
+                    <h5>💰 Payment Instructions</h5>
+                    <div class="payment-methods">
+                        <div class="payment-method">
+                            <h6>🏦 Bank Transfer</h6>
+                            <p>CBE Bank: 1000123456789<br>
+                            Dashen Bank: 2000987654321<br>
+                            Abyssinia Bank: 3000555444333</p>
+                        </div>
+                        <div class="payment-method">
+                            <h6>📱 Mobile Banking</h6>
+                            <p>TeleBirr: 0912345678<br>
+                            CBE Birr: 0987654321</p>
+                        </div>
+                    </div>
+                    <div class="payment-note">
+                        <strong>📸 After Payment:</strong>
+                        <p>1. Complete your payment using any method above</p>
+                        <p>2. Take a screenshot of your payment confirmation</p>
+                        <p>3. Upload it to our Telegram bot for verification</p>
+                        <p>4. Admin will approve within 24 hours</p>
                     </div>
                 </div>
-                <button class="btn-primary btn-full" onclick="serviceManager.processSubscriptionPayment('${type}')">
-                    Pay ${formatETB(totalPrice)}
+                <button class="btn-primary btn-full" onclick="serviceManager.redirectToTelegram('${type}')">
+                    📱 Go to Telegram Bot
                 </button>
             </div>
         `;
@@ -619,31 +625,39 @@ class ServiceManager {
         userManager.createModal(`${action} ${this.selectedService.name}`, modalContent);
     }
 
-    processSubscriptionPayment(type) {
-        const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
+    redirectToTelegram(type) {
+        // Store the subscription request locally for reference
+        const subscriptionRequest = {
+            id: Date.now(),
+            service: this.selectedService,
+            duration: this.selectedDuration,
+            type: type,
+            requestDate: new Date().toISOString(),
+            status: 'payment_pending',
+            totalAmount: this.selectedService.price * this.selectedDuration.months
+        };
+
+        // Add to pending subscriptions
+        if (!userManager.currentUser.pendingSubscriptions) {
+            userManager.currentUser.pendingSubscriptions = [];
+        }
+        userManager.currentUser.pendingSubscriptions.push(subscriptionRequest);
+        localStorage.setItem('birrpay_user', JSON.stringify(userManager.currentUser));
+
+        // Create Telegram bot link with pre-filled message
+        const botUsername = '@birrpayofficial'; // Replace with your actual bot username
+        const message = `I want to subscribe to ${this.selectedService.name} for ${this.selectedDuration.period}. Total amount: ${formatETB(subscriptionRequest.totalAmount)}`;
+        const telegramUrl = `https://t.me/${botUsername.replace('@', '')}?start=${encodeURIComponent(message)}`;
+
+        showNotification('Redirecting to Telegram bot...', 'info');
         
-        showNotification(`Processing payment via ${paymentMethod}...`, 'info');
+        // Close modal and redirect
+        document.querySelector('.modal-overlay').remove();
         
         setTimeout(() => {
-            const subscription = {
-                id: Date.now(),
-                service: this.selectedService,
-                duration: this.selectedDuration,
-                startDate: new Date().toISOString(),
-                status: 'active',
-                paymentMethod: paymentMethod
-            };
-
-            // Add to user subscriptions
-            if (!userManager.currentUser.subscriptions) {
-                userManager.currentUser.subscriptions = [];
-            }
-            userManager.currentUser.subscriptions.push(subscription);
-            localStorage.setItem('birrpay_user', JSON.stringify(userManager.currentUser));
-
-            showNotification(`Subscription ${type === 'start' ? 'started' : 'renewed'} successfully!`, 'success');
-            document.querySelector('.modal-overlay').remove();
-        }, 3000);
+            window.open(telegramUrl, '_blank');
+            showNotification('Complete your payment and upload screenshot in Telegram!', 'info');
+        }, 1000);
     }
 }
 

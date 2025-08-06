@@ -935,6 +935,60 @@ body {
     margin-top: 0.5rem;
 }
 
+/* Payment Instructions */
+.payment-instructions {
+    margin: 1.5rem 0;
+    text-align: left;
+}
+
+.payment-instructions h5 {
+    margin-bottom: 1rem;
+    color: #333;
+    text-align: center;
+}
+
+.payment-method {
+    background: #f8f9fa;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    border-left: 4px solid #4CAF50;
+}
+
+.payment-method h6 {
+    margin: 0 0 0.5rem 0;
+    color: #4CAF50;
+    font-size: 1rem;
+}
+
+.payment-method p {
+    margin: 0;
+    color: #666;
+    font-family: monospace;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.payment-note {
+    background: #e8f5e8;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+    border: 1px solid #4CAF50;
+}
+
+.payment-note strong {
+    color: #2e7d2e;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.payment-note p {
+    margin: 0.25rem 0;
+    color: #2e7d2e;
+    font-size: 0.9rem;
+}
+
 /* Upload System */
 .upload-form {
     text-align: center;
