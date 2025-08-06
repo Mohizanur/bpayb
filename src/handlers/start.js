@@ -2,64 +2,279 @@ import { escapeMarkdownV2 } from "../utils/i18n.js";
 import { firestore } from "../utils/firestore.js";
 import { loadServices } from "../utils/loadServices.js";
 
+// Helper function to check if user is new
+const isNewUser = async (userId) => {
+  try {
+    const userDoc = await firestore.collection('users').doc(String(userId)).get();
+    return !userDoc.exists || !userDoc.data().hasCompletedOnboarding;
+  } catch (error) {
+    console.error('Error checking user status:', error);
+    return false;
+  }
+};
+
+// Helper function to create user profile
+const createUserProfile = async (ctx) => {
+  try {
+    await firestore.collection('users').doc(String(ctx.from.id)).set({
+      telegramId: ctx.from.id,
+      firstName: ctx.from.first_name,
+      lastName: ctx.from.last_name || '',
+      username: ctx.from.username || '',
+      language: ctx.from.language_code || 'en',
+      phoneVerified: false,
+      hasCompletedOnboarding: false,
+      joinedAt: new Date(),
+      updatedAt: new Date(),
+      createdAt: new Date(),
+      lastActiveAt: new Date(),
+      totalSubscriptions: 0,
+      activeSubscriptions: 0
+    }, { merge: true });
+    
+    // Log user registration
+    await firestore.collection('userActivities').add({
+      userId: ctx.from.id,
+      activity: 'user_registered',
+      timestamp: new Date(),
+      metadata: {
+        firstName: ctx.from.first_name,
+        username: ctx.from.username,
+        language: ctx.from.language_code
+      }
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error creating user profile:', error);
+    return false;
+  }
+};
+
 export default function startHandler(bot) {
   bot.start(async (ctx) => {
     try {
-      // Save/update user info in Firestore on every /start
-      await firestore.collection('users').doc(String(ctx.from.id)).set({
-        telegramId: ctx.from.id,
-        firstName: ctx.from.first_name,
-        lastName: ctx.from.last_name || '',
-        username: ctx.from.username || '',
-        language: ctx.from.language_code || 'en',
-        updatedAt: new Date(),
-        createdAt: new Date()
-      }, { merge: true });
-      const lang = ctx.userLang || "en";
+      const lang = ctx.from.language_code === 'am' ? 'am' : 'en';
+      const isFirstTime = await isNewUser(ctx.from.id);
       
-      // Main welcome message matching website hero section
-      const title = lang === "am" 
+      // Update user info and create profile
+      await createUserProfile(ctx);
+      
+      if (isFirstTime) {
+        // Enhanced welcome message for new users
+        const welcomeTitle = lang === "am" 
+          ? "🎉 እንኳን ወደ BirrPay ደህና መጡ!"
+          : "🎉 Welcome to BirrPay!";
+        
+        const welcomeSubtitle = lang === "am"
+          ? "🌟 **የኢትዮጵያ #1 የሳብስክሪፕሽን ፕላትፎርም**"
+          : "🌟 **Ethiopia's #1 Subscription Platform**";
+          
+        const introMessage = lang === "am"
+          ? `${welcomeTitle}\n\n${welcomeSubtitle}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🚀 **እንኳን ደስ አለዎት!**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nBirrPay ኢትዮጵያ ውስጥ ሁሉንም ዲጂታል ሳብስክሪፕሽኖችዎን በአንድ ደህንነቱ የተጠበቀ ቦታ የሚያስተዳድሩበት ቦታ ነው።\n\n✨ **ምን ማድረግ ይችላሉ:**\n• Netflix, Amazon Prime, Spotify እና ሌሎችንም ያግኙ\n• በብር በቀላሉ ይክፈሉ\n• ሁሉንም ሳብስክሪፕሽኖችዎን በአንድ ቦታ ያስተዳድሩ\n• 24/7 የደንበኞች ድጋፍ ያግኙ\n\n🔒 **100% ደህንነቱ የተጠበቀ** | 🇪🇹 **የአካባቢ ድጋፍ** | ⚡ **ፈጣን እና ቀላል**`
+          : `${welcomeTitle}\n\n${welcomeSubtitle}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🚀 **Getting Started**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nBirrPay is Ethiopia's premier platform for managing all your digital subscriptions in one secure place.\n\n✨ **What You Can Do:**\n• Access Netflix, Amazon Prime, Spotify, and more\n• Pay easily using Ethiopian Birr\n• Manage all subscriptions from one place\n• Get 24/7 customer support\n\n🔒 **100% Secure** | 🇪🇹 **Local Support** | ⚡ **Fast & Easy**`;
+
+        const onboardingKeyboard = [
+          [
+            { 
+              text: lang === "am" ? "🚀 እንጀምር!" : "🚀 Let's Get Started!", 
+              callback_data: "start_onboarding" 
+            }
+          ],
+          [
+            { 
+              text: lang === "am" ? "📱 አገልግሎቶችን ይመልከቱ" : "📱 Browse Services", 
+              callback_data: "services" 
+            }
+          ],
+          [
+            { 
+              text: lang === "am" ? "❓ እንዴት እንደሚሰራ ይመልከቱ" : "❓ How It Works", 
+              callback_data: "how_to_use" 
+            }
+          ]
+        ];
+
+        await ctx.reply(introMessage, {
+          reply_markup: { inline_keyboard: onboardingKeyboard },
+          parse_mode: 'Markdown'
+        });
+        
+        return;
+      }
+
+      // Regular welcome back message for returning users
+      const welcomeBackTitle = lang === "am" 
+        ? "👋 እንደገና እንኳን ደህና መጡ!"
+        : "👋 Welcome Back!";
+      
+      const subtitle = lang === "am"
         ? "🌍 BirrPay - የኢትዮጵያ የምዝገባ መከር"
         : "🌍 BirrPay - Ethiopia's Premier Subscription Hub";
       
-      const subtitle = lang === "am"
+      const description = lang === "am"
         ? "ሁሉንም የዲጂታል ምዝገባዎችዎን በአንድ የተጠቃማ ቦታ ይአስተዳድሩ። Netflix፣ Amazon Prime፣ Spotify እና ተጨማሪዎችን በቀላሉ በብር ያግኙ።"
         : "Manage all your digital subscriptions in one secure place. Access Netflix, Amazon Prime, Spotify, and more with ease using Ethiopian Birr.";
 
-      // Create main menu matching website structure
+      // Get user's subscription summary for personalized experience
+      const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+      const userData = userDoc.data();
+      const activeCount = userData?.activeSubscriptions || 0;
+      const totalCount = userData?.totalSubscriptions || 0;
+
+      let personalizedMessage = "";
+      if (activeCount > 0) {
+        personalizedMessage = lang === "am"
+          ? `\n\n📊 **የእርስዎ መለያ:** ${activeCount} ንቁ ምዝገባዎች`
+          : `\n\n📊 **Your Account:** ${activeCount} Active Subscriptions`;
+      }
+
+      // Create enhanced main menu
       const keyboard = [
-        // Features row
+        // Primary actions row
         [
-          { text: lang === "en" ? "🎯 Features" : "🎯 ባህሪያት", callback_data: "features" },
-          { text: lang === "en" ? "📱 Services" : "📱 አገልግሎቶች", callback_data: "services" }
+          { text: lang === "am" ? "📱 አገልግሎቶች" : "📱 Services", callback_data: "services" },
+          { text: lang === "am" ? "📊 የእኔ ምዝገባዎች" : "📊 My Subscriptions", callback_data: "my_subs" }
         ],
-        // Plans and subscriptions row
+        // Features and plans row
         [
-          { text: lang === "en" ? "💳 Plans" : "💳 እቅዶች", callback_data: "plans" },
-          { text: lang === "en" ? "📊 My Subs" : "📊 የእኔ ምዝገባዎች", callback_data: "my_subs" }
+          { text: lang === "am" ? "🎯 ባህሪያት" : "🎯 Features", callback_data: "features" },
+          { text: lang === "am" ? "💳 እቅዶች" : "💳 Plans", callback_data: "plans" }
         ],
-        // How to use and FAQ row
+        // Help and support row
         [
-          { text: lang === "en" ? "📖 How to Use" : "📖 እንዴት እንደሚጠቀሙ", callback_data: "how_to_use" },
-          { text: lang === "en" ? "❓ FAQ" : "❓ ጥያቄዎች", callback_data: "faq_menu" }
+          { text: lang === "am" ? "❓ FAQ" : "❓ FAQ", callback_data: "faq_menu" },
+          { text: lang === "am" ? "🛠️ ድጋፍ" : "🛠️ Support", callback_data: "support_menu" }
         ],
-        // Contact and support row
+        // Secondary options row
         [
-          { text: lang === "en" ? "📞 Contact" : "📞 አግኙን", callback_data: "contact" },
-          { text: lang === "en" ? "🛠️ Support" : "🛠️ ድጋፍ", callback_data: "support" }
+          { text: lang === "am" ? "📖 እንዴት እንደሚጠቀሙ" : "📖 How to Use", callback_data: "how_to_use" },
+          { text: lang === "am" ? "📞 አግኙን" : "📞 Contact", callback_data: "contact" }
         ],
-        // Language settings
+        // Settings row
         [
-          { text: lang === "en" ? "🌐 Language" : "🌐 ቋንቋ", callback_data: "language_settings" }
+          { text: lang === "am" ? "🌐 ቋንቋ" : "🌐 Language", callback_data: "language_settings" }
         ]
       ];
 
-      await ctx.reply(`${title}\n\n${subtitle}\n\n${lang === "en" ? "Choose an option below:" : "ከታች አንዱን ይምረጡ:"}`, {
-        reply_markup: { inline_keyboard: keyboard }
+      const fullMessage = `${welcomeBackTitle}\n\n${subtitle}\n\n${description}${personalizedMessage}\n\n${lang === "am" ? "ከታች አንዱን ይምረጡ:" : "Choose an option below:"}`;
+
+      await ctx.reply(fullMessage, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
       });
+
+      // Update last active time
+      await firestore.collection('users').doc(String(ctx.from.id)).update({
+        lastActiveAt: new Date()
+      });
+
     } catch (error) {
       console.error("Error in start handler:", error);
-      await ctx.reply("Welcome! Please try again.");
+      await ctx.reply(
+        ctx.from.language_code === 'am' 
+          ? "ሰላምታ! እባክዎ እንደገና ይሞክሩ።" 
+          : "Welcome! Please try again."
+      );
+    }
+  });
+
+  // Handle onboarding flow for new users
+  bot.action("start_onboarding", async (ctx) => {
+    try {
+      const lang = ctx.from.language_code === 'am' ? 'am' : 'en';
+      
+      const onboardingMessage = lang === "am"
+        ? `🚀 **BirrPay የመጀመሪያ እርምጃዎች**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 **ቀላል 3 እርምጃዎች**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**1.** 🎯 የሚፈልጉትን አገልግሎት ይምረጡ
+**2.** 💰 በብር ይክፈሉ (እንደ TeleBirr, CBE ወዘተ)
+**3.** ✅ ድረስ! ሳብስክሪፕሽንዎ ነቅቷል
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌟 **ለምን BirrPay?**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ በብር ይክፈሉ - የውጭ ካርድ አያስፈልግም
+✅ ደህንነቱ የተጠበቀ - የባንክ ደረጃ ደህንነት
+✅ ፈጣን ማጽደቅ - በ24 ሰዓት ውስጥ
+✅ 24/7 ድጋፍ - በአማርኛ እና እንግሊዝኛ
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎁 **ልዩ ቅናሽ**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+የመጀመሪያ ምዝገባዎ 10% ቅናሽ ያግኙ!`
+        : `🚀 **BirrPay Quick Start Guide**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 **Simple 3 Steps**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**1.** 🎯 Choose your desired service
+**2.** 💰 Pay using Ethiopian Birr (TeleBirr, CBE, etc.)
+**3.** ✅ Done! Your subscription is activated
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌟 **Why Choose BirrPay?**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Pay in Birr - No foreign cards needed
+✅ Secure Platform - Bank-grade security
+✅ Fast Approval - Within 24 hours
+✅ 24/7 Support - In Amharic & English
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎁 **Special Offer**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Get 10% off your first subscription!`;
+
+      const onboardingKeyboard = [
+        [
+          { 
+            text: lang === "am" ? "🎯 አሁን አገልግሎቶችን ይመልከቱ" : "🎯 Browse Services Now", 
+            callback_data: "services" 
+          }
+        ],
+        [
+          { 
+            text: lang === "am" ? "❓ ተጨማሪ ጥያቄዎች" : "❓ Have Questions?", 
+            callback_data: "faq_menu" 
+          },
+          { 
+            text: lang === "am" ? "🛠️ ድጋፍ አግኙ" : "🛠️ Get Support", 
+            callback_data: "support_menu" 
+          }
+        ],
+        [
+          { 
+            text: lang === "am" ? "🏠 ዋና ምንዩ" : "🏠 Main Menu", 
+            callback_data: "back_to_start" 
+          }
+        ]
+      ];
+
+      await ctx.editMessageText(onboardingMessage, {
+        reply_markup: { inline_keyboard: onboardingKeyboard },
+        parse_mode: 'Markdown'
+      });
+
+      // Mark onboarding as started
+      await firestore.collection('users').doc(String(ctx.from.id)).update({
+        hasStartedOnboarding: true,
+        onboardingStartedAt: new Date()
+      });
+
+      await ctx.answerCbQuery();
+
+    } catch (error) {
+      console.error("Error in onboarding:", error);
+      await ctx.answerCbQuery("Error starting onboarding");
     }
   });
 
