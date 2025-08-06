@@ -514,13 +514,15 @@
 
             async loadStats() {
                 try {
-                    // Simulate loading from enhanced local storage
-                    const mockStats = this.generateMockStats();
-                    this.updateStatsDisplay(mockStats);
-                    
-                    // Update connection status
-                    document.getElementById('connectionStatus').innerHTML = '✅ Connected to BirrPay database';
-                    document.getElementById('connectionStatus').className = 'alert alert-success';
+                    const res = await fetch(`${this.baseUrl}/api/admin/stats`);
+                    const result = await res.json();
+                    if (result.success) {
+                        this.updateStatsDisplay(result.stats);
+                        document.getElementById('connectionStatus').innerHTML = '✅ Connected to BirrPay database';
+                        document.getElementById('connectionStatus').className = 'alert alert-success';
+                    } else {
+                        throw new Error(result.error || 'Failed to load stats');
+                    }
                 } catch (error) {
                     console.error('Error loading stats:', error);
                     document.getElementById('connectionStatus').innerHTML = '❌ Connection failed';
@@ -528,33 +530,17 @@
                 }
             }
 
-            generateMockStats() {
-                // Generate realistic mock data
-                const baseUsers = 1247;
-                const baseRevenue = 145600;
-                
-                return {
-                    totalUsers: baseUsers + Math.floor(Math.random() * 50),
-                    activeSubscriptions: Math.floor(baseUsers * 0.3 + Math.random() * 20),
-                    totalRevenue: baseRevenue + Math.floor(Math.random() * 5000),
-                    pendingTickets: Math.floor(Math.random() * 25),
-                    paidUsers: Math.floor(baseUsers * 0.15 + Math.random() * 10)
-                };
-            }
-
             updateStatsDisplay(stats) {
-                document.getElementById('totalUsers').textContent = stats.totalUsers.toLocaleString();
-                document.getElementById('activeSubscriptions').textContent = stats.activeSubscriptions.toLocaleString();
-                document.getElementById('totalRevenue').textContent = `${stats.totalRevenue.toLocaleString()} ETB`;
-                document.getElementById('pendingTickets').textContent = stats.pendingTickets;
-                document.getElementById('paidUsers').textContent = stats.paidUsers.toLocaleString();
-                
+                document.getElementById('totalUsers').textContent = stats.totalUsers?.toLocaleString() || '0';
+                document.getElementById('activeSubscriptions').textContent = stats.activeSubscriptions?.toLocaleString() || '0';
+                document.getElementById('totalRevenue').textContent = stats.totalPayments?.toLocaleString() + ' ETB' || '0 ETB';
+                document.getElementById('pendingTickets').textContent = stats.pendingSupport || '0';
+                document.getElementById('paidUsers').textContent = stats.paidUsers?.toLocaleString() || '0';
                 this.data.stats = stats;
             }
 
             async loadData() {
                 try {
-                    // Load data for current tab
                     await this.loadTabData(this.currentTab);
                 } catch (error) {
                     console.error('Error loading data:', error);
@@ -564,117 +550,56 @@
 
             async loadTabData(tab) {
                 const content = document.getElementById(`${tab}Content`);
-                
-                // Show loading
                 content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-                
-                // Simulate API delay
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
-                switch(tab) {
-                    case 'users':
-                        this.data.users = this.generateMockUsers();
-                        this.renderUsersTable();
-                        break;
-                    case 'subscriptions':
-                        this.data.subscriptions = this.generateMockSubscriptions();
-                        this.renderSubscriptionsTable();
-                        break;
-                    case 'payments':
-                        this.data.payments = this.generateMockPayments();
-                        this.renderPaymentsTable();
-                        break;
-                    case 'support':
-                        this.data.support = this.generateMockSupport();
-                        this.renderSupportTable();
-                        break;
-                    case 'analytics':
-                        this.renderAnalytics();
-                        break;
+                try {
+                    switch(tab) {
+                        case 'users':
+                            this.data.users = await this.fetchUsers();
+                            this.renderUsersTable();
+                            break;
+                        case 'subscriptions':
+                            this.data.subscriptions = await this.fetchSubscriptions();
+                            this.renderSubscriptionsTable();
+                            break;
+                        case 'payments':
+                            this.data.payments = await this.fetchPayments();
+                            this.renderPaymentsTable();
+                            break;
+                        case 'support':
+                            this.data.support = await this.fetchSupport();
+                            this.renderSupportTable();
+                            break;
+                        case 'analytics':
+                            this.renderAnalytics();
+                            break;
+                    }
+                } catch (error) {
+                    content.innerHTML = '<div class="alert alert-error">Failed to load data.</div>';
                 }
             }
 
-            generateMockUsers() {
-                const users = [];
-                const names = ['Abel Tesfaye', 'Hana Worku', 'Dawit Bekele', 'Sara Negash', 'Yohannes Mulu'];
-                const domains = ['gmail.com', 'yahoo.com', 'outlook.com', 'birrpay.com'];
-                
-                for (let i = 0; i < 50; i++) {
-                    const name = names[Math.floor(Math.random() * names.length)];
-                    const email = `${name.toLowerCase().replace(' ', '.')}@${domains[Math.floor(Math.random() * domains.length)]}`;
-                    
-                    users.push({
-                        id: `user_${1000 + i}`,
-                        name: name,
-                        email: email,
-                        phone: `+251${Math.floor(Math.random() * 1000000000)}`,
-                        isPaid: Math.random() > 0.7,
-                        status: Math.random() > 0.1 ? 'active' : 'inactive',
-                        joinDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-                        lastLogin: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toLocaleDateString()
-                    });
-                }
-                
-                return users;
+            async fetchUsers() {
+                const res = await fetch(`${this.baseUrl}/api/users`);
+                const result = await res.json();
+                return result.success ? result.users : [];
             }
 
-            generateMockSubscriptions() {
-                const services = ['Netflix', 'Amazon Prime', 'Spotify', 'Disney+', 'YouTube Premium'];
-                const subscriptions = [];
-                
-                for (let i = 0; i < 30; i++) {
-                    const service = services[Math.floor(Math.random() * services.length)];
-                    subscriptions.push({
-                        id: `sub_${2000 + i}`,
-                        userId: `user_${1000 + Math.floor(Math.random() * 50)}`,
-                        service: service,
-                        status: Math.random() > 0.2 ? 'active' : 'expired',
-                        startDate: new Date(Date.now() - Math.random() * 180 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-                        endDate: new Date(Date.now() + Math.random() * 180 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-                        price: Math.floor(Math.random() * 400) + 100
-                    });
-                }
-                
-                return subscriptions;
+            async fetchSubscriptions() {
+                const res = await fetch(`${this.baseUrl}/api/subscriptions`);
+                const result = await res.json();
+                return result.success ? result.subscriptions : [];
             }
 
-            generateMockPayments() {
-                const methods = ['TeleBirr', 'CBE Mobile', 'Dashen Bank', 'Bank Transfer'];
-                const payments = [];
-                
-                for (let i = 0; i < 40; i++) {
-                    payments.push({
-                        id: `pay_${3000 + i}`,
-                        userId: `user_${1000 + Math.floor(Math.random() * 50)}`,
-                        amount: Math.floor(Math.random() * 500) + 100,
-                        method: methods[Math.floor(Math.random() * methods.length)],
-                        status: Math.random() > 0.1 ? 'completed' : 'pending',
-                        date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-                        reference: `REF${Math.floor(Math.random() * 1000000)}`
-                    });
-                }
-                
-                return payments;
+            async fetchPayments() {
+                const res = await fetch(`${this.baseUrl}/api/payments`);
+                const result = await res.json();
+                return result.success ? result.payments : [];
             }
 
-            generateMockSupport() {
-                const types = ['Technical Issue', 'Billing Question', 'Feature Request', 'Account Problem'];
-                const priorities = ['low', 'medium', 'high', 'urgent'];
-                const support = [];
-                
-                for (let i = 0; i < 20; i++) {
-                    support.push({
-                        id: `ticket_${4000 + i}`,
-                        userId: `user_${1000 + Math.floor(Math.random() * 50)}`,
-                        type: types[Math.floor(Math.random() * types.length)],
-                        priority: priorities[Math.floor(Math.random() * priorities.length)],
-                        status: Math.random() > 0.3 ? 'open' : 'closed',
-                        subject: 'Support ticket subject...',
-                        created: new Date(Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000).toLocaleDateString()
-                    });
-                }
-                
-                return support;
+            async fetchSupport() {
+                const res = await fetch(`${this.baseUrl}/api/admin/support-messages`);
+                const result = await res.json();
+                return result.success ? result.messages : [];
             }
 
             renderUsersTable() {
