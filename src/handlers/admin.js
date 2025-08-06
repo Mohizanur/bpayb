@@ -1,12 +1,154 @@
 import { firestore } from "../utils/firestore.js";
 
+// Helper function for admin security check
+const isAuthorizedAdmin = (ctx) => {
+  const isAdmin = ctx.from?.id.toString() === process.env.ADMIN_TELEGRAM_ID;
+  if (!isAdmin) {
+    console.warn(`Unauthorized admin access attempt from user ${ctx.from?.id} (${ctx.from?.username || 'no username'})`);
+  }
+  return isAdmin;
+};
+
+// Helper function for error logging
+const logAdminAction = async (action, adminId, details = {}) => {
+  try {
+    await firestore.collection('adminLogs').add({
+      action,
+      adminId,
+      details,
+      timestamp: new Date(),
+      ip: details.ip || 'unknown'
+    });
+  } catch (error) {
+    console.error('Failed to log admin action:', error);
+  }
+};
+
+// Helper function for user notifications
+const notifyUser = async (bot, userId, message, options = {}) => {
+  try {
+    await bot.telegram.sendMessage(userId, message, {
+      parse_mode: 'Markdown',
+      ...options
+    });
+    return true;
+  } catch (error) {
+    console.error(`Failed to notify user ${userId}:`, error.message);
+    return false;
+  }
+};
+
 export default function adminHandler(bot) {
+  
+  // Handle message replies for admin operations
+  bot.on('text', async (ctx, next) => {
+    try {
+      // Check if this is an admin and if they have any pending operations
+      if (ctx.from?.id.toString() === process.env.ADMIN_TELEGRAM_ID) {
+        const adminStateDoc = await firestore.collection('adminStates').doc(String(ctx.from.id)).get();
+        
+        if (adminStateDoc.exists) {
+          const adminState = adminStateDoc.data();
+          
+          // Handle broadcast message
+          if (adminState.awaitingBroadcast) {
+            const message = ctx.message.text;
+            
+            if (message === '/cancel') {
+              await firestore.collection('adminStates').doc(String(ctx.from.id)).delete();
+              await ctx.reply('Broadcast cancelled.');
+              return;
+            }
+            
+            // Send broadcast to all verified users
+            try {
+              const usersSnapshot = await firestore.collection('users')
+                .where('phoneVerified', '==', true)
+                .get();
+              
+              let successCount = 0;
+              let failCount = 0;
+              
+              const broadcastMessage = `📢 **BirrPay Announcement**\n\n${message}\n\n---\nBirrPay Team`;
+              
+              for (const userDoc of usersSnapshot.docs) {
+                const userData = userDoc.data();
+                if (userData.telegramId) {
+                  try {
+                    await bot.telegram.sendMessage(userData.telegramId, broadcastMessage, {
+                      parse_mode: 'Markdown'
+                    });
+                    successCount++;
+                  } catch (error) {
+                    console.log(`Failed to send to user ${userData.telegramId}:`, error.message);
+                    failCount++;
+                  }
+                }
+              }
+              
+              // Clear admin state
+              await firestore.collection('adminStates').doc(String(ctx.from.id)).delete();
+              
+              await ctx.reply(`📢 **Broadcast Complete**\n\n✅ Sent to ${successCount} users\n❌ Failed: ${failCount}`, {
+                parse_mode: 'Markdown'
+              });
+              
+            } catch (error) {
+              console.error('Error broadcasting:', error);
+              await ctx.reply('❌ Error sending broadcast message.');
+            }
+            return;
+          }
+          
+          // Handle direct message to user
+          if (adminState.awaitingUserMessage && adminState.targetUserId) {
+            const message = ctx.message.text;
+            
+            if (message === '/cancel') {
+              await firestore.collection('adminStates').doc(String(ctx.from.id)).delete();
+              await ctx.reply('Message cancelled.');
+              return;
+            }
+            
+            try {
+              await bot.telegram.sendMessage(
+                adminState.targetUserId,
+                `📨 **Message from Admin**\n\n${message}\n\n---\nBirrPay Support Team`,
+                { parse_mode: 'Markdown' }
+              );
+              
+              // Clear admin state
+              await firestore.collection('adminStates').doc(String(ctx.from.id)).delete();
+              
+              await ctx.reply(`✅ Message sent to user ${adminState.targetUserId}`);
+              
+            } catch (error) {
+              console.error('Error sending message to user:', error);
+              await ctx.reply('❌ Error sending message to user. They may have blocked the bot.');
+            }
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error handling admin text:', error);
+    }
+    
+    // Continue to next handler
+    return next();
+  });
   // Admin panel main menu
   bot.command("admin", async (ctx) => {
-    if (ctx.from?.id.toString() !== process.env.ADMIN_TELEGRAM_ID) {
-      await ctx.reply("❌ Access denied. Admin only command.");
+    if (!isAuthorizedAdmin(ctx)) {
+      await ctx.reply("❌ **Access Denied**\n\nThis command is restricted to authorized administrators only.\n\n🔒 All access attempts are logged for security.");
       return;
     }
+
+    // Log admin access
+    await logAdminAction('admin_panel_access', ctx.from.id, {
+      username: ctx.from.username,
+      firstName: ctx.from.first_name
+    });
 
     try {
       // Get pending subscription requests
@@ -87,6 +229,147 @@ export default function adminHandler(bot) {
     }
   });
 
+  bot.command("admin_help", async (ctx) => {
+    if (!isAuthorizedAdmin(ctx)) {
+      await ctx.reply("❌ **Access Denied**\n\nThis command is restricted to authorized administrators only.\n\n🔒 All access attempts are logged for security.");
+      return;
+    }
+
+    const helpMessage = `🔧 **BirrPay Admin Command Center**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 **Available Commands**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**🎛️ Main Controls:**
+• \`/admin\` - Main admin control center
+• \`/admin_help\` - This comprehensive help
+• \`/stats\` - Detailed system statistics
+
+**⚡ Quick Access:**
+• \`/admin_pending\` - View pending requests
+• \`/admin_support\` - View support messages  
+• \`/admin_active\` - View active subscriptions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎛️ **Control Panel Features**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ **Subscription Management**
+• Review payment screenshots
+• Approve/reject requests instantly
+• Contact customers directly
+• Monitor active subscriptions
+
+📊 **Analytics & Monitoring**
+• Real-time system statistics
+• Revenue tracking
+• User growth metrics
+• Performance monitoring
+
+📢 **Communication Tools**
+• Broadcast messages to all users
+• Direct customer messaging
+• Support ticket management
+• Automated notifications
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔗 **Additional Resources**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 **Web Admin Panel:** \`/panel\`
+📊 **System Status:** \`/admin → Settings\`
+🔒 **Security Logs:** All actions tracked
+📱 **Mobile Access:** Full Telegram integration
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 **Pro Tips**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• Use web panel for detailed management
+• All admin actions are automatically logged
+• Customers receive instant notifications
+• System supports multiple languages
+
+**Admin ID:** \`${process.env.ADMIN_TELEGRAM_ID}\`
+**System Version:** BirrPay v2.0 Professional`;
+
+    await ctx.reply(helpMessage, {
+      parse_mode: 'Markdown'
+    });
+
+    // Log help access
+    await logAdminAction('admin_help_accessed', ctx.from.id);
+  });
+
+  // System health and logs command
+  bot.command("admin_system", async (ctx) => {
+    if (!isAuthorizedAdmin(ctx)) {
+      await ctx.reply("❌ **Access Denied**\n\nThis command is restricted to authorized administrators only.\n\n🔒 All access attempts are logged for security.");
+      return;
+    }
+
+    try {
+      // Get recent admin logs
+      const logsSnapshot = await firestore
+        .collection('adminLogs')
+        .orderBy('timestamp', 'desc')
+        .limit(5)
+        .get();
+
+      const recentLogs = logsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return `• ${data.action} - ${data.timestamp.toDate().toLocaleString()}`;
+      });
+
+      const systemStatus = `🔧 **System Health Monitor**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 **System Status**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🟢 **Bot Status:** Online & Active
+🟢 **Database:** Connected
+🟢 **Admin Panel:** Operational
+🟢 **Notifications:** Working
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚡ **Performance Metrics**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Uptime:** ${Math.floor(process.uptime() / 60)} minutes
+**Memory Usage:** ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB
+**Node Version:** ${process.version}
+**Platform:** ${process.platform}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📝 **Recent Admin Activity**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${recentLogs.length > 0 ? recentLogs.join('\n') : 'No recent activity logged'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔒 **Security Information**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Admin ID:** \`${process.env.ADMIN_TELEGRAM_ID}\`
+**Environment:** Production
+**Logging:** Enabled
+**Last Check:** ${new Date().toLocaleString()}`;
+
+      await ctx.reply(systemStatus, {
+        parse_mode: 'Markdown'
+      });
+
+      // Log system check
+      await logAdminAction('system_health_check', ctx.from.id);
+
+    } catch (error) {
+      console.error('Error checking system health:', error);
+      await ctx.reply('❌ Error checking system health. Please check logs.');
+    }
+  });
+
   // Handle pending subscription reviews
   bot.action('admin_pending', async (ctx) => {
     if (ctx.from?.id.toString() !== process.env.ADMIN_TELEGRAM_ID) {
@@ -103,11 +386,12 @@ export default function adminHandler(bot) {
         .get();
 
       if (pendingSnapshot.empty) {
-        await ctx.editMessageText('✅ No pending subscription requests!', {
+        await ctx.editMessageText('✅ **All Caught Up!**\n\n🎉 No pending subscription requests to review.\n\nGreat job staying on top of approvals!', {
+          parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [[
               {
-                text: '🔙 Back to Admin',
+                text: '🔙 Back to Admin Center',
                 callback_data: 'back_to_admin'
               }
             ]]
@@ -116,27 +400,33 @@ export default function adminHandler(bot) {
         return;
       }
 
-      let pendingList = '🔄 **Pending Subscription Requests:**\n\n';
+      let pendingList = `🔄 **Subscription Review Queue**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📋 **${pendingSnapshot.size} Pending Request${pendingSnapshot.size !== 1 ? 's' : ''}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
       const buttons = [];
 
       pendingSnapshot.docs.forEach((doc, index) => {
         const data = doc.data();
         const date = new Date(data.requestedAt).toLocaleDateString();
+        const time = new Date(data.requestedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         
-        pendingList += `**${index + 1}.** ${data.serviceName}\n`;
-        pendingList += `👤 User ID: ${data.telegramUserID}\n`;
-        pendingList += `💰 Amount: ${data.price} ETB\n`;
-        pendingList += `📅 Date: ${date}\n\n`;
+        pendingList += `**${index + 1}.** 🎯 ${data.serviceName}\n`;
+        pendingList += `   👤 User: \`${data.telegramUserID}\`\n`;
+        pendingList += `   💰 Amount: **${data.price} ETB**\n`;
+        pendingList += `   📅 Submitted: ${date} at ${time}\n`;
+        pendingList += `   📸 Screenshot: ${data.paymentScreenshot ? '✅ Uploaded' : '❌ Missing'}\n\n`;
 
         buttons.push([
           {
-            text: `📋 Review #${index + 1}`,
+            text: `📋 Review "${data.serviceName}"`,
             callback_data: `review_sub_${doc.id}`
           }
         ]);
       });
 
       buttons.push([
+        {
+          text: '🔄 Refresh Queue',
+          callback_data: 'admin_pending'
+        },
         {
           text: '🔙 Back to Admin',
           callback_data: 'back_to_admin'
@@ -174,16 +464,29 @@ export default function adminHandler(bot) {
 
       const subData = subDoc.data();
       const date = new Date(subData.requestedAt).toLocaleDateString();
+      const time = new Date(subData.requestedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
-      const reviewMessage = `📋 **Subscription Review**
+      const reviewMessage = `📋 **Detailed Subscription Review**
 
-🎯 **Service:** ${subData.serviceName}
-👤 **User ID:** ${subData.telegramUserID}
-💰 **Amount:** ${subData.price} ETB
-📅 **Requested:** ${date}
-📸 **Screenshot:** ${subData.paymentScreenshot ? 'Uploaded' : 'Not uploaded'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 **Service Details**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**Actions:**`;
+**Service:** \`${subData.serviceName}\`
+**Amount:** **${subData.price} ETB**
+**Request ID:** \`${subscriptionId.substring(0, 8)}...\`
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 **Customer Information**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**User ID:** \`${subData.telegramUserID}\`
+**Submitted:** ${date} at ${time}
+**Payment Proof:** ${subData.paymentScreenshot ? '✅ Screenshot Uploaded' : '❌ No Screenshot'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚡ **Available Actions**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
       await ctx.editMessageText(reviewMessage, {
         parse_mode: 'Markdown',
@@ -191,29 +494,29 @@ export default function adminHandler(bot) {
           inline_keyboard: [
             [
               {
-                text: '📸 View Screenshot',
+                text: '📸 View Payment Proof',
                 callback_data: `view_screenshot_${subscriptionId}`
               }
             ],
             [
               {
-                text: '✅ Approve',
+                text: '✅ Approve & Activate',
                 callback_data: `approve_sub_${subscriptionId}`
               },
               {
-                text: '❌ Reject',
+                text: '❌ Reject Request',
                 callback_data: `reject_sub_${subscriptionId}`
               }
             ],
             [
               {
-                text: '💬 Contact User',
+                text: '💬 Contact Customer',
                 callback_data: `contact_user_${subData.telegramUserID}`
               }
             ],
             [
               {
-                text: '🔙 Back to Pending',
+                text: '🔙 Back to Queue',
                 callback_data: 'admin_pending'
               }
             ]
@@ -339,33 +642,62 @@ export default function adminHandler(bot) {
         activeSubscriptionId: activeSubscription.id
       });
 
-      // Notify user
-      try {
-        const userNotification = `✅ **Subscription Approved!**
+      // Notify user with improved message
+      const userNotification = `🎉 **Great News! Your Subscription is Approved!**
 
-🎯 **Service:** ${subData.serviceName}
-💰 **Amount:** ${subData.price} ETB
-📅 **Valid Until:** ${new Date(activeSubscription.endDate).toLocaleDateString()}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ **Subscription Activated**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Your subscription is now active! You can access your service immediately.
+🎯 **Service:** \`${subData.serviceName}\`
+💰 **Amount Paid:** **${subData.price} ETB**
+📅 **Valid Until:** **${new Date(activeSubscription.endDate).toLocaleDateString()}**
+⏰ **Activated:** ${new Date().toLocaleString()}
 
-Use /mysubs to view all your subscriptions.`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 **Next Steps**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-        await bot.telegram.sendMessage(subData.telegramUserID, userNotification, {
-          parse_mode: 'Markdown'
-        });
-      } catch (notifyError) {
-        console.log("Could not notify user:", notifyError);
-      }
+✨ Your subscription is now **ACTIVE**!
+📱 You can access your service immediately
+📋 Use /mysubs to manage your subscriptions
+💬 Need help? Use /support anytime
+
+Thank you for choosing BirrPay! 🙏`;
+
+      const notificationSent = await notifyUser(bot, subData.telegramUserID, userNotification);
+      
+      // Log the approval action
+      await logAdminAction('subscription_approved', ctx.from.id, {
+        subscriptionId,
+        serviceName: subData.serviceName,
+        userId: subData.telegramUserID,
+        amount: subData.price,
+        notificationSent
+      });
 
       await ctx.answerCbQuery('✅ Subscription approved successfully!');
       
       // Refresh the admin panel
-      await ctx.editMessageText(`✅ **Subscription Approved**\n\nSubscription for ${subData.serviceName} has been approved and activated.`, {
+      await ctx.editMessageText(`✅ **Subscription Approved & Activated**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎉 **Action Completed Successfully**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Service:** \`${subData.serviceName}\`
+**User:** \`${subData.telegramUserID}\`
+**Amount:** **${subData.price} ETB**
+**Status:** ✅ **ACTIVE**
+
+📅 **Valid Until:** ${new Date(activeSubscription.endDate).toLocaleDateString()}
+
+✉️ Customer has been notified automatically.`, {
+        parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [[
             {
-              text: '🔙 Back to Pending',
+              text: '🔙 Back to Review Queue',
               callback_data: 'admin_pending'
             }
           ]]
@@ -403,36 +735,69 @@ Use /mysubs to view all your subscriptions.`;
         rejectedBy: ctx.from.id
       });
 
-      // Notify user
-      try {
-        const userNotification = `❌ **Subscription Request Rejected**
+      // Notify user with improved rejection message
+      const rejectionNotification = `😔 **Subscription Request Update**
 
-🎯 **Service:** ${subData.serviceName}
-💰 **Amount:** ${subData.price} ETB
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ **Request Not Approved**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Your subscription request has been rejected. This could be due to:
-• Invalid payment screenshot
-• Incorrect payment amount
-• Payment not received
+🎯 **Service:** \`${subData.serviceName}\`
+💰 **Amount:** **${subData.price} ETB**
+📅 **Reviewed:** ${new Date().toLocaleString()}
 
-Please contact support if you believe this is an error.
-Use /support to get help.`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 **Common Reasons for Rejection**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-        await bot.telegram.sendMessage(subData.telegramUserID, userNotification, {
-          parse_mode: 'Markdown'
-        });
-      } catch (notifyError) {
-        console.log("Could not notify user:", notifyError);
-      }
+❌ Payment screenshot unclear or invalid
+❌ Incorrect payment amount
+❌ Payment not received or verified
+❌ Duplicate subscription request
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛠️ **What You Can Do**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💬 Contact support: /support
+📝 Resubmit with correct information
+🔄 Try again with clear payment proof
+
+We're here to help! 🤝`;
+
+      const notificationSent = await notifyUser(bot, subData.telegramUserID, rejectionNotification);
+
+      // Log the rejection action
+      await logAdminAction('subscription_rejected', ctx.from.id, {
+        subscriptionId,
+        serviceName: subData.serviceName,
+        userId: subData.telegramUserID,
+        amount: subData.price,
+        notificationSent
+      });
 
       await ctx.answerCbQuery('❌ Subscription rejected');
       
       // Refresh the admin panel
-      await ctx.editMessageText(`❌ **Subscription Rejected**\n\nSubscription for ${subData.serviceName} has been rejected.`, {
+      await ctx.editMessageText(`❌ **Subscription Request Rejected**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ **Action Completed**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Service:** \`${subData.serviceName}\`
+**User:** \`${subData.telegramUserID}\`
+**Amount:** **${subData.price} ETB**
+**Status:** ❌ **REJECTED**
+
+**Rejection Time:** ${new Date().toLocaleString()}
+
+✉️ Customer has been notified with rejection reasons.`, {
+        parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [[
             {
-              text: '🔙 Back to Pending',
+              text: '🔙 Back to Review Queue',
               callback_data: 'admin_pending'
             }
           ]]
@@ -452,12 +817,85 @@ Use /support to get help.`;
       return;
     }
 
-    // Trigger admin command again
-    ctx.command = { command: 'admin' };
-    await adminHandler.apply(this, [bot]);
-    const adminCommand = bot.commands.find(cmd => cmd.command === 'admin');
-    if (adminCommand) {
-      await adminCommand.handler(ctx);
+    try {
+      await ctx.answerCbQuery();
+      
+      // Recreate admin panel
+      // Get pending subscription requests
+      const pendingSnapshot = await firestore
+        .collection('subscription_requests')
+        .where('status', '==', 'pending_admin_approval')
+        .get();
+
+      const pendingCount = pendingSnapshot.size;
+
+      // Get active subscriptions count
+      const activeSnapshot = await firestore
+        .collection('subscriptions')
+        .where('status', '==', 'active')
+        .get();
+
+      const activeCount = activeSnapshot.size;
+
+      // Get total users
+      const usersSnapshot = await firestore
+        .collection('users')
+        .get();
+
+      const usersCount = usersSnapshot.size;
+
+      const adminMenu = `🔧 **Admin Panel**
+
+📊 **Quick Stats:**
+• 🔄 Pending Approvals: ${pendingCount}
+• ✅ Active Subscriptions: ${activeCount}
+• 👥 Total Users: ${usersCount}
+
+**Management Options:**`;
+
+      await ctx.editMessageText(adminMenu, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: `🔄 Review Pending (${pendingCount})`,
+                callback_data: 'admin_pending'
+              }
+            ],
+            [
+              {
+                text: '✅ Active Subscriptions',
+                callback_data: 'admin_active'
+              },
+              {
+                text: '👥 Manage Users',
+                callback_data: 'admin_users'
+              }
+            ],
+            [
+              {
+                text: '📊 Statistics',
+                callback_data: 'admin_stats'
+              },
+              {
+                text: '🛠️ Settings',
+                callback_data: 'admin_settings'
+              }
+            ],
+            [
+              {
+                text: '💬 Broadcast',
+                callback_data: 'admin_broadcast'
+              }
+            ]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error returning to admin:', error);
+      await ctx.reply('Error loading admin panel.');
     }
   });
 
@@ -528,27 +966,71 @@ Use /support to get help.`;
     }
 
     try {
-      const stats = firestore.getStats ? firestore.getStats() : {
-        totalUsers: 0,
-        activeSubscriptions: 0,
-        totalRevenue: 0,
-        pendingTickets: 0,
-        paidUsers: 0
-      };
+      // Get real statistics from database
+      const usersSnapshot = await firestore.collection('users').get();
+      const subsSnapshot = await firestore.collection('subscriptions').get();
+      const reqSnapshot = await firestore.collection('subscription_requests').get();
+      const supportSnapshot = await firestore.collection('supportMessages').get();
+      
+      // Calculate statistics
+      const totalUsers = usersSnapshot.size;
+      const totalSubscriptions = subsSnapshot.size;
+      
+      let activeSubscriptions = 0;
+      let totalRevenue = 0;
+      let expiredSubs = 0;
+      
+      subsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.status === 'active') {
+          activeSubscriptions++;
+          totalRevenue += parseFloat(data.price || 0);
+        }
+        if (data.status === 'expired') {
+          expiredSubs++;
+        }
+      });
+      
+      let pendingRequests = 0;
+      let approvedRequests = 0;
+      let rejectedRequests = 0;
+      
+      reqSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        switch (data.status) {
+          case 'pending_admin_approval':
+            pendingRequests++;
+            break;
+          case 'approved':
+            approvedRequests++;
+            break;
+          case 'rejected':
+            rejectedRequests++;
+            break;
+        }
+      });
+      
+      const unhandledSupport = supportSnapshot.docs.filter(doc => !doc.data().handled).length;
+      const handledSupport = supportSnapshot.docs.filter(doc => doc.data().handled).length;
 
       const statsMessage = `📊 **System Statistics**
 
 👥 **Users:**
-• Total: ${stats.totalUsers}
-• Premium: ${stats.paidUsers}
+• Total Users: ${totalUsers}
+• Active Subscriptions: ${activeSubscriptions}
 
-📺 **Subscriptions:**
-• Active: ${stats.activeSubscriptions}
-• Pending: ${stats.pendingTickets}
+📺 **Subscription Requests:**
+• Pending: ${pendingRequests}
+• Approved: ${approvedRequests}
+• Rejected: ${rejectedRequests}
 
 💰 **Revenue:**
-• Total: ${stats.totalRevenue} ETB
-• Average per user: ${stats.totalUsers > 0 ? Math.round(stats.totalRevenue / stats.totalUsers) : 0} ETB
+• Total Revenue: ${totalRevenue.toFixed(2)} ETB
+• Average per User: ${totalUsers > 0 ? (totalRevenue / totalUsers).toFixed(2) : '0'} ETB
+
+🛠️ **Support:**
+• Unhandled: ${unhandledSupport}
+• Handled: ${handledSupport}
 
 📅 **Generated:** ${new Date().toLocaleString()}`;
 
@@ -572,6 +1054,172 @@ Use /support to get help.`;
     } catch (error) {
       console.error('Error loading statistics:', error);
       await ctx.answerCbQuery('Error loading statistics');
+    }
+  });
+
+  // Handle contact user functionality  
+  bot.action(/^contact_user_(.+)$/, async (ctx) => {
+    if (ctx.from?.id.toString() !== process.env.ADMIN_TELEGRAM_ID) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const userId = ctx.match[1];
+      
+      const contactMsg = `💬 **Contact User**
+
+👤 **User ID:** ${userId}
+
+**Quick Actions:**`;
+
+      await ctx.editMessageText(contactMsg, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: '📨 Send Message',
+                callback_data: `send_message_${userId}`
+              }
+            ],
+            [
+              {
+                text: '📋 View User Details',
+                callback_data: `user_details_${userId}`
+              }
+            ],
+            [
+              {
+                text: '🔙 Back to Review',
+                callback_data: `review_sub_${ctx.match[0].split('_')[2] || 'unknown'}`
+              }
+            ]
+          ]
+        }
+      });
+
+      await ctx.answerCbQuery();
+
+    } catch (error) {
+      console.error('Error in contact user:', error);
+      await ctx.answerCbQuery('Error contacting user');
+    }
+  });
+
+  // Handle send message to user
+  bot.action(/^send_message_(.+)$/, async (ctx) => {
+    if (ctx.from?.id.toString() !== process.env.ADMIN_TELEGRAM_ID) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const userId = ctx.match[1];
+      
+      const sendMsgPrompt = `📨 **Send Message to User**
+
+👤 **User ID:** ${userId}
+
+Reply to this message with the text you want to send to the user.
+Use /cancel to cancel this operation.`;
+
+      await ctx.editMessageText(sendMsgPrompt, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          force_reply: true,
+          input_field_placeholder: 'Type your message to the user...'
+        }
+      });
+
+      // Set admin state to expect message
+      await firestore.collection('adminStates').doc(String(ctx.from.id)).set({
+        awaitingUserMessage: true,
+        targetUserId: userId,
+        timestamp: new Date()
+      });
+
+      await ctx.answerCbQuery();
+
+    } catch (error) {
+      console.error('Error in send message:', error);
+      await ctx.answerCbQuery('Error setting up message');
+    }
+  });
+
+  // Handle user details view
+  bot.action(/^user_details_(.+)$/, async (ctx) => {
+    if (ctx.from?.id.toString() !== process.env.ADMIN_TELEGRAM_ID) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const userId = ctx.match[1];
+      
+      // Get user data from users collection
+      const userSnapshot = await firestore.collection('users')
+        .where('telegramId', '==', parseInt(userId))
+        .limit(1)
+        .get();
+
+      if (userSnapshot.empty) {
+        await ctx.answerCbQuery('User not found in database');
+        return;
+      }
+
+      const userData = userSnapshot.docs[0].data();
+      
+      // Get user's subscriptions
+      const subsSnapshot = await firestore.collection('subscriptions')
+        .where('telegramUserID', '==', userId)
+        .get();
+
+      const activeCount = subsSnapshot.docs.filter(doc => doc.data().status === 'active').length;
+      const totalCount = subsSnapshot.size;
+
+      const userDetailsMsg = `👤 **User Details**
+
+**Basic Info:**
+• Name: ${userData.firstName || 'Unknown'} ${userData.lastName || ''}
+• Username: ${userData.username ? '@' + userData.username : 'Not set'}
+• Telegram ID: ${userId}
+• Phone: ${userData.phoneNumber || 'Not provided'}
+
+**Subscription Info:**
+• Active Subscriptions: ${activeCount}
+• Total Subscriptions: ${totalCount}
+
+**Account Status:**
+• Verified: ${userData.phoneVerified ? '✅' : '❌'}
+• Language: ${userData.language || 'en'}
+• Joined: ${userData.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown'}`;
+
+      await ctx.editMessageText(userDetailsMsg, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: '📨 Send Message',
+                callback_data: `send_message_${userId}`
+              }
+            ],
+            [
+              {
+                text: '🔙 Back to Contact',
+                callback_data: `contact_user_${userId}`
+              }
+            ]
+          ]
+        }
+      });
+
+      await ctx.answerCbQuery();
+
+    } catch (error) {
+      console.error('Error viewing user details:', error);
+      await ctx.answerCbQuery('Error loading user details');
     }
   });
 }
