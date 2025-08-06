@@ -106,6 +106,18 @@ Customer service available in Amharic and English.`;
     try {
       const lang = ctx.userLang || 'en';
       const services = await loadServices();
+      if (!services || services.length === 0) {
+        await ctx.answerCbQuery();
+        await ctx.editMessageText(lang === 'am' ? 'ምንም አገልግሎት አልተገኘም። እባክዎ በኋላ ይሞክሩ።' : 'No services are currently available. Please try again later.', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: lang === "en" ? "⬅️ Back to Menu" : "⬅️ ወደ ሜኑ ተመለስ", callback_data: "back_to_start" }]
+            ]
+          }
+        });
+        return;
+      }
+      const services = await loadServices();
       
       // Create service grid (2 services per row)
       const keyboard = [];
