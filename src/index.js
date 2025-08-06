@@ -1357,15 +1357,6 @@ fastify.get('/api/reports/:type', { preHandler: requireAdmin }, async (req, repl
   }
 });
 
-fastify.get('/api/services', { preHandler: requireAdmin }, async (req, reply) => {
-  try {
-    const services = await loadServices();
-    return services;
-  } catch (error) {
-    reply.status(500).send({ error: error.message });
-  }
-});
-
 // User management endpoints
 fastify.post('/api/users/:id/message', { preHandler: requireAdmin }, async (req, reply) => {
   try {
