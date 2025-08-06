@@ -727,38 +727,61 @@ console.log("Registering firestoreListener...");
 firestoreListener(bot);
 console.log("All remaining handlers registered successfully!");
 
-// Test command for debugging
-bot.command("direct_test", async (ctx) => {
-  console.log("📝 DIRECT TEST COMMAND TRIGGERED!");
-  console.log("User ID:", ctx.from?.id);
-  console.log("User language:", ctx.userLang);
-  console.log("i18n available:", !!ctx.i18n);
-  await ctx.reply("✅ Direct test command working! This proves handlers can be triggered.");
-});
+// Admin statistics command
+bot.command("stats", async (ctx) => {
+  if (ctx.from?.id.toString() !== process.env.ADMIN_TELEGRAM_ID) {
+    await ctx.reply("❌ Access denied. Admin only command.");
+    return;
+  }
 
-// Test commands for debugging
-bot.command("test", async (ctx) => {
-  console.log("Test command triggered!");
-  console.log("Context has i18n:", !!ctx.i18n);
-  console.log("Context has userLang:", ctx.userLang);
-  console.log("Context has services:", !!ctx.services);
-  await ctx.reply("🎉 Bot is working perfectly!");
-});
-
-// Debug help command
-bot.command("debug_help", async (ctx) => {
   try {
-    console.log("Debug help command triggered!");
-    console.log("User language:", ctx.userLang);
-    console.log("i18n available:", !!ctx.i18n);
-    
-    const helpText = "🔧 Debug Help\n\nBot is working! Available commands:\n• /start - Main menu\n• /help - Help information\n• /faq - FAQ\n• /lang - Language settings";
-    
-    await ctx.reply(helpText);
-    console.log("Debug help sent successfully!");
+    const stats = firestore.getStats ? firestore.getStats() : {
+      totalUsers: 0,
+      activeSubscriptions: 0,
+      totalRevenue: 0,
+      pendingTickets: 0,
+      paidUsers: 0
+    };
+
+    const statsText = `📊 System Statistics:
+
+👥 Total Users: ${stats.totalUsers}
+💰 Paid Users: ${stats.paidUsers}
+📺 Active Subscriptions: ${stats.activeSubscriptions}
+💵 Total Revenue: ${stats.totalRevenue} ETB
+🎫 Pending Tickets: ${stats.pendingTickets}
+
+Updated: ${new Date().toLocaleString()}`;
+
+    await ctx.reply(statsText);
   } catch (error) {
-    console.error("Error in debug help:", error);
-    await ctx.reply("Error in debug help: " + error.message);
+    await ctx.reply("Error retrieving statistics.");
+  }
+});
+
+// Data export command for admin
+bot.command("export", async (ctx) => {
+  if (ctx.from?.id.toString() !== process.env.ADMIN_TELEGRAM_ID) {
+    await ctx.reply("❌ Access denied. Admin only command.");
+    return;
+  }
+
+  try {
+    const data = firestore.exportData ? firestore.exportData() : {};
+    const exportText = `📋 Data Export Summary:
+
+📊 Collections:
+${Object.keys(data).map(collection => 
+  `• ${collection}: ${data[collection]?.length || 0} records`
+).join('\n')}
+
+Generated: ${new Date().toLocaleString()}
+
+Note: Full data export requires database access.`;
+
+    await ctx.reply(exportText);
+  } catch (error) {
+    await ctx.reply("Error exporting data.");
   }
 });
 
