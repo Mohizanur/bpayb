@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "10000:10000"
+    environment:
+      - NODE_ENV=production
+      - PORT=10000
+      # Add other environment variables here
+      # - TELEGRAM_BOT_TOKEN=your_bot_token
+      # - ADMIN_TELEGRAM_ID=your_admin_id
+    restart: unless-stopped
