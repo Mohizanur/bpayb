@@ -1740,107 +1740,38 @@ fastify.put('/api/services/:id', { preHandler: requireAdmin }, async (req, reply
 
 // Telegram webhook endpoint with enhanced error handling
 fastify.post("/telegram", async (request, reply) => {
-  const updateId = request.body?.update_id;
-  const messageType = Object.keys(request.body)
-    .filter(key => key !== 'update_id' && key in request.body)
-    .join(', ') || 'unknown';
-  
-  const requestId = `webhook-${updateId}-${Date.now()}`;
-  const startTime = Date.now();
-  
-  // Log the incoming update for debugging (but be careful with sensitive data)
-  console.log(`[${requestId}] 📥 Received ${messageType} update #${updateId}`);
-  
   try {
-    // Process the update with a timeout to prevent hanging
-    const timeoutMs = 30000; // 30 second timeout for the entire operation
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error(`Request timeout after ${timeoutMs}ms`)), timeoutMs)
-    );
+    if (!request.body) {
+      console.error('❌ Empty request body received');
+      return reply.status(400).send('Empty request body');
+    }
+    
+    const updateId = request.body.update_id;
+    const messageType = Object.keys(request.body)
+      .filter(key => key !== 'update_id' && key in request.body)
+      .join(', ') || 'unknown';
+    
+    const requestId = `webhook-${updateId}-${Date.now()}`;
+    const startTime = Date.now();
+    
+    console.log(`📥 Received update [${requestId}]:`, {
+      type: messageType,
+      updateId,
+      body: JSON.stringify(request.body, null, 2).substring(0, 500) + '...'
+    });
     
     // Process the update
-    const processingPromise = (async () => {
-      try {
-        await bot.handleUpdate(request.body);
-        return { success: true };
-      } catch (error) {
-        // Add more context to the error
-        error.updateId = updateId;
-        error.messageType = messageType;
-        throw error;
-      }
-    })();
+    await bot.handleUpdate(request.body, reply.raw);
     
-    // Race between the processing and the timeout
-    await Promise.race([processingPromise, timeoutPromise]);
-    
-    const duration = Date.now() - startTime;
-    console.log(`[${requestId}] ✅ Processed in ${duration}ms`);
-    
-    // Always return 200 OK to acknowledge receipt of the update
-    return { status: 'ok', processed_in_ms: duration };
-    
+    console.log(`✅ Processed update [${requestId}] in ${Date.now() - startTime}ms`);
+    return { ok: true };
+      
   } catch (error) {
-    const duration = Date.now() - startTime;
-    const errorId = `err-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-    
-    // Log the error with more context
-    console.error(`[${requestId}] ❌ Error after ${duration}ms (${errorId}):`, error.message);
-    
-    // Log additional context (but be careful with sensitive data)
-    const updateContext = {
-      update_id: updateId,
-      message_type: messageType,
-      from_id: request.body?.message?.from?.id || 
-              request.body?.callback_query?.from?.id || 
-              request.body?.inline_query?.from?.id ||
-              'unknown',
-      has_message: !!request.body?.message,
-      has_callback: !!request.body?.callback_query,
-      has_inline_query: !!request.body?.inline_query
-    };
-    
-    console.error(`[${requestId}] Update context:`, JSON.stringify(updateContext, null, 2));
-    
-    // Log stack trace for unexpected errors
-    if (!error.message.includes('timeout') && !error.message.includes('retry after')) {
-      console.error(`[${requestId}] Stack trace:`, error.stack);
-    }
-    
-    // Determine if this is a retryable error
-    const isRetryable = ![
-      'retry after',
-      'too many requests',
-      'message is not modified',
-      'chat not found',
-      'user is deactivated',
-      'bot was blocked by the user'
-    ].some(msg => error.message.toLowerCase().includes(msg));
-    
-    console.log(`[${requestId}] ${isRetryable ? '⚠️  Retryable error' : 'ℹ️  Non-retryable error'}`);
-    
-    // Return appropriate status based on error type
-    if (isRetryable) {
-      // Return 202 to indicate temporary failure (Telegram will retry)
-      reply.status(202);
-      return { 
-        status: 'error',
-        error: error.message,
-        error_id: errorId,
-        retryable: true,
-        processed_in_ms: duration
-      };
-    }
-    
-    // Return 200 for non-retryable errors (don't want Telegram to retry)
-    return { 
-      status: 'ok',
-      error: error.message,
-      error_id: errorId,
-      retryable: false,
-      processed_in_ms: duration,
-      _info: 'Error was not retryable, marked as handled'
-    };
+    console.error('❌ Error processing webhook update:', error);
+    return reply.status(500).send({ 
+      error: 'Internal server error',
+      message: error.message 
+    });
   }
 });
 
@@ -1886,24 +1817,66 @@ const testTelegramConnection = async () => {
 };
 
 // Helper function to set webhook with retry logic
-const setupWebhook = async (url, maxRetries = 3, delay = 5000) => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(`🔗 Setting up webhook (attempt ${attempt}/${maxRetries})...`);
-      await bot.telegram.setWebhook(`${url}/telegram`);
-      console.log('✅ Webhook set successfully');
-      return true;
-    } catch (error) {
-      console.error(`❌ Webhook setup attempt ${attempt} failed:`, error.message);
-      
-      if (attempt < maxRetries) {
-        console.log(`⏳ Retrying in ${delay / 1000} seconds...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      } else {
-        console.error('❌ Failed to set webhook after multiple attempts');
-        return false;
+const setupWebhook = async (baseUrl, maxRetries = 3, delay = 5000) => {
+  try {
+    // Ensure the URL is properly formatted
+    const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const webhookUrl = `https://${cleanUrl}/telegram`;
+    
+    console.log(`🔗 Setting up webhook to: ${webhookUrl}`);
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Webhook setup attempt ${attempt}/${maxRetries}...`);
+        
+        // First, delete any existing webhook
+        console.log('ℹ️  Deleting existing webhook...');
+        await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+        
+        // Then set the new webhook
+        console.log('ℹ️  Setting new webhook...');
+        const setWebhookResult = await bot.telegram.setWebhook(webhookUrl, {
+          allowed_updates: ['message', 'callback_query', 'chat_member', 'chat_join_request'],
+          drop_pending_updates: true
+        });
+        
+        console.log('ℹ️  Webhook set result:', setWebhookResult);
+        
+        // Verify the webhook was set correctly
+        console.log('ℹ️  Verifying webhook...');
+        const webhookInfo = await bot.telegram.getWebhookInfo();
+        
+        console.log('📋 Webhook info:', {
+          url: webhookInfo.url,
+          has_custom_certificate: webhookInfo.has_custom_certificate,
+          pending_update_count: webhookInfo.pending_update_count,
+          last_error_date: webhookInfo.last_error_date ? new Date(webhookInfo.last_error_date * 1000).toISOString() : null,
+          last_error_message: webhookInfo.last_error_message
+        });
+        
+        if (webhookInfo.url === webhookUrl) {
+          console.log('✅ Webhook set successfully');
+          return true;
+        } else {
+          throw new Error(`Webhook URL mismatch. Expected: ${webhookUrl}, Got: ${webhookInfo.url}`);
+        }
+      } catch (error) {
+        console.error(`❌ Webhook setup attempt ${attempt} failed:`, error.message);
+        
+        if (attempt < maxRetries) {
+          const waitTime = delay / 1000;
+          console.log(`⏳ Retrying in ${waitTime} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          throw error; // Re-throw to be caught by the outer try-catch
+        }
       }
     }
+    
+    return false; // If we get here, all retries failed
+  } catch (error) {
+    console.error('❌ Fatal error in webhook setup:', error);
+    return false;
   }
 };
 
@@ -1926,33 +1899,38 @@ async function startServer() {
   const maxPortAttempts = 5;
   let currentPort = port;
   
-  // Get webhook URL from environment or use ngrok if in development
-  const isProduction = process.env.NODE_ENV === 'production';
-  const webhookUrl = process.env.WEBHOOK_URL || (isProduction ? null : 'https://your-ngrok-url.ngrok.io');
-  
   for (let attempt = 1; attempt <= maxPortAttempts; attempt++) {
     try {
-      // Start the Fastify server
-      await fastify.listen({ port: currentPort, host: "0.0.0.0" });
-      
+      // Start the server
+      await fastify.listen({ port: currentPort, host: '0.0.0.0' });
       console.log(`🚀 BirrPay Bot & Admin Panel running on port ${currentPort}`);
       
-      // Set up webhook if in production or if webhook URL is provided
-      if (isProduction || webhookUrl) {
-        const webhookSuccess = await setupWebhook(webhookUrl);
-        if (!webhookSuccess) {
-          console.warn('⚠️  Webhook setup failed, some features may not work correctly');
+      // Set up webhook if in production
+      if (process.env.NODE_ENV === 'production') {
+        // Try to get the Render URL from environment variables
+        const renderUrl = process.env.RENDER_EXTERNAL_URL || 
+                         `https://${process.env.RENDER_SERVICE_NAME || 'bpayb'}.onrender.com`;
+        
+        console.log(`🌐 Using Render URL: ${renderUrl}`);
+        
+        try {
+          const webhookSuccess = await setupWebhook(renderUrl);
+          
+          if (!webhookSuccess) {
+            console.log('📱 Telegram Bot: Falling back to polling mode');
+            await bot.launch();
+          }
+        } catch (error) {
+          console.error('❌ Error setting up webhook:', error.message);
+          console.log('📱 Telegram Bot: Falling back to polling mode due to error');
+          await bot.launch();
         }
       } else {
-        console.log('ℹ️  Running in development mode with polling');
-        bot.launch().then(() => {
-          console.log('🤖 Bot is running in polling mode');
-        }).catch(err => {
-          console.error('❌ Failed to start bot in polling mode:', err);
-        });
+        console.log('🔧 Development mode: Using polling');
+        await bot.launch();
       }
-      
-      console.log(`📱 Telegram Bot: ${webhookUrl ? 'Webhook' : 'Polling'} mode`);
+
+      console.log(`📱 Telegram Bot: ${process.env.NODE_ENV === 'production' ? 'Webhook' : 'Polling'} mode`);
       console.log(`🔧 Admin Panel: http://localhost:${currentPort}/panel`);
       console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID || 'Not set'}`);
       
@@ -1975,7 +1953,7 @@ async function startServer() {
       return; // Successfully started the server
     } catch (err) {
       if (err.code === 'EADDRINUSE') {
-        console.warn(`⚠️  Port ${currentPort} is in use, trying port ${currentPort + 1}...`);
+        console.warn(`⚠️ Port ${currentPort} is in use, trying port ${currentPort + 1}...`);
         currentPort++;
         
         if (attempt === maxPortAttempts) {
@@ -1983,7 +1961,7 @@ async function startServer() {
           process.exit(1);
         }
       } else {
-        console.error("Error starting server:", err);
+        console.error('❌ Error starting server:', err);
         process.exit(1);
       }
     }
