@@ -429,7 +429,7 @@ ${selectedService.description}
         ? `💳 **የክፍያ መመሪያዎች**
         
 **አገልግሎት:** ${selectedService.name}
-**የእቅድ ቆይታ:** ${durationNames[durationId]}
+**የእቅድ ቆይታ:** ${getDurationName(durationId, 'am')}
 **መጠን:** ${formatCurrency(amount)}
 **የክፍያ ዘዴ:** ${paymentMethod.name_am}
 **የክፍያ ማጣቀሻ:** ${paymentResult.paymentReference}
@@ -441,7 +441,7 @@ ${instructions}
         : `💳 **Payment Instructions**
         
 **Service:** ${selectedService.name}
-**Duration:** ${durationNames[durationId]}
+**Duration:** ${getDurationName(durationId, 'en')}
 **Amount:** ${formatCurrency(amount)}
 **Payment Method:** ${paymentMethod.name}
 **Payment Reference:** ${paymentResult.paymentReference}
