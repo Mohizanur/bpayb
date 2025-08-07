@@ -178,7 +178,7 @@ ${selectedService.description}
     }
   });
   
-  // Handle payment method selection with proper pattern matching
+  // Handle payment method selection with case-insensitive matching
   bot.action(/^select_payment_([a-z0-9]+)_(\d+_months?|1_month)_([a-z_]+)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
@@ -200,8 +200,13 @@ ${selectedService.description}
         return;
       }
       
-      const paymentMethod = PAYMENT_METHODS[paymentMethodId];
+      // Find payment method case-insensitively
+      const paymentMethod = Object.values(PAYMENT_METHODS).find(
+        method => method.id.toLowerCase() === paymentMethodId.toLowerCase()
+      );
+      
       if (!paymentMethod) {
+        console.error(`❌ Payment method not found: ${paymentMethodId}`);
         await ctx.answerCbQuery(lang === 'am' ? 'የክፍያ ዘዴ አልተገኘም' : 'Payment method not found');
         return;
       }

@@ -47,8 +47,13 @@ export const generatePaymentReference = (subscriptionId) => {
 // Create a new payment
 export const processPayment = async (subscriptionData, paymentMethod) => {
   try {
-    const paymentMethodConfig = PAYMENT_METHODS[paymentMethod];
+    // Find payment method case-insensitively
+    const paymentMethodConfig = Object.values(PAYMENT_METHODS).find(
+      method => method.id.toLowerCase() === paymentMethod.toLowerCase()
+    );
+    
     if (!paymentMethodConfig) {
+      console.error(`❌ Invalid payment method: ${paymentMethod}`);
       throw new Error('Invalid payment method');
     }
 
