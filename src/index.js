@@ -1735,6 +1735,8 @@ fastify.put('/api/services/:id', { preHandler: requireAdmin }, async (req, reply
     return { ok: true, message: 'Service updated successfully' };
   } catch (error) {
     reply.status(500).send({ error: error.message });
+  }
+});
 
 // Telegram webhook endpoint with enhanced error handling
 fastify.post("/telegram", async (request, reply) => {
