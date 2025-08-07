@@ -414,9 +414,9 @@ bot.action('verify_phone', async (ctx) => {
     
     await ctx.answerCbQuery();
     
-    // Create keyboard with contact sharing option
+    // Create reply keyboard with contact sharing option
     const keyboard = {
-      inline_keyboard: [
+      keyboard: [
         [
           {
             text: lang === 'am' ? '📱 እውቂያ ማጋራት' : '📱 Share Contact',
@@ -425,11 +425,12 @@ bot.action('verify_phone', async (ctx) => {
         ],
         [
           {
-            text: lang === 'am' ? '✍️ በእጅ መፃፍ' : '✍️ Type Manually',
-            callback_data: 'manual_phone_input'
+            text: lang === 'am' ? '✍️ በእጅ መፃፍ' : '✍️ Type Manually'
           }
         ]
-      ]
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: true
     };
     
     await ctx.reply(requestMsg, {
@@ -457,27 +458,7 @@ bot.action('verify_phone', async (ctx) => {
   }
 });
 
-// Handle manual phone input option
-bot.action('manual_phone_input', async (ctx) => {
-  try {
-    const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
-    const requestMsg = lang === 'am'
-      ? '📱 የተልፍዎን መረጃ\n\nየተልፍዎን መረጃ በዚህ ቅርጸት ይጣፉ: +251912345678\n\nየተልፍዎን መረጃ ይጠቁሉ:'
-      : '📱 Phone Verification\n\nPlease enter your phone number in international format: +251912345678\n\nType your phone number:';
-    
-    await ctx.answerCbQuery();
-    await ctx.editMessageText(requestMsg, {
-      reply_markup: {
-        force_reply: true,
-        input_field_placeholder: lang === 'am' ? '+251...' : '+251...'
-      }
-    });
-    
-  } catch (error) {
-    console.error('Error in manual_phone_input:', error);
-    await ctx.answerCbQuery('Error occurred');
-  }
-});
+
 
 // Handle contact sharing
 bot.on('contact', async (ctx) => {
@@ -522,6 +503,7 @@ bot.on('contact', async (ctx) => {
       
       await ctx.reply(codeMsg, {
         reply_markup: {
+          remove_keyboard: true,
           force_reply: true,
           input_field_placeholder: lang === 'am' ? 'ኮድን ይጠቁሉ' : 'Enter code'
         },
@@ -537,6 +519,23 @@ bot.on('contact', async (ctx) => {
 // Handle phone number input
 bot.on('text', async (ctx, next) => {
   try {
+    // Check if user clicked "Type Manually"
+    if (ctx.message.text === '✍️ በእጅ መፃፍ' || ctx.message.text === '✍️ Type Manually') {
+      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      const requestMsg = lang === 'am'
+        ? '📱 የተልፍዎን መረጃ\n\nየተልፍዎን መረጃ በዚህ ቅርጸት ይጣፉ: +251912345678\n\nየተልፍዎን መረጃ ይጠቁሉ:'
+        : '📱 Phone Verification\n\nPlease enter your phone number in international format: +251912345678\n\nType your phone number:';
+      
+      await ctx.reply(requestMsg, {
+        reply_markup: {
+          remove_keyboard: true,
+          force_reply: true,
+          input_field_placeholder: lang === 'am' ? '+251...' : '+251...'
+        }
+      });
+      return;
+    }
+    
     // Check if user is awaiting phone verification
     const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
     const userData = userDoc.data();
@@ -574,9 +573,11 @@ bot.on('text', async (ctx, next) => {
       
       await ctx.reply(codeMsg, {
         reply_markup: {
+          remove_keyboard: true,
           force_reply: true,
           input_field_placeholder: lang === 'am' ? 'ኮድን ይጠቁሉ' : 'Enter code'
-        }
+        },
+        parse_mode: 'Markdown'
       });
       return;
     }
@@ -623,6 +624,12 @@ bot.on('text', async (ctx, next) => {
           ]
         ];
         
+        // Remove keyboard first
+        await ctx.reply('✅', {
+          reply_markup: { remove_keyboard: true }
+        });
+        
+        // Then send success message with inline keyboard
         await ctx.reply(successMsg, {
           reply_markup: { inline_keyboard: keyboard },
           parse_mode: 'Markdown'
