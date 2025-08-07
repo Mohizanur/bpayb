@@ -387,7 +387,7 @@ ${selectedService.description}
         duration: getDurationName(durationId, 'en'),
         amount: formatCurrency(amount),
         paymentMethod: paymentMethod.name,
-        paymentReference,
+        paymentReference: initialPaymentReference,
         timestamp: new Date().toISOString()
       }, lang);
       

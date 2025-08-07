@@ -1760,11 +1760,11 @@ fastify.post("/telegram", async (request, reply) => {
       body: JSON.stringify(request.body, null, 2).substring(0, 500) + '...'
     });
     
-    // Process the update
-    await bot.handleUpdate(request.body, reply.raw);
+    // Process the update - don't await to prevent double response
+    bot.handleUpdate(request.body, reply.raw);
     
-    console.log(`✅ Processed update [${requestId}] in ${Date.now() - startTime}ms`);
-    return { ok: true };
+    // Don't send a response here - let Telegraf handle it
+    return reply.code(200).send('OK');
       
   } catch (error) {
     console.error('❌ Error processing webhook update:', error);
