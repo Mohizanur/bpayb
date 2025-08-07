@@ -349,8 +349,11 @@ bot.use(async (ctx, next) => {
     const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
     const isVerificationCommand = ctx.message?.text?.startsWith('/verify') || ctx.callbackQuery?.data?.startsWith('verify_');
     const isStartCommand = ctx.message?.text === '/start';
+    const isContactMessage = ctx.message?.contact;
+    const isManualPhoneInput = ctx.message?.text === '✍️ በእጅ መፃፍ' || ctx.message?.text === '✍️ Type Manually';
+    const isVerificationCodeInput = ctx.message?.text && /^\d{6}$/.test(ctx.message.text.trim());
     
-    if (isAdmin || isVerificationCommand || isStartCommand) {
+    if (isAdmin || isVerificationCommand || isStartCommand || isContactMessage || isManualPhoneInput || isVerificationCodeInput) {
       ctx.i18n = i18n;
       ctx.services = services;
       ctx.userLang = await getUserLang(ctx);
