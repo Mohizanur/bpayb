@@ -13,6 +13,7 @@
     "lint": "eslint src/",
     "format": "prettier --write src/",
     "build": "echo 'No build step required'",
+    "postinstall": "node scripts/fix-debug.js",
     "serve": "NODE_OPTIONS='--no-warnings=ExperimentalWarning' node src/index.js",
     "check:services": "node scripts/checkServices.js"
   },
