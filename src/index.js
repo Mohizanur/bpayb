@@ -1778,20 +1778,36 @@ if (!process.env.ADMIN_TELEGRAM_ID) {
 
 // Start the server
 const startServer = async () => {
-  try {
-    const PORT = process.env.PORT || 3000;
-    await fastify.listen({ port: PORT, host: "0.0.0.0" });
-    
-    console.log(`🚀 BirrPay Bot & Admin Panel running on port ${PORT}`);
-    console.log(`📱 Telegram Bot: Webhook ready at /telegram`);
-    console.log(`🔧 Admin Panel: http://localhost:${PORT}/panel`);
-    console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID}`);
-    
-    // Bot menu commands are already set up in the main command handlers
-    console.log(`📝 Bot menu commands configured!`);
-  } catch (err) {
-    console.error("Error starting server:", err);
-    process.exit(1);
+  const port = process.env.PORT || 3000;
+  const maxAttempts = 5;
+  let currentPort = port;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await fastify.listen({ port: currentPort, host: "0.0.0.0" });
+      
+      console.log(`🚀 BirrPay Bot & Admin Panel running on port ${currentPort}`);
+      console.log(`📱 Telegram Bot: Webhook ready at /telegram`);
+      console.log(`🔧 Admin Panel: http://localhost:${currentPort}/panel`);
+      console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID}`);
+      
+      // Bot menu commands are already set up in the main command handlers
+      console.log(`📝 Bot menu commands configured!`);
+      return; // Successfully started the server
+    } catch (err) {
+      if (err.code === 'EADDRINUSE') {
+        console.warn(`⚠️  Port ${currentPort} is in use, trying port ${currentPort + 1}...`);
+        currentPort++;
+        
+        if (attempt === maxAttempts) {
+          console.error(`❌ Failed to start server after ${maxAttempts} attempts`);
+          process.exit(1);
+        }
+      } else {
+        console.error("Error starting server:", err);
+        process.exit(1);
+      }
+    }
   }
 };
 
