@@ -42,9 +42,21 @@ app.get('*', (req, res) => {
 });
 
 // Import and start the bot
-import('./src/index.js')
-    .then(() => console.log('Bot started successfully'))
-    .catch(err => console.error('Failed to start bot:', err));
+const startBot = async () => {
+  try {
+    // Import the main bot file
+    const { startBot } = await import('./src/index.js');
+    await startBot();
+    console.log('Bot started successfully');
+  } catch (err) {
+    console.error('Failed to start bot:', err);
+    // Try to restart after a delay
+    setTimeout(startBot, 5000);
+  }
+};
+
+// Start the bot
+startBot();
 
 // Start the server
 const server = app.listen(PORT, '0.0.0.0', () => {
