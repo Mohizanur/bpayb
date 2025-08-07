@@ -116,7 +116,16 @@ async function handleRejectPayment(ctx, payment, adminId, adminName) {
  * Handle rejection reason input
  */
 export async function handleRejectionReason(ctx) {
-  if (!ctx.session.awaitingRejectionReason) return false;
+  // Initialize session if it doesn't exist
+  if (!ctx.session) {
+    ctx.session = {};
+  }
+  
+  // Check if we're expecting a rejection reason
+  if (!ctx.session.awaitingRejectionReason) {
+    console.log('No pending rejection in session');
+    return false;
+  }
   
   const { paymentId, adminId, adminName, messageId } = ctx.session.awaitingRejectionReason;
   const reason = ctx.message.text.trim();
@@ -187,6 +196,14 @@ function formatCurrency(amount, currency = 'ETB') {
  * @param {Telegraf} bot - Telegraf bot instance
  */
 export function registerAdminPaymentHandlers(bot) {
+  // Initialize session middleware
+  bot.use((ctx, next) => {
+    if (!ctx.session) {
+      ctx.session = {};
+    }
+    return next();
+  });
+
   // Handle verify/reject callbacks
   bot.action(/^(verify|reject)_payment:(.+)$/, async (ctx) => {
     const [_, action, paymentId] = ctx.match;
