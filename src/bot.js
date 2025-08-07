@@ -1,5 +1,6 @@
 import { Telegraf } from 'telegraf';
-import { Agent } from 'https';
+import { Agent as HttpsAgent } from 'https';
+import { Agent as HttpAgent } from 'http';
 
 // Configuration
 const MAX_RETRIES = 5;
@@ -7,7 +8,7 @@ const RETRY_DELAY = 3000; // 3 seconds
 const REQUEST_TIMEOUT = 15000; // 15 seconds
 
 // Create a custom HTTPS agent with keepAlive
-const httpAgent = new Agent({
+const httpAgent = new HttpsAgent({
   keepAlive: true,
   keepAliveMsecs: 60000, // 1 minute
   maxSockets: 100,
@@ -66,18 +67,6 @@ const fetchWithRetry = async (url, options = {}, retries = MAX_RETRIES, delay = 
   
   throw lastError || new Error('Unknown error occurred after all retries');
 };
-
-// Enhanced HTTP agent for better connection handling
-import { Agent as HttpsAgent } from 'https';
-import { Agent as HttpAgent } from 'http';
-
-const httpAgent = new HttpsAgent({
-  keepAlive: true,
-  maxSockets: 100,
-  keepAliveMsecs: 60000, // 1 minute
-  timeout: 10000, // 10 seconds
-  rejectUnauthorized: true
-});
 
 // Test Telegram API connectivity
 const testTelegramConnection = async () => {
