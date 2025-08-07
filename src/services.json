@@ -4,7 +4,7 @@
     "name": "Netflix",
     "price": 350,
     "billingCycle": "Monthly",
-    "logoUrl": "/public/logos/netflix.png",
+    "logoUrl": "/public/logos/netflix.svg",
     "approvalRequiredFlag": true,
     "description": "Stream movies, TV shows and more"
   },
@@ -13,7 +13,7 @@
     "name": "Amazon Prime",
     "price": 300,
     "billingCycle": "Monthly",
-    "logoUrl": "/public/logos/prime.png",
+    "logoUrl": "/public/logos/prime.svg",
     "approvalRequiredFlag": true,
     "description": "Prime Video, Music and Shopping benefits"
   },
@@ -22,7 +22,7 @@
     "name": "Spotify Premium",
     "price": 250,
     "billingCycle": "Monthly",
-    "logoUrl": "/public/logos/spotify.png",
+    "logoUrl": "/public/logos/spotify.svg",
     "approvalRequiredFlag": true,
     "description": "Music streaming without ads"
   },
@@ -31,7 +31,7 @@
     "name": "Disney+",
     "price": 280,
     "billingCycle": "Monthly",
-    "logoUrl": "/public/logos/disney.png",
+    "logoUrl": "/public/logos/disney.svg",
     "approvalRequiredFlag": true,
     "description": "Disney, Marvel, Star Wars content"
   },
@@ -40,7 +40,7 @@
     "name": "Hulu",
     "price": 320,
     "billingCycle": "Monthly",
-    "logoUrl": "/public/logos/hulu.png",
+    "logoUrl": "/public/logos/hulu.svg",
     "approvalRequiredFlag": true,
     "description": "TV shows and movies streaming"
   },
@@ -49,7 +49,7 @@
     "name": "YouTube Premium",
     "price": 200,
     "billingCycle": "Monthly",
-    "logoUrl": "/public/logos/youtube.png",
+    "logoUrl": "/public/logos/youtube.svg",
     "approvalRequiredFlag": true,
     "description": "Ad-free YouTube with offline downloads"
   },
@@ -58,7 +58,7 @@
     "name": "Apple TV+",
     "price": 180,
     "billingCycle": "Monthly",
-    "logoUrl": "/public/logos/apple.png",
+    "logoUrl": "/public/logos/apple.svg",
     "approvalRequiredFlag": true,
     "description": "Original shows and movies"
   },
@@ -67,7 +67,7 @@
     "name": "HBO Max",
     "price": 400,
     "billingCycle": "Monthly",
-    "logoUrl": "/public/logos/hbo.png",
+    "logoUrl": "/public/logos/hbo.svg",
     "approvalRequiredFlag": true,
     "description": "Premium movies and series"
   },
@@ -76,7 +76,7 @@
     "name": "Paramount+",
     "price": 220,
     "billingCycle": "Monthly",
-    "logoUrl": "/public/logos/paramount.png",
+    "logoUrl": "/public/logos/paramount.svg",
     "approvalRequiredFlag": true,
     "description": "CBS, Paramount movies and shows"
   },
@@ -85,7 +85,7 @@
     "name": "Peacock Premium",
     "price": 190,
     "billingCycle": "Monthly",
-    "logoUrl": "/public/logos/peacock.png",
+    "logoUrl": "/public/logos/peacock.svg",
     "approvalRequiredFlag": true,
     "description": "NBC content and originals"
   }

@@ -420,25 +420,74 @@ export const adminRoutes = (fastify) => {
       // Get basic stats
       const stats = await getAdminStats();
       
+      // Get real data from database
+      const [users, payments, subscriptions] = await Promise.all([
+        getAllUsers(),
+        getAllPayments(),
+        getAllSubscriptions()
+      ]);
+      
+      // Generate chart data based on real data
+      const currentDate = new Date();
+      const months = [];
+      const revenueData = [];
+      const userData = [];
+      
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+        const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+        const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        
+        months.push(date.toLocaleDateString('en-US', { month: 'short' }));
+        
+        // Calculate real revenue for this month
+        const monthlyRevenue = payments
+          .filter(payment => {
+            const paymentDate = new Date(payment.createdAt || payment.date);
+            return paymentDate >= monthStart && 
+                   paymentDate <= monthEnd && 
+                   payment.status === 'completed';
+          })
+          .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+        
+        revenueData.push(monthlyRevenue);
+        
+        // Calculate real user growth for this month
+        const monthlyUsers = users
+          .filter(user => {
+            const joinDate = new Date(user.createdAt || user.joinDate);
+            return joinDate >= monthStart && joinDate <= monthEnd;
+          }).length;
+        
+        userData.push(monthlyUsers);
+      }
+      
       // Calculate growth metrics
       const analytics = {
         ...stats,
         period,
+        revenueLabels: months,
+        revenueData: revenueData,
+        userLabels: months,
+        userData: userData,
         userGrowth: {
-          daily: Math.floor(Math.random() * 50) + 10,
-          weekly: Math.floor(Math.random() * 300) + 100,
-          monthly: Math.floor(Math.random() * 1200) + 500
+          daily: Math.max(1, Math.floor(userData[userData.length - 1] / 30)),
+          weekly: Math.max(5, Math.floor(userData[userData.length - 1] / 4)),
+          monthly: userData[userData.length - 1] || 0
         },
         revenueGrowth: {
-          daily: Math.floor(Math.random() * 5000) + 1000,
-          weekly: Math.floor(Math.random() * 35000) + 10000,
-          monthly: Math.floor(Math.random() * 150000) + 50000
+          daily: Math.max(100, Math.floor(revenueData[revenueData.length - 1] / 30)),
+          weekly: Math.max(500, Math.floor(revenueData[revenueData.length - 1] / 4)),
+          monthly: revenueData[revenueData.length - 1] || 0
         },
         systemMetrics: {
           uptime: 99.8,
           responseTime: 2.3,
           errorRate: 0.2,
-          satisfaction: 4.7
+          satisfaction: 4.7,
+          totalRevenue: revenueData.reduce((sum, val) => sum + val, 0),
+          totalUsers: users.length,
+          activeSubscriptions: subscriptions.filter(s => s.status === 'active').length
         }
       };
       
