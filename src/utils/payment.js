@@ -213,13 +213,26 @@ export async function processPayment(paymentData, paymentMethod) {
       return { success: false, error: 'Invalid payment method' };
     }
 
-    // Create payment record
-    const paymentResult = await createPayment({
+    // Prepare payment data
+    const paymentRecord = {
       ...paymentData,
+      userId: paymentData.userId || (paymentData.userId === 0 ? 0 : undefined), // Handle 0 as valid userId
+      subscriptionId: paymentData.subscriptionId || null, // Ensure subscriptionId is always defined
       paymentMethod,
       status: 'pending_verification',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Remove any undefined values that could cause Firestore errors
+    Object.keys(paymentRecord).forEach(key => {
+      if (paymentRecord[key] === undefined) {
+        delete paymentRecord[key];
+      }
     });
+
+    // Create payment record
+    const paymentResult = await createPayment(paymentRecord);
 
     if (!paymentResult.success) {
       return { success: false, error: paymentResult.error };

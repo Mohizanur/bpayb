@@ -153,17 +153,36 @@ export async function rejectSubscription(subscriptionId, reason = '') {
 // Payment Management Functions
 export async function createPayment(paymentData) {
   try {
+    // Ensure required fields
+    if (!paymentData.userId && paymentData.userId !== 0) {
+      throw new Error('User ID is required for payment');
+    }
+
     // Generate a payment reference if not provided
     if (!paymentData.paymentReference) {
       paymentData.paymentReference = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
     }
     
-    const result = await firestoreManager.createDocument('payments', {
+    // Prepare payment document with all required fields
+    const paymentDoc = {
       ...paymentData,
+      userId: String(paymentData.userId), // Ensure userId is a string
       status: paymentData.status || 'pending_verification',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      amount: Number(paymentData.amount) || 0,
+      createdAt: paymentData.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      // Ensure subscriptionId is set to null if not provided
+      subscriptionId: paymentData.subscriptionId || null
+    };
+
+    // Remove any undefined values
+    Object.keys(paymentDoc).forEach(key => {
+      if (paymentDoc[key] === undefined) {
+        delete paymentDoc[key];
+      }
     });
+    
+    const result = await firestoreManager.createDocument('payments', paymentDoc);
     
     return result;
   } catch (error) {
