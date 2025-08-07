@@ -7,8 +7,8 @@ const require = createRequire(import.meta.url);
 
 // Load environment variables
 import "dotenv/config";
-import { Telegraf } from "telegraf";
 import Fastify from "fastify";
+import { bot } from "./bot.js";
 import { loadI18n, getUserLang, setUserLang } from "./utils/i18n.js";
 import { loadServices } from "./utils/loadServices.js";
 import { firestore } from "./utils/firestore.js";
@@ -42,9 +42,6 @@ console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
 console.log("Bot token length:", process.env.TELEGRAM_BOT_TOKEN?.length || 0);
 console.log("Bot token starts with:", process.env.TELEGRAM_BOT_TOKEN?.substring(0, 10) || "N/A");
 
-const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN, {
-  handlerTimeout: 9000,
-});
 
 const fastify = Fastify({
   logger: process.env.NODE_ENV === 'production' ? true : false
