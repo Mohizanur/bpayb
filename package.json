@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "prestart": "node scripts/verify-env.js",
-    "start": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning --unhandled-rejections=strict --experimental-require' node -r ./scripts/suppress-debug.cjs src/index.js",
+    "start": "cross-env NODE_ENV=production NODE_OPTIONS='--no-warnings=ExperimentalWarning --unhandled-rejections=strict' node -r ./scripts/suppress-debug.cjs src/index.js",
     "dev": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning' node --watch src/index.js",
     "test": "node --test tests/*.test.js",
     "test:watch": "node --test --watch tests/*.test.js",
@@ -19,14 +19,15 @@
     "prod": "cross-env NODE_ENV=production NODE_OPTIONS='--experimental-require' node -r ./scripts/suppress-debug.cjs src/index.js"
   },
   "dependencies": {
-    "debug": "4.3.4",
     "@fastify/send": "^2.0.1",
     "@fastify/static": "^7.0.4",
+    "@google-cloud/firestore": "^7.11.3",
     "cross-env": "^10.0.0",
+    "debug": "4.3.4",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "fastify": "^4.28.1",
-    "firebase-admin": "^11.11.0",
+    "firebase-admin": "^13.4.0",
     "multer": "^1.4.5-lts.1",
     "node-fetch": "^2.7.0",
     "telegraf": "^4.16.3",
@@ -34,7 +35,7 @@
     "uuid": "^10.0.0"
   },
   "engines": {
-    "node": ">=18.20.2"
+    "node": ">=18.20.2 <=20.x"
   },
   "devDependencies": {
     "c8": "^8.0.1",
