@@ -409,15 +409,32 @@ bot.action('verify_phone', async (ctx) => {
   try {
     const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
     const requestMsg = lang === 'am'
-      ? '📱 የተልፍዎን መረጃ\n\nየተልፍዎን መረጃ ይጣፉ: +251912345678\n\nየተልፍዎን መረጃ ይጠቁሉ:'
-      : '📱 Phone Verification\n\nPlease enter your phone number in international format: +251912345678\n\nType your phone number:';
+      ? '📱 የተልፍዎን ማረጋገጫ\n\nየተልፍዎን ቁጥር በሁለት መንገድ ማስገባት ይችላሉ:\n\n1️⃣ የእውቂያ ማጋራት ቁልፍን ይጫኑ\n2️⃣ ወይም በእጅ ይጻፉ: +251912345678\n\nእባክዎ ይምረጡ:'
+      : '📱 Phone Verification\n\nYou can provide your phone number in two ways:\n\n1️⃣ Share your contact using the button below\n2️⃣ Or type it manually: +251912345678\n\nPlease choose:';
     
     await ctx.answerCbQuery();
+    
+    // Create keyboard with contact sharing option
+    const keyboard = {
+      inline_keyboard: [
+        [
+          {
+            text: lang === 'am' ? '📱 እውቂያ ማጋራት' : '📱 Share Contact',
+            request_contact: true
+          }
+        ],
+        [
+          {
+            text: lang === 'am' ? '✍️ በእጅ መፃፍ' : '✍️ Type Manually',
+            callback_data: 'manual_phone_input'
+          }
+        ]
+      ]
+    };
+    
     await ctx.reply(requestMsg, {
-      reply_markup: {
-        force_reply: true,
-        input_field_placeholder: lang === 'am' ? '+251...' : '+251...'
-      }
+      reply_markup: keyboard,
+      parse_mode: 'Markdown'
     });
     
     // Set user state to expect phone number
@@ -428,12 +445,92 @@ bot.action('verify_phone', async (ctx) => {
       username: ctx.from.username || '',
       language: lang,
       awaitingPhone: true,
-      createdAt: new Date()
+      hasCompletedOnboarding: false,
+      phoneVerified: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
     }, { merge: true });
     
   } catch (error) {
     console.error('Error in verify_phone:', error);
     await ctx.answerCbQuery('Error occurred');
+  }
+});
+
+// Handle manual phone input option
+bot.action('manual_phone_input', async (ctx) => {
+  try {
+    const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+    const requestMsg = lang === 'am'
+      ? '📱 የተልፍዎን መረጃ\n\nየተልፍዎን መረጃ በዚህ ቅርጸት ይጣፉ: +251912345678\n\nየተልፍዎን መረጃ ይጠቁሉ:'
+      : '📱 Phone Verification\n\nPlease enter your phone number in international format: +251912345678\n\nType your phone number:';
+    
+    await ctx.answerCbQuery();
+    await ctx.editMessageText(requestMsg, {
+      reply_markup: {
+        force_reply: true,
+        input_field_placeholder: lang === 'am' ? '+251...' : '+251...'
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in manual_phone_input:', error);
+    await ctx.answerCbQuery('Error occurred');
+  }
+});
+
+// Handle contact sharing
+bot.on('contact', async (ctx) => {
+  try {
+    const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+    const userData = userDoc.data();
+    
+    if (userData && userData.awaitingPhone && !userData.phoneVerified) {
+      const phoneNumber = ctx.message.contact.phone_number;
+      const lang = userData.language || 'en';
+      
+      // Ensure phone number has + prefix
+      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : '+' + phoneNumber;
+      
+      // Validate Ethiopian phone number format
+      const phoneRegex = /^\+251[79]\d{8}$/;
+      
+      if (!phoneRegex.test(formattedPhone)) {
+        const errorMsg = lang === 'am'
+          ? '⚠️ እባክዎ የኢትዮጵያ ስልክ ቁጥር ይጠቀሙ (+251...)'
+          : '⚠️ Please use an Ethiopian phone number (+251...)';
+        await ctx.reply(errorMsg);
+        return;
+      }
+      
+      // Generate verification code
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Save phone and verification code
+      await firestore.collection('users').doc(String(ctx.from.id)).update({
+        phoneNumber: formattedPhone,
+        verificationCode: verificationCode,
+        awaitingPhone: false,
+        awaitingCode: true,
+        codeGeneratedAt: new Date(),
+        updatedAt: new Date()
+      });
+      
+      const codeMsg = lang === 'am'
+        ? `📱 የአረጋገጫ ኮድ\n\nየአረጋገጫ ኮድዎ ወደ ${formattedPhone} ተላክል።\n\nየአረጋገጫ ኮድ: **${verificationCode}**\n\nይህንን ኮድ ይጠቁሉ:`
+        : `📱 Verification Code\n\nA verification code has been sent to ${formattedPhone}\n\nVerification Code: **${verificationCode}**\n\nPlease enter this code:`;
+      
+      await ctx.reply(codeMsg, {
+        reply_markup: {
+          force_reply: true,
+          input_field_placeholder: lang === 'am' ? 'ኮድን ይጠቁሉ' : 'Enter code'
+        },
+        parse_mode: 'Markdown'
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error handling contact:', error);
   }
 });
 
@@ -495,14 +592,41 @@ bot.on('text', async (ctx, next) => {
           phoneVerified: true,
           verifiedAt: new Date(),
           awaitingCode: false,
-          verificationCode: null
+          verificationCode: null,
+          hasCompletedOnboarding: true,
+          updatedAt: new Date()
         });
         
         const successMsg = lang === 'am'
-          ? '✅ የተልፍዎን መረጃ ተአረጋገጫል!\n\nአሁን የBirrPay አገልግሎቶችን ምሉ መጠቀም ይችላሉ። /start ይጠቁሉ።'
-          : '✅ Phone verification successful!\n\nYou can now access all BirrPay services. Use /start to begin.';
+          ? '✅ የተልፍዎን መረጃ ተአረጋገጫል!\n\nአሁን የBirrPay አገልግሎቶችን ምሉ መጠቀም ይችላሉ።'
+          : '✅ Phone verification successful!\n\nYou can now access all BirrPay services.';
         
-        await ctx.reply(successMsg);
+        // Show main menu after successful verification
+        const keyboard = [
+          [
+            { 
+              text: lang === 'am' ? '📱 አገልግሎቶች' : '📱 Services', 
+              callback_data: 'services' 
+            }
+          ],
+          [
+            { 
+              text: lang === 'am' ? '📊 የእኔ ምዝገባዎች' : '📊 My Subscriptions', 
+              callback_data: 'my_subs' 
+            }
+          ],
+          [
+            { 
+              text: lang === 'am' ? '🆘 ድጋፍ' : '🆘 Support', 
+              callback_data: 'support' 
+            }
+          ]
+        ];
+        
+        await ctx.reply(successMsg, {
+          reply_markup: { inline_keyboard: keyboard },
+          parse_mode: 'Markdown'
+        });
         return;
       } else {
         const errorMsg = lang === 'am'

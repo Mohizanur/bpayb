@@ -1,4 +1,5 @@
-import { uploadScreenshot, getSubscription } from "../utils/database.js";
+import { uploadScreenshot, getSubscription, getUserSubscriptions } from "../utils/database.js";
+import { firestore } from "../utils/firestore.js";
 
 export default function screenshotUploadHandler(bot) {
   // Handle screenshot upload after payment
@@ -107,12 +108,39 @@ Please upload your screenshot:`;
   // Handle photo message
   bot.on('photo', async (ctx) => {
     try {
-      if (!ctx.session?.expectingScreenshot) {
-        return; // Not expecting screenshot
+      // Check if user is expecting screenshot via session or database
+      let subscriptionId = null;
+      const lang = ctx.userLang || 'en';
+      
+      // First check session
+      if (ctx.session?.expectingScreenshot) {
+        subscriptionId = ctx.session.expectingScreenshot;
+      } else {
+        // Check database for pending screenshot upload
+        const userSubscriptions = await getUserSubscriptions(String(ctx.from.id));
+        const pendingSubscription = userSubscriptions.find(sub => 
+          sub.status === 'pending' && 
+          sub.paymentReference && 
+          !sub.screenshotUploaded
+        );
+        
+        if (pendingSubscription) {
+          subscriptionId = pendingSubscription.id;
+        }
       }
       
-      const subscriptionId = ctx.session.expectingScreenshot;
-      const lang = ctx.userLang || 'en';
+      if (!subscriptionId) {
+        // Not expecting screenshot, ignore
+        return;
+      }
+      
+      // Verify subscription exists and belongs to user
+      const subscription = await getSubscription(subscriptionId);
+      if (!subscription || subscription.userId !== String(ctx.from.id)) {
+        const errorMsg = lang === 'am' ? 'ምዝገባ አልተገኘም' : 'Subscription not found';
+        await ctx.reply(errorMsg);
+        return;
+      }
       
       // Get the largest photo size
       const photo = ctx.message.photo[ctx.message.photo.length - 1];
@@ -126,7 +154,8 @@ Please upload your screenshot:`;
         url: fileUrl,
         filename: `payment_${subscriptionId}_${Date.now()}.jpg`,
         size: photo.file_size,
-        fileId: photo.file_id
+        fileId: photo.file_id,
+        uploadedAt: new Date()
       };
       
       const uploadResult = await uploadScreenshot(subscriptionId, screenshotData);
@@ -137,6 +166,9 @@ Please upload your screenshot:`;
           
 የክፍያዎ ስክሪንሾት በተሳካተ ሁኔታ ተጫነ። የእኛ ቡድን የክፍያዎን ማረጋገጫ ያረጋግጣል።
 
+**የክፍያ ማጣቀሻ:** ${subscription.paymentReference}
+**መጠን:** ${subscription.amount} ETB
+
 **የሚቀጥለው ደረጃ:**
 • የእኛ ቡድን የክፍያዎን ማረጋገጫ ያረጋግጣል
 • ክፍያው ከተረጋገጠ ምዝገባዎ ይጀመራል
@@ -146,6 +178,9 @@ Please upload your screenshot:`;
           : `✅ **Screenshot Uploaded Successfully!**
           
 Your payment screenshot has been uploaded successfully. Our team will verify your payment.
+
+**Payment Reference:** ${subscription.paymentReference}
+**Amount:** ${subscription.amount} ETB
 
 **Next Steps:**
 • Our team will verify your payment
@@ -165,14 +200,38 @@ Please wait...`;
         });
         
         // Clear session
-        delete ctx.session.expectingScreenshot;
+        if (ctx.session?.expectingScreenshot) {
+          delete ctx.session.expectingScreenshot;
+        }
+        
+        // Log activity
+        try {
+          await firestore.collection('userActivities').add({
+            userId: ctx.from.id,
+            activity: 'screenshot_uploaded',
+            subscriptionId: subscriptionId,
+            timestamp: new Date(),
+            metadata: {
+              fileSize: photo.file_size,
+              paymentReference: subscription.paymentReference
+            }
+          });
+        } catch (logError) {
+          console.error('Error logging screenshot upload:', logError);
+        }
         
       } else {
         const errorMessage = lang === 'am'
           ? '❌ ስክሪንሾት ማስገቢያ ላይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
           : '❌ Error uploading screenshot. Please try again.';
         
-        await ctx.reply(errorMessage);
+        await ctx.reply(errorMessage, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: lang === 'am' ? '🔄 እንደገና ይሞክሩ' : '🔄 Try Again', callback_data: `upload_screenshot_${subscriptionId}` }]
+            ]
+          }
+        });
       }
       
     } catch (error) {

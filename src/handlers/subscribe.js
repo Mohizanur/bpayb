@@ -58,7 +58,26 @@ ${selectedService.description}
       
     } catch (error) {
       console.error('Error in service selection:', error);
-      await ctx.answerCbQuery('Error occurred');
+      const lang = ctx.userLang || 'en';
+      const errorMessage = lang === 'am'
+        ? '❌ አገልግሎት መምረጫ ላይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+        : '❌ Error selecting service. Please try again.';
+      
+      await ctx.answerCbQuery(errorMessage);
+      
+      // Show retry option
+      const keyboard = [
+        [{ text: lang === 'am' ? '🔄 እንደገና ይሞክሩ' : '🔄 Try Again', callback_data: 'services' }],
+        [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }]
+      ];
+      
+      try {
+        await ctx.editMessageText(errorMessage, {
+          reply_markup: { inline_keyboard: keyboard }
+        });
+      } catch (editError) {
+        console.error('Error editing message after service selection error:', editError);
+      }
     }
   });
   
@@ -124,7 +143,26 @@ ${selectedService.description}
       
     } catch (error) {
       console.error('Error in duration selection:', error);
-      await ctx.answerCbQuery('Error occurred');
+      const lang = ctx.userLang || 'en';
+      const errorMessage = lang === 'am'
+        ? '❌ የእቅድ ቆይታ መምረጫ ላይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+        : '❌ Error selecting plan duration. Please try again.';
+      
+      await ctx.answerCbQuery(errorMessage);
+      
+      // Show retry option
+      const keyboard = [
+        [{ text: lang === 'am' ? '🔄 እንደገና ይሞክሩ' : '🔄 Try Again', callback_data: `select_service_${serviceId}` }],
+        [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }]
+      ];
+      
+      try {
+        await ctx.editMessageText(errorMessage, {
+          reply_markup: { inline_keyboard: keyboard }
+        });
+      } catch (editError) {
+        console.error('Error editing message after duration selection error:', editError);
+      }
     }
   });
   
@@ -234,11 +272,34 @@ ${instructions}
     } catch (error) {
       console.error('Error in payment method selection:', error);
       const lang = ctx.userLang || 'en';
-      const errorMessage = lang === 'am'
-        ? '❌ ምዝገባ ማድረጊያ ላይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
-        : '❌ Error creating subscription. Please try again.';
       
-      await ctx.answerCbQuery(errorMessage);
+      let errorMessage;
+      if (error.message.includes('Service not found')) {
+        errorMessage = lang === 'am' 
+          ? '❌ አገልግሎት አልተገኘም። እባክዎ እንደገና ይሞክሩ።'
+          : '❌ Service not available. Please try again.';
+      } else if (error.message.includes('Payment method')) {
+        errorMessage = lang === 'am'
+          ? '❌ የክፍያ ዘዴ አልተገኘም። እባክዎ እንደገና ይሞክሩ።'
+          : '❌ Payment method unavailable. Please try again.';
+      } else {
+        errorMessage = lang === 'am'
+          ? '❌ ምዝገባ ማድረጊያ ላይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+          : '❌ Error creating subscription. Please try again.';
+      }
+      
+      // Show error with retry button
+      const keyboard = [
+        [{ text: lang === 'am' ? '🔄 እንደገና ይሞክሩ' : '🔄 Try Again', callback_data: `select_service_${serviceId}` }],
+        [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }]
+      ];
+      
+      await ctx.editMessageText(errorMessage, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
+      });
+      
+      await ctx.answerCbQuery();
     }
   });
 }
