@@ -25,6 +25,7 @@ import firestoreListener from "./handlers/firestoreListener.js";
 import adminHandler from "./handlers/admin.js";
 import helpHandler from "./handlers/help.js";
 import screenshotUploadHandler from "./handlers/screenshotUpload.js";
+import { registerAdminPaymentHandlers } from "./handlers/adminPaymentHandlers.js";
 import { 
     userRoutes, 
     servicesRoutes, 
@@ -272,8 +273,9 @@ const setupBotMenu = async () => {
   }
 };
 
-// Initialize admin handler
+// Initialize admin handlers
 adminHandler(bot);
+registerAdminPaymentHandlers(bot);
 
 // Add admin command
 bot.command("admin", async (ctx) => {

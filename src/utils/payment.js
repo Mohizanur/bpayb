@@ -1,4 +1,5 @@
-import { createPayment, updatePaymentStatus, updateSubscription } from "./database.js";
+import { createPayment, updatePaymentStatus, updateSubscription, getPaymentById } from "./database.js";
+import { notifyAdminsAboutPayment } from "./paymentVerification.js";
 
 // Payment Methods Configuration
 export const PAYMENT_METHODS = {
@@ -44,8 +45,48 @@ export const generatePaymentReference = (subscriptionId) => {
   return `BP${subscriptionId.slice(0, 4)}${timestamp}${random}`;
 };
 
-// Create a new payment
-export const processPayment = async (subscriptionData, paymentMethod) => {
+// Generate a payment reference for manual payment
+export function generateManualPaymentReference(userId) {
+  return `BP-${Date.now()}-${userId.toString().slice(-4)}`;
+}
+
+// Get payment instructions for a specific method
+export function getPaymentInstructions(paymentMethodId, reference, lang = 'en') {
+  const method = Object.values(PAYMENT_METHODS).find(
+    m => m.id.toLowerCase() === paymentMethodId.toLowerCase()
+  );
+  
+  if (!method) {
+    console.error(`Payment method not found: ${paymentMethodId}`);
+    return lang === 'am' 
+      ? 'የክፍያ ዘዴ አልተገኘም' 
+      : 'Payment method not found';
+  }
+  
+  const instructions = lang === 'am' 
+    ? method.instructions_am || method.instructions 
+    : method.instructions;
+    
+  return instructions.replace('{reference}', reference);
+}
+
+// Format currency for display
+export function formatCurrency(amount) {
+  return new Intl.NumberFormat('en-ET', {
+    style: 'currency',
+    currency: 'ETB',
+    minimumFractionDigits: 2
+  }).format(amount);
+}
+
+/**
+ * Create a new manual payment
+ * @param {Object} subscriptionData - Subscription data
+ * @param {Object} paymentMethod - Payment method details
+ * @param {Object} user - User information
+ * @returns {Promise<Object>} Result of the operation
+ */
+export async function createManualPayment(subscriptionData, paymentMethod, user) {
   try {
     // Find payment method case-insensitively
     const paymentMethodConfig = Object.values(PAYMENT_METHODS).find(
@@ -57,47 +98,104 @@ export const processPayment = async (subscriptionData, paymentMethod) => {
       throw new Error('Invalid payment method');
     }
 
-    const paymentReference = generatePaymentReference(subscriptionData.subscriptionId);
+    const paymentReference = generateManualPaymentReference(subscriptionData.userId);
     
-    // Create payment record
+    // Create a pending payment record
     const paymentData = {
-      subscriptionId: subscriptionData.subscriptionId,
       userId: subscriptionData.userId,
+      subscriptionId: subscriptionData.id,
       amount: subscriptionData.amount,
       currency: 'ETB',
-      paymentMethod: paymentMethod,
-      paymentReference: paymentReference,
-      description: `${subscriptionData.serviceName} - ${subscriptionData.duration}`,
-      status: 'pending'
+      paymentMethod: paymentMethod.id,
+      status: 'pending_verification',
+      paymentReference,
+      userName: user?.username || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || `User-${subscriptionData.userId}`,
+      serviceId: subscriptionData.serviceId,
+      serviceName: subscriptionData.serviceName,
+      duration: subscriptionData.duration,
+      metadata: {
+        duration: subscriptionData.duration,
+        serviceId: subscriptionData.serviceId,
+        serviceName: subscriptionData.serviceName,
+        createdAt: new Date().toISOString()
+      }
     };
 
     const paymentResult = await createPayment(paymentData);
+
     if (!paymentResult.success) {
-      throw new Error('Failed to create payment record');
+      console.error('Failed to create payment record:', paymentResult.error);
+      return { 
+        success: false, 
+        error: 'Failed to create payment record',
+        details: paymentResult.error 
+      };
     }
 
     // Update subscription with payment ID
-    await updateSubscription(subscriptionData.subscriptionId, {
-      paymentId: paymentResult.paymentId,
-      paymentReference: paymentReference
-    });
+    if (subscriptionData.subscriptionId) {
+      await updateSubscription(subscriptionData.subscriptionId, {
+        paymentId: paymentResult.id,
+        paymentReference: paymentReference,
+        status: 'pending_payment'
+      });
+    }
 
-    return {
+    // Prepare response with payment instructions
+    const response = {
       success: true,
-      paymentId: paymentResult.paymentId,
+      paymentId: paymentResult.id,
+      subscriptionId: subscriptionData.id,
       paymentReference: paymentReference,
-      paymentMethod: paymentMethodConfig,
-      instructions: paymentMethodConfig.instructions.replace('{reference}', paymentReference)
+      amount: subscriptionData.amount,
+      currency: 'ETB',
+      paymentMethod: paymentMethod.id,
+      requiresVerification: true,
+      instructions: getPaymentInstructions(paymentMethod.id, paymentReference, subscriptionData.language || 'en')
     };
-
+    
+    return response;
   } catch (error) {
-    console.error('Error processing payment:', error);
+    console.error('Error creating manual payment:', error);
     return {
       success: false,
       error: error.message
     };
   }
 };
+
+// Verify a manual payment (admin function)
+// This is now handled by paymentVerification.js
+export async function verifyManualPayment(paymentId, adminId, notes = '') {
+  try {
+    const { verifyPayment } = await import('./paymentVerification.js');
+    return await verifyPayment(paymentId, adminId, notes);
+  } catch (error) {
+    console.error('Error in verifyManualPayment:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Reject a manual payment (admin function)
+// This is now handled by paymentVerification.js
+export async function rejectManualPayment(paymentId, adminId, reason = '') {
+  try {
+    const { rejectPayment } = await import('./paymentVerification.js');
+    return await rejectPayment(paymentId, adminId, reason);
+  } catch (error) {
+    console.error('Error in rejectManualPayment:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Helper function to calculate end date based on duration
+function calculateEndDate(startDate, duration) {
+  const date = new Date(startDate);
+  const [value, unit] = duration.split('_');
+  const months = unit === 'month' || unit === 'months' ? parseInt(value) : 1;
+  date.setMonth(date.getMonth() + months);
+  return date.toISOString();
+}
 
 // Verify payment (admin function)
 export const verifyPayment = async (paymentId, adminId, verificationData) => {

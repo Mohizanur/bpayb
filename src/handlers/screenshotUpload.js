@@ -1,5 +1,6 @@
-import { uploadScreenshot, getSubscription, getUserSubscriptions } from "../utils/database.js";
+import { uploadScreenshot, getSubscription, getUserSubscriptions, getPaymentById } from "../utils/database.js";
 import { firestore } from "../utils/firestore.js";
+import { handlePaymentProofUpload, notifyAdminsAboutPayment } from "../utils/paymentVerification.js";
 
 export default function screenshotUploadHandler(bot) {
   // Handle screenshot upload after payment
@@ -108,140 +109,112 @@ Please upload your screenshot:`;
   // Handle photo message
   bot.on('photo', async (ctx) => {
     try {
-      // Check if user is expecting screenshot via session or database
-      let subscriptionId = null;
+      const { session } = ctx;
       const lang = ctx.userLang || 'en';
       
-      // First check session
-      if (ctx.session?.expectingScreenshot) {
-        subscriptionId = ctx.session.expectingScreenshot;
-      } else {
-        // Check database for pending screenshot upload
-        const userSubscriptions = await getUserSubscriptions(String(ctx.from.id));
-        const pendingSubscription = userSubscriptions.find(sub => 
-          sub.status === 'pending' && 
-          sub.paymentReference && 
-          !sub.screenshotUploaded
-        );
-        
-        if (pendingSubscription) {
-          subscriptionId = pendingSubscription.id;
-        }
+      // Check if we have a pending payment in session or a subscription ID
+      if ((!session.pendingPayment || !session.pendingPayment.paymentId) && !session.uploadingScreenshotFor) {
+        return; // Not in payment proof state
       }
       
-      if (!subscriptionId) {
-        // Not expecting screenshot, ignore
-        return;
-      }
+      // Get the highest resolution photo
+      const photo = ctx.message.photo.pop();
+      const fileId = photo.file_id;
+      const fileLink = await ctx.telegram.getFileLink(fileId);
       
-      // Verify subscription exists and belongs to user
-      const subscription = await getSubscription(subscriptionId);
-      if (!subscription || subscription.userId !== String(ctx.from.id)) {
-        const errorMsg = lang === 'am' ? 'ምዝገባ አልተገኘም' : 'Subscription not found';
-        await ctx.reply(errorMsg);
-        return;
-      }
+      let paymentId, payment;
       
-      // Get the largest photo size
-      const photo = ctx.message.photo[ctx.message.photo.length - 1];
-      
-      // Get file info
-      const file = await ctx.telegram.getFile(photo.file_id);
-      const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
-      
-      // Upload screenshot to database
-      const screenshotData = {
-        url: fileUrl,
-        filename: `payment_${subscriptionId}_${Date.now()}.jpg`,
-        size: photo.file_size,
-        fileId: photo.file_id,
-        uploadedAt: new Date()
-      };
-      
-      const uploadResult = await uploadScreenshot(subscriptionId, screenshotData);
-      
-      if (uploadResult.success) {
-        const successMessage = lang === 'am'
-          ? `✅ **ስክሪንሾት በተሳካተ ሁኔታ ተጫነ!**
-          
-የክፍያዎ ስክሪንሾት በተሳካተ ሁኔታ ተጫነ። የእኛ ቡድን የክፍያዎን ማረጋገጫ ያረጋግጣል።
-
-**የክፍያ ማጣቀሻ:** ${subscription.paymentReference}
-**መጠን:** ${subscription.amount} ETB
-
-**የሚቀጥለው ደረጃ:**
-• የእኛ ቡድን የክፍያዎን ማረጋገጫ ያረጋግጣል
-• ክፍያው ከተረጋገጠ ምዝገባዎ ይጀመራል
-• የምዝገባ ማረጋገጫ ይላክልዎታል
-
-እባክዎ ያስተናግዱ...`
-          : `✅ **Screenshot Uploaded Successfully!**
-          
-Your payment screenshot has been uploaded successfully. Our team will verify your payment.
-
-**Payment Reference:** ${subscription.paymentReference}
-**Amount:** ${subscription.amount} ETB
-
-**Next Steps:**
-• Our team will verify your payment
-• Once verified, your subscription will be activated
-• You'll receive a confirmation message
-
-Please wait...`;
+      // Handle payment proof from session
+      if (session.pendingPayment?.paymentId) {
+        paymentId = session.pendingPayment.paymentId;
         
-        await ctx.reply(successMessage, {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }],
-              [{ text: lang === 'am' ? '📊 የእኔ ምዝገባዎች' : '📊 My Subscriptions', callback_data: 'my_subs' }]
-            ]
-          },
-          parse_mode: 'Markdown'
-        });
+        // Store the file link in the pending payment
+        session.pendingPayment.proofUrl = fileLink.href;
         
-        // Clear session
-        if (ctx.session?.expectingScreenshot) {
-          delete ctx.session.expectingScreenshot;
-        }
-        
-        // Log activity
-        try {
-          await firestore.collection('userActivities').add({
-            userId: ctx.from.id,
-            activity: 'screenshot_uploaded',
-            subscriptionId: subscriptionId,
-            timestamp: new Date(),
-            metadata: {
-              fileSize: photo.file_size,
-              paymentReference: subscription.paymentReference
-            }
-          });
-        } catch (logError) {
-          console.error('Error logging screenshot upload:', logError);
-        }
-        
-      } else {
-        const errorMessage = lang === 'am'
-          ? '❌ ስክሪንሾት ማስገቢያ ላይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
-          : '❌ Error uploading screenshot. Please try again.';
-        
-        await ctx.reply(errorMessage, {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: lang === 'am' ? '🔄 እንደገና ይሞክሩ' : '🔄 Try Again', callback_data: `upload_screenshot_${subscriptionId}` }]
-            ]
+        // Handle the payment proof with our verification system
+        const result = await handlePaymentProofUpload({
+          paymentId,
+          screenshotUrl: fileLink.href,
+          userId: ctx.from.id,
+          userInfo: {
+            id: ctx.from.id,
+            username: ctx.from.username,
+            firstName: ctx.from.first_name,
+            lastName: ctx.from.last_name
           }
         });
+        
+        if (result.success) {
+          // Clear the waiting state
+          session.waitingForPaymentProof = false;
+          delete session.pendingPayment;
+          
+          // Notify user
+          await ctx.reply(
+            lang === 'am'
+              ? '✅ የክፍያ ማስረጃው በተሳካ ሁኔታ ተልኳል። የእርስዎ ክፍያ እንዲረጋገጥ በማስተናገድ ላይ ነው። አመሰግናለሁ!' 
+              : '✅ Payment proof uploaded successfully! Your payment is being processed. Thank you for your patience!',
+            { parse_mode: 'Markdown' }
+          );
+          
+          // Get payment details for admin notification
+          payment = await getPaymentById(paymentId);
+          if (payment) {
+            await notifyAdminsAboutPayment(payment);
+          }
+          
+          return;
+        } else {
+          throw new Error(result.error || 'Failed to process payment proof');
+        }
+      }
+      
+      // Handle screenshot upload for existing subscription (legacy flow)
+      if (session.uploadingScreenshotFor) {
+        const subscriptionId = session.uploadingScreenshotFor;
+        const subscription = await getSubscription(subscriptionId);
+        
+        if (!subscription || subscription.userId !== String(ctx.from.id)) {
+          throw new Error('Subscription not found or access denied');
+        }
+        
+        // Upload the screenshot
+        await uploadScreenshot(subscriptionId, fileLink.href, ctx.from);
+        
+        // Clear the session
+        delete session.uploadingScreenshotFor;
+        
+        // Notify user
+        await ctx.reply(
+          lang === 'am'
+            ? '✅ የክፍያ ማስረጃው በተሳካ ሁኔታ ተልኳል። የእርስዎ ክፍያ እንዲረጋገጥ በማስተናገድ ላይ ነው። አመሰግናለሁ!' 
+            : '✅ Payment proof uploaded successfully! Your payment is being processed. Thank you for your patience!',
+          { parse_mode: 'Markdown' }
+        );
+        
+        // Notify admins (legacy notification)
+        await notifyAdminsAboutPayment({
+          id: `sub_${subscriptionId}`,
+          userId: subscription.userId,
+          serviceName: subscription.serviceName,
+          amount: subscription.amount,
+          paymentReference: subscription.paymentReference,
+          screenshotUrl: fileLink.href,
+          status: 'pending_verification',
+          timestamp: new Date().toISOString()
+        });
+        
+        return;
       }
       
     } catch (error) {
-      console.error('Error handling photo upload:', error);
+      console.error('Error processing payment proof:', error);
       const lang = ctx.userLang || 'en';
-      const errorMessage = lang === 'am'
-        ? '❌ ስክሪንሾት ማስገቢያ ላይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
-        : '❌ Error uploading screenshot. Please try again.';
-      
-      await ctx.reply(errorMessage);
+      await ctx.reply(
+        lang === 'am' 
+          ? '❌ የክፍያ ማረጋገጫ በማስገባት ላይ ስህተት ተፈጥሯል። እባክዎ ቆይተው እንደገና ይሞክሩ።' 
+          : '❌ An error occurred while processing your payment proof. Please try again later.'
+      );
     }
   });
   

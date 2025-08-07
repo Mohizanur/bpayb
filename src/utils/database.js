@@ -153,11 +153,16 @@ export async function rejectSubscription(subscriptionId, reason = '') {
 // Payment Management Functions
 export async function createPayment(paymentData) {
   try {
+    // Generate a payment reference if not provided
+    if (!paymentData.paymentReference) {
+      paymentData.paymentReference = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    }
+    
     const result = await firestoreManager.createDocument('payments', {
       ...paymentData,
-      status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date()
+      status: paymentData.status || 'pending_verification',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
     
     return result;
@@ -187,16 +192,128 @@ export async function getAllPayments() {
   }
 }
 
-export async function updatePaymentStatus(paymentId, status, additionalData = {}) {
+/**
+ * Update payment document
+ * @param {string} paymentId - The payment ID to update
+ * @param {Object} updates - Fields to update
+ * @returns {Promise<Object>} Result of the operation
+ */
+export async function updatePayment(paymentId, updates) {
   try {
     const result = await firestoreManager.updateDocument('payments', paymentId, {
-      status,
-      ...additionalData,
-      updatedAt: new Date()
+      ...updates,
+      updatedAt: new Date().toISOString()
     });
+    
+    return result;
+  } catch (error) {
+    console.error('Error updating payment:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Update payment status and related data
+ * @param {string} paymentId - The payment ID to update
+ * @param {Object} updates - Fields to update
+ * @returns {Promise<Object>} Result of the operation
+ */
+export async function updatePaymentStatus(paymentId, updates) {
+  try {
+    // Ensure we don't override critical fields
+    const { id, paymentId: _, ...safeUpdates } = updates;
+    
+    const result = await firestoreManager.updateDocument('payments', paymentId, {
+      ...safeUpdates,
+      updatedAt: new Date().toISOString()
+    });
+    
+    // If payment is being verified, update the related subscription
+    if (updates.status === 'completed' && updates.verifiedBy) {
+      const payment = await getPayment(paymentId);
+      if (payment && payment.subscriptionId) {
+        await updateSubscription(payment.subscriptionId, {
+          status: 'active',
+          startDate: new Date().toISOString(),
+          endDate: calculateEndDate(new Date(), payment.duration || '1_month'),
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
+    
     return result;
   } catch (error) {
     console.error('Error updating payment status:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Helper function to calculate end date based on duration
+function calculateEndDate(startDate, duration) {
+  const date = new Date(startDate);
+  const [value, unit] = duration.split('_');
+  const months = unit === 'month' || unit === 'months' ? parseInt(value) : 1;
+  date.setMonth(date.getMonth() + months);
+  return date.toISOString();
+}
+
+// Get payment by ID with proper error handling
+export async function getPaymentById(paymentId) {
+  try {
+    const result = await firestoreManager.getDocument('payments', paymentId);
+    if (!result.success) {
+      throw new Error('Payment not found');
+    }
+    return result.data;
+  } catch (error) {
+    console.error('Error getting payment by ID:', error);
+    throw error;
+  }
+}
+
+// Get all pending payments that need verification
+export async function getPendingVerificationPayments() {
+  try {
+    const result = await firestoreManager.queryDocuments('payments', {
+      status: 'pending_verification'
+    }, 'createdAt', 'desc');
+    
+    return result.success ? result.data : [];
+  } catch (error) {
+    console.error('Error getting pending verification payments:', error);
+    return [];
+  }
+}
+
+// Get all admins
+export async function getAdmins() {
+  try {
+    const result = await firestoreManager.queryDocuments('users', {
+      isAdmin: true,
+      status: 'active'
+    });
+    
+    return result.success ? result.data : [];
+  } catch (error) {
+    console.error('Error getting admins:', error);
+    return [];
+  }
+}
+
+// Create a support ticket for payment verification
+export async function createSupportTicket(ticketData) {
+  try {
+    const result = await firestoreManager.createDocument('support_tickets', {
+      ...ticketData,
+      status: 'open',
+      type: ticketData.type || 'payment_verification',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error creating support ticket:', error);
     return { success: false, error: error.message };
   }
 }
