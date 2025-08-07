@@ -410,19 +410,19 @@ ${selectedService.description}
         throw new Error('Failed to create subscription');
       }
       
-      // Process payment
+      // Process payment with the initial payment reference
       const paymentResult = await processPayment({
         ...subscriptionData,
-        subscriptionId: subscriptionResult.subscriptionId
+        subscriptionId: subscriptionResult.subscriptionId,
+        paymentReference: initialPaymentReference // Pass the initial payment reference
       }, paymentMethodId);
       
       if (!paymentResult.success) {
         throw new Error('Failed to process payment');
       }
       
-      // Ensure we have a payment reference
-      const finalPaymentReference = paymentResult.paymentReference || 
-        `TEMP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+      // Use the payment reference from the payment result
+      const finalPaymentReference = paymentResult.paymentReference || initialPaymentReference;
       
       // Show payment instructions
       const instructions = lang === 'am' 
@@ -456,7 +456,10 @@ ${instructions}
 **After making the payment, upload your screenshot:**`;
       
       const keyboard = [
-        [{ text: lang === 'am' ? '📸 ስክሪንሾት ያስገቡ' : '📸 Upload Screenshot', callback_data: `upload_screenshot_${subscriptionResult.subscriptionId}` }],
+        [{ 
+          text: lang === 'am' ? '📸 ስክሪንሾት ያስገቡ' : '📸 Upload Screenshot', 
+          callback_data: `upload_screenshot_${subscriptionResult.subscriptionId}_${finalPaymentReference}` 
+        }],
         [{ text: lang === 'am' ? '📊 የእኔ ምዝገባዎች' : '📊 My Subscriptions', callback_data: 'my_subs' }],
         [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }]
       ];
