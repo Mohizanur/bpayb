@@ -86,11 +86,13 @@ ${selectedService.description}
     }
   });
   
-  // Handle duration selection with specific pattern to handle service IDs with underscores
-  bot.action(/^select_duration_([^_]+(?:_[^_]+)*)_([^_]+(?:_[^_]+)*)$/, async (ctx) => {
+  // Handle duration selection with more flexible pattern
+  bot.action(/^select_duration_([a-z0-9]+)(?:_(\d+))?_(\d+_months?|1_month)$/i, async (ctx) => {
     try {
+      // The service ID is the first part (e.g., 'hbo' from 'hbo_3')
       const serviceId = ctx.match[1];
-      const durationId = ctx.match[2];
+      // The duration ID is the last part (e.g., '3_months' from 'hbo_3_months')
+      const durationId = ctx.match[3];
       const lang = ctx.userLang || 'en';
       
       console.log(`🔍 Duration selected - Service: ${serviceId}, Duration: ${durationId}`);
