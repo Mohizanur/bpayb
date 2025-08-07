@@ -1,18 +1,22 @@
-const fs = require('fs');
-const path = require('path');
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-const debugPath = path.join(__dirname, '..', 'node_modules', 'debug', 'src', 'node.js');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-if (fs.existsSync(debugPath)) {
+const debugPath = join(__dirname, '..', 'node_modules', 'debug', 'src', 'node.js');
+
+if (existsSync(debugPath)) {
   try {
-    const content = fs.readFileSync(debugPath, 'utf8');
+    const content = readFileSync(debugPath, 'utf8');
     const newContent = content.replace(
       /require\(['"]\.\/common['"]\)/g,
       'require("debug/src/common")'
     );
     
     if (content !== newContent) {
-      fs.writeFileSync(debugPath, newContent);
+      writeFileSync(debugPath, newContent);
       console.log('✅ Fixed debug module require path');
     } else {
       console.log('ℹ️ No changes needed for debug module');
