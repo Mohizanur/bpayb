@@ -163,7 +163,6 @@ Please upload your screenshot:`;
             firstName: ctx.from.first_name,
             lastName: ctx.from.last_name
           }
-          }
         });
         
         if (result.success) {
