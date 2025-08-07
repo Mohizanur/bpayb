@@ -4,8 +4,8 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "prestart": "node scripts/fix-debug.js && node scripts/verify-env.js",
-    "start": "NODE_OPTIONS='--no-warnings=ExperimentalWarning --unhandled-rejections=strict' node src/index.js",
+    "prestart": "node scripts/verify-env.js",
+    "start": "NODE_OPTIONS='--no-warnings=ExperimentalWarning --unhandled-rejections=strict' node -r ./scripts/suppress-debug.js src/index.js",
     "dev": "NODE_OPTIONS='--no-warnings=ExperimentalWarning' node --watch src/index.js",
     "test": "node --test tests/*.test.js",
     "test:watch": "node --test --watch tests/*.test.js",
@@ -13,24 +13,26 @@
     "lint": "eslint src/",
     "format": "prettier --write src/",
     "build": "echo 'No build step required'",
-    "postinstall": "node scripts/fix-debug.js",
+    "postinstall": "echo 'Skipping debug module fix in production'",
     "serve": "NODE_OPTIONS='--no-warnings=ExperimentalWarning' node src/index.js",
-    "check:services": "node scripts/checkServices.js"
+    "check:services": "node scripts/checkServices.js",
+    "prod": "NODE_ENV=production node -r ./scripts/suppress-debug.js src/index.js"
   },
   "dependencies": {
     "@fastify/send": "^2.0.1",
     "@fastify/static": "^7.0.4",
-    "debug": "4.3.3",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "fastify": "^4.28.1",
     "firebase-admin": "^11.11.0",
-    "ms": "2.1.3",
     "multer": "^1.4.5-lts.1",
     "node-fetch": "^2.7.0",
     "telegraf": "^4.16.3",
     "telegraf-i18n": "^6.5.0",
     "uuid": "^10.0.0"
+  },
+  "optionalDependencies": {
+    "debug": "^4.3.4"
   },
   "resolutions": {
     "debug": "4.3.3",
