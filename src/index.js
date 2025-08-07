@@ -14,7 +14,7 @@ import { loadServices } from "./utils/loadServices.js";
 import { firestore } from "./utils/firestore.js";
 import path from "path";
 import { fileURLToPath } from "url";
-import startHandler from "./handlers/start.js";
+import { setupStartHandler } from "./handlers/start.js";
 import subscribeHandler from "./handlers/subscribe.js";
 import supportHandler from "./handlers/support.js";
 import langHandler from "./handlers/lang.js";
@@ -273,6 +273,9 @@ const setupBotMenu = async () => {
 // Initialize admin handlers
 adminHandler(bot);
 registerAdminPaymentHandlers(bot);
+
+// Initialize start handler
+setupStartHandler(bot);
 
 // Add admin command
 bot.command("admin", async (ctx) => {
@@ -872,7 +875,7 @@ console.log('🔄 Middleware registered successfully!');
 // Register remaining handlers that aren't duplicated above
 console.log("Registering remaining handlers...");
 console.log("Registering start handler...");
-startHandler(bot);
+setupStartHandler(bot);
 console.log("Registering subscribe handler...");
 subscribeHandler(bot);
 console.log("Registering mySubscriptions handler...");
@@ -975,7 +978,7 @@ console.log("Bot middleware:", bot.middleware?.length || 0);
 
 // Register additional handlers
 console.log("Registering additional handlers...");
-startHandler(bot);
+setupStartHandler(bot);
 subscribeHandler(bot);
 mySubscriptionsHandler(bot);
 cancelSubscriptionHandler(bot);

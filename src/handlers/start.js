@@ -51,7 +51,7 @@ const createUserProfile = async (ctx) => {
   }
 };
 
-export default function startHandler(bot) {
+export function setupStartHandler(bot) {
   bot.start(async (ctx) => {
     try {
       const lang = ctx.from.language_code === 'am' ? 'am' : 'en';
