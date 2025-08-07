@@ -1,5 +1,11 @@
 import { createSubscription, getUser, createSupportTicket } from "../utils/database.js";
-import { PAYMENT_METHODS, calculateAmount, formatCurrency, createManualPayment } from "../utils/payment.js";
+import { 
+  PAYMENT_METHODS, 
+  calculateAmount, 
+  formatCurrency, 
+  createManualPayment, 
+  processPayment 
+} from "../utils/payment.js";
 import { loadServices } from "../utils/loadServices.js";
 import { notifyAdminsAboutPayment } from "../utils/paymentVerification.js";
 
