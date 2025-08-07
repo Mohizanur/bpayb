@@ -409,19 +409,9 @@ ${selectedService.description}
         throw new Error('Failed to create subscription');
       }
       
-      // Process payment with the initial payment reference
-      const paymentResult = await processPayment({
-        ...subscriptionData,
-        subscriptionId: subscriptionResult.subscriptionId,
-        paymentReference: initialPaymentReference // Pass the initial payment reference
-      }, paymentMethodId);
-      
-      if (!paymentResult.success) {
-        throw new Error('Failed to process payment');
-      }
-      
-      // Use the payment reference from the payment result
-      const finalPaymentReference = paymentResult.paymentReference || initialPaymentReference;
+      // For manual payments, we don't process the payment here
+      // Just use the initial payment reference we already generated
+      const finalPaymentReference = initialPaymentReference;
       
       // Show payment instructions
       const instructions = lang === 'am' 
