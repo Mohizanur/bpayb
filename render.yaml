@@ -3,9 +3,12 @@ services:
     name: birrpay-bot
     env: node
     plan: free
-    buildCommand: npm install
-    startCommand: node src/index.js
+    buildCommand: |
+      npm install
+      npm rebuild
+    startCommand: node --no-warnings=ExperimentalWarning src/index.js
     healthCheckPath: /health
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production

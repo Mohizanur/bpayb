@@ -4,7 +4,7 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node --no-warnings=ExperimentalWarning server.js",
     "dev": "node --watch src/index.js",
     "test": "node --test tests/*.test.js",
     "test:watch": "node --test --watch tests/*.test.js",
@@ -12,17 +12,19 @@
     "lint": "eslint src/",
     "format": "prettier --write src/",
     "build": "echo 'No build step required'",
-    "serve": "node server.js",
+    "serve": "node --no-warnings=ExperimentalWarning server.js",
     "check:services": "node scripts/checkServices.js"
   },
   "dependencies": {
     "@fastify/send": "^2.0.1",
     "@fastify/static": "^7.0.4",
+    "debug": "^4.3.4",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "fastify": "^4.28.1",
     "firebase-admin": "^11.11.0",
     "multer": "^1.4.5-lts.1",
+    "node-fetch": "^2.7.0",
     "telegraf": "^4.16.3",
     "uuid": "^10.0.0"
   },
