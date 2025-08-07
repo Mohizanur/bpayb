@@ -13,16 +13,16 @@
     "lint": "eslint src/",
     "format": "prettier --write src/",
     "build": "echo 'No build step required'",
-    "postinstall": "if [ \"$NODE_ENV\" = \"production\" ]; then echo 'Setting up debug module for production...'; npm install debug@4.3.4; fi",
+    "postinstall": "node -e \"if (process.env.NODE_ENV === 'production') { console.log('Setting up debug module for production...'); const { execSync } = require('child_process'); execSync('npm install debug@4.3.4', { stdio: 'inherit' }); }\"",
     "serve": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning' node src/index.js",
     "check:services": "node scripts/checkServices.js",
     "prod": "cross-env NODE_ENV=production NODE_OPTIONS='--experimental-require' node -r ./scripts/suppress-debug.cjs src/index.js"
   },
   "dependencies": {
+    "debug": "4.3.4",
     "@fastify/send": "^2.0.1",
     "@fastify/static": "^7.0.4",
     "cross-env": "^10.0.0",
-    "debug": "4.3.4",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "fastify": "^4.28.1",
