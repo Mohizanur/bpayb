@@ -52,29 +52,31 @@ export function generateManualPaymentReference(userId) {
 
 // Get payment instructions for a specific method
 export function getPaymentInstructions(paymentMethodId, reference, lang = 'en') {
-  const method = Object.values(PAYMENT_METHODS).find(
-    m => m.id.toLowerCase() === paymentMethodId.toLowerCase()
-  );
-  
+  const method = Object.values(PAYMENT_METHODS).find(m => m.id === paymentMethodId);
   if (!method) {
-    console.error(`Payment method not found: ${paymentMethodId}`);
-    return lang === 'am' 
-      ? 'የክፍያ ዘዴ አልተገኘም' 
-      : 'Payment method not found';
+    return {
+      title: 'Payment Instructions',
+      title_am: 'የክፍያ መመሪያዎች',
+      instructions: 'Please contact support for payment instructions.',
+      instructions_am: 'እባክዎ የክፍያ መመሪያዎችን ለማግኘት ድጋፍ ያነጋግሩ።'
+    };
   }
-  
-  const instructions = lang === 'am' 
-    ? method.instructions_am || method.instructions 
-    : method.instructions;
-    
-  return instructions.replace('{reference}', reference);
+
+  return {
+    title: `Pay with ${method.name}`,
+    title_am: `በ${method.name_am} ይክፈሉ`,
+    instructions: method.instructions.replace('{reference}', reference),
+    instructions_am: method.instructions_am.replace('{reference}', reference),
+    accountNumber: method.accountNumber,
+    accountName: method.accountName
+  };
 }
 
 // Format currency for display
-export function formatCurrency(amount) {
+export function formatCurrency(amount, currency = 'ETB') {
   return new Intl.NumberFormat('en-ET', {
     style: 'currency',
-    currency: 'ETB',
+    currency: currency,
     minimumFractionDigits: 2
   }).format(amount);
 }
@@ -222,26 +224,7 @@ export const verifyPayment = async (paymentId, adminId, verificationData) => {
   }
 };
 
-// Get payment instructions for user
-export const getPaymentInstructions = (paymentMethod, paymentReference, lang = 'en') => {
-  const method = PAYMENT_METHODS[paymentMethod];
-  if (!method) {
-    return null;
-  }
-
-  const instructions = lang === 'am' ? method.instructions_am : method.instructions;
-  return instructions.replace('{reference}', paymentReference);
-};
-
-// Format currency
-export const formatCurrency = (amount, currency = 'ETB') => {
-  return new Intl.NumberFormat('en-ET', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(amount);
-};
+// This function was a duplicate and has been removed. Use getPaymentInstructions(paymentMethodId, reference, lang) instead.
 
 // Calculate subscription amount based on duration
 export const calculateAmount = (basePrice, duration) => {
