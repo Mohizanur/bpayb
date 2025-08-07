@@ -420,10 +420,14 @@ ${selectedService.description}
         throw new Error('Failed to process payment');
       }
       
+      // Ensure we have a payment reference
+      const paymentReference = paymentResult.paymentReference || 
+        `TEMP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+      
       // Show payment instructions
       const instructions = lang === 'am' 
-        ? paymentMethod.instructions_am.replace('{reference}', paymentResult.paymentReference)
-        : paymentMethod.instructions.replace('{reference}', paymentResult.paymentReference);
+        ? paymentMethod.instructions_am.replace('{reference}', paymentReference)
+        : paymentMethod.instructions.replace('{reference}', paymentReference);
       
       const message = lang === 'am'
         ? `💳 **የክፍያ መመሪያዎች**
@@ -432,7 +436,7 @@ ${selectedService.description}
 **የእቅድ ቆይታ:** ${getDurationName(durationId, 'am')}
 **መጠን:** ${formatCurrency(amount)}
 **የክፍያ ዘዴ:** ${paymentMethod.name_am}
-**የክፍያ ማጣቀሻ:** ${paymentResult.paymentReference}
+**የክፍያ ማጣቀሻ:** ${paymentReference}
 
 **የክፍያ መመሪያዎች:**
 ${instructions}
@@ -444,7 +448,7 @@ ${instructions}
 **Duration:** ${getDurationName(durationId, 'en')}
 **Amount:** ${formatCurrency(amount)}
 **Payment Method:** ${paymentMethod.name}
-**Payment Reference:** ${paymentResult.paymentReference}
+**Payment Reference:** ${paymentReference}
 
 **Payment Instructions:**
 ${instructions}

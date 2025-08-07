@@ -238,9 +238,13 @@ export async function processPayment(paymentData, paymentMethod) {
       return { success: false, error: paymentResult.error };
     }
 
+    // Get the payment reference from the created payment document
+    const paymentDoc = await getPayment(paymentResult.paymentId);
+    
     return { 
       success: true, 
       paymentId: paymentResult.paymentId,
+      paymentReference: paymentDoc?.paymentReference || paymentData.paymentReference,
       status: 'pending_verification',
       message: 'Payment is pending verification'
     };
