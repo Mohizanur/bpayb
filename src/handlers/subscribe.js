@@ -392,7 +392,7 @@ ${selectedService.description}
         serviceId: serviceId,
         serviceName: selectedService.name,
         duration: durationId,
-        durationName: durationNames[durationId],
+        durationName: getDurationName(durationId, 'en'),
         amount: amount,
         basePrice: selectedService.price,
         paymentMethod: paymentMethodId
@@ -478,6 +478,7 @@ ${instructions}
       }
       
       // Show error with retry button
+      const serviceId = ctx.callbackQuery?.data?.match(/select_service_(.*)/)?.[1] || 'unknown';
       const errorKeyboard = [
         [{ text: lang === 'am' ? '🔄 እንደገና ይሞክሩ' : '🔄 Try Again', callback_data: `select_service_${serviceId}` }],
         [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }]
