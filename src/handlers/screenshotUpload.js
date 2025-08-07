@@ -4,9 +4,10 @@ import { handlePaymentProofUpload, notifyAdminsAboutPayment } from "../utils/pay
 
 export default function screenshotUploadHandler(bot) {
   // Handle screenshot upload after payment
-  bot.action(/upload_screenshot_(.+)/, async (ctx) => {
+  bot.action(/upload_screenshot_(.+?)(?:_(.*))?$/, async (ctx) => {
     try {
       const subscriptionId = ctx.match[1];
+      const paymentReference = ctx.match[2]; // Get payment reference if provided
       const lang = ctx.userLang || 'en';
       
       // Check if subscription exists and belongs to user
@@ -21,12 +22,15 @@ export default function screenshotUploadHandler(bot) {
         return;
       }
       
+      // Use payment reference from callback data if available, otherwise from subscription
+      const displayPaymentReference = paymentReference || subscription.paymentReference;
+      
       const message = lang === 'am'
         ? `📸 **የክፍያ ስክሪንሾት ያስገቡ**
         
-የክፍያዎን ስክሪንሾት ያስገቡ። ይህ የክፍያዎን ማረጋገጫ ለመረጋገጥ ያገለግላል።
+የክፍያዎን ስክሪንሾት ያስገቡ። ይህ የክፍያዎን ማረጋገጥ ለመረጋገጥ ያገለግላል።
 
-**የክፍያ ማጣቀሻ:** ${subscription.paymentReference}
+**የክፍያ ማጣቀሻ:** ${displayPaymentReference || 'N/A'}
 **መጠን:** ${subscription.amount} ETB
 
 እባክዎ የክፍያዎን ስክሪንሾት ያስገቡ:`
@@ -34,7 +38,7 @@ export default function screenshotUploadHandler(bot) {
         
 Please upload a screenshot of your payment. This will be used to verify your payment.
 
-**Payment Reference:** ${subscription.paymentReference}
+**Payment Reference:** ${displayPaymentReference || 'N/A'}
 **Amount:** ${subscription.amount} ETB
 
 Please upload your payment screenshot:`;
@@ -58,9 +62,10 @@ Please upload your payment screenshot:`;
   });
   
   // Handle photo upload
-  bot.action(/upload_photo_(.+)/, async (ctx) => {
+  bot.action(/upload_photo_(.+?)(?:_(.*))?$/, async (ctx) => {
     try {
       const subscriptionId = ctx.match[1];
+      const paymentReference = ctx.match[2]; // Get payment reference if provided
       const lang = ctx.userLang || 'en';
       
       const message = lang === 'am'
@@ -85,10 +90,15 @@ Please upload a screenshot of your payment. This will be used to verify your pay
 
 Please upload your screenshot:`;
       
+      // Include payment reference in back button if available
+      const backButtonData = paymentReference 
+        ? `upload_screenshot_${subscriptionId}_${paymentReference}`
+        : `upload_screenshot_${subscriptionId}`;
+      
       await ctx.editMessageText(message, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: `upload_screenshot_${subscriptionId}` }]
+            [{ text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: backButtonData }]
           ]
         },
         parse_mode: 'Markdown'
@@ -112,8 +122,12 @@ Please upload your screenshot:`;
       const { session } = ctx;
       const lang = ctx.userLang || 'en';
       
-      // Check if we have a pending payment in session or a subscription ID
-      if ((!session.pendingPayment || !session.pendingPayment.paymentId) && !session.uploadingScreenshotFor) {
+      // Check if we have a pending payment in session, a subscription ID, or a session expecting a screenshot
+      const hasPendingPayment = session.pendingPayment?.paymentId;
+      const hasSubscriptionId = session.uploadingScreenshotFor;
+      const isExpectingScreenshot = session.expectingScreenshot;
+      
+      if (!hasPendingPayment && !hasSubscriptionId && !isExpectingScreenshot) {
         return; // Not in payment proof state
       }
       
@@ -125,22 +139,30 @@ Please upload your screenshot:`;
       let paymentId, payment;
       
       // Handle payment proof from session
-      if (session.pendingPayment?.paymentId) {
-        paymentId = session.pendingPayment.paymentId;
+      if (session.pendingPayment?.paymentId || session.expectingScreenshot) {
+        paymentId = session.pendingPayment?.paymentId;
         
-        // Store the file link in the pending payment
-        session.pendingPayment.proofUrl = fileLink.href;
+        // Get payment reference from session or generate a new one
+        const paymentReference = session.pendingPayment?.paymentReference || 
+          `TEMP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+        
+        // Store the file link in the pending payment if it exists
+        if (session.pendingPayment) {
+          session.pendingPayment.proofUrl = fileLink.href;
+        }
         
         // Handle the payment proof with our verification system
         const result = await handlePaymentProofUpload({
-          paymentId,
+          paymentId: paymentId || `pending-${Date.now()}`,
           screenshotUrl: fileLink.href,
           userId: ctx.from.id,
+          paymentReference,
           userInfo: {
             id: ctx.from.id,
             username: ctx.from.username,
             firstName: ctx.from.first_name,
             lastName: ctx.from.last_name
+          }
           }
         });
         
