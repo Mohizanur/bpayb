@@ -1736,56 +1736,108 @@ fastify.put('/api/services/:id', { preHandler: requireAdmin }, async (req, reply
   } catch (error) {
     reply.status(500).send({ error: error.message });
 
-// Telegram webhook endpoint
+// Telegram webhook endpoint with enhanced error handling
 fastify.post("/telegram", async (request, reply) => {
   const updateId = request.body?.update_id;
   const messageType = Object.keys(request.body)
-    .filter(key => key !== 'update_id')
-    .find(key => key in request.body);
+    .filter(key => key !== 'update_id' && key in request.body)
+    .join(', ') || 'unknown';
   
-  // Log the incoming update for debugging
-  console.log(`📥 Received webhook update #${updateId} (${messageType || 'unknown'})`);
+  const requestId = `webhook-${updateId}-${Date.now()}`;
+  const startTime = Date.now();
+  
+  // Log the incoming update for debugging (but be careful with sensitive data)
+  console.log(`[${requestId}] 📥 Received ${messageType} update #${updateId}`);
   
   try {
     // Process the update with a timeout to prevent hanging
-    const timeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Request timeout')), 9000)
+    const timeoutMs = 30000; // 30 second timeout for the entire operation
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error(`Request timeout after ${timeoutMs}ms`)), timeoutMs)
     );
     
-    await Promise.race([
-      bot.handleUpdate(request.body),
-      timeout
-    ]);
+    // Process the update
+    const processingPromise = (async () => {
+      try {
+        await bot.handleUpdate(request.body);
+        return { success: true };
+      } catch (error) {
+        // Add more context to the error
+        error.updateId = updateId;
+        error.messageType = messageType;
+        throw error;
+      }
+    })();
     
-    // Log successful processing
-    console.log(`✅ Processed update #${updateId} successfully`);
+    // Race between the processing and the timeout
+    await Promise.race([processingPromise, timeoutPromise]);
+    
+    const duration = Date.now() - startTime;
+    console.log(`[${requestId}] ✅ Processed in ${duration}ms`);
     
     // Always return 200 OK to acknowledge receipt of the update
-    return { status: 'ok' };
+    return { status: 'ok', processed_in_ms: duration };
+    
   } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorId = `err-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    
     // Log the error with more context
-    console.error(`❌ Error handling update #${updateId}:`, error.message);
-    console.error('Update data:', JSON.stringify({
+    console.error(`[${requestId}] ❌ Error after ${duration}ms (${errorId}):`, error.message);
+    
+    // Log additional context (but be careful with sensitive data)
+    const updateContext = {
       update_id: updateId,
       message_type: messageType,
-      from: request.body?.message?.from?.id || 'unknown',
-      text: request.body?.message?.text || request.body?.callback_query?.data || 'no text'
-    }, null, 2));
+      from_id: request.body?.message?.from?.id || 
+              request.body?.callback_query?.from?.id || 
+              request.body?.inline_query?.from?.id ||
+              'unknown',
+      has_message: !!request.body?.message,
+      has_callback: !!request.body?.callback_query,
+      has_inline_query: !!request.body?.inline_query
+    };
     
-    // Still return 200 OK to prevent Telegram from retrying the same update
-    // (unless it's a critical error that needs to be retried)
-    const isRetryable = !error.message.includes('retry after') && 
-                       !error.message.includes('too many requests');
+    console.error(`[${requestId}] Update context:`, JSON.stringify(updateContext, null, 2));
     
-    if (isRetryable) {
-      console.log('⚠️  This error is retryable');
-    } else {
-      console.log('ℹ️  This error is not retryable, marking as handled');
+    // Log stack trace for unexpected errors
+    if (!error.message.includes('timeout') && !error.message.includes('retry after')) {
+      console.error(`[${requestId}] Stack trace:`, error.stack);
     }
     
+    // Determine if this is a retryable error
+    const isRetryable = ![
+      'retry after',
+      'too many requests',
+      'message is not modified',
+      'chat not found',
+      'user is deactivated',
+      'bot was blocked by the user'
+    ].some(msg => error.message.toLowerCase().includes(msg));
+    
+    console.log(`[${requestId}] ${isRetryable ? '⚠️  Retryable error' : 'ℹ️  Non-retryable error'}`);
+    
+    // Return appropriate status based on error type
+    if (isRetryable) {
+      // Return 202 to indicate temporary failure (Telegram will retry)
+      reply.status(202);
+      return { 
+        status: 'error',
+        error: error.message,
+        error_id: errorId,
+        retryable: true,
+        processed_in_ms: duration
+      };
+    }
+    
+    // Return 200 for non-retryable errors (don't want Telegram to retry)
     return { 
-      status: isRetryable ? 'error' : 'ok',
-      message: error.message 
+      status: 'ok',
+      error: error.message,
+      error_id: errorId,
+      retryable: false,
+      processed_in_ms: duration,
+      _info: 'Error was not retryable, marked as handled'
     };
   }
 });
