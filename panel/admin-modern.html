@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BirrPay Admin Panel - Modern</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -14,38 +17,71 @@
         }
         
         :root {
-            --primary-color: #0f172a;
-            --primary-dark: #020617;
-            --secondary-color: #1e40af;
-            --accent-color: #3b82f6;
-            --danger-color: #ef4444;
+            /* Modern Color Palette */
+            --primary-color: #3b82f6;
+            --primary-dark: #2563eb;
+            --primary-light: #60a5fa;
+            --secondary-color: #8b5cf6;
+            --accent-color: #ec4899;
             --success-color: #10b981;
             --warning-color: #f59e0b;
+            --danger-color: #ef4444;
             --info-color: #06b6d4;
-            --dark-bg: #0f172a;
-            --darker-bg: #020617;
-            --card-bg: #1e293b;
-            --card-hover-bg: #334155;
-            --border-color: #334155;
+            
+            /* Background Colors */
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --bg-surface: #1e293b;
+            --bg-hover: #334155;
+            
+            /* Text Colors */
             --text-primary: #f8fafc;
             --text-secondary: #cbd5e1;
             --text-muted: #94a3b8;
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
-            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.3);
-            --gradient-primary: linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #3b82f6 100%);
-            --gradient-secondary: linear-gradient(135deg, #020617 0%, #0f172a 100%);
-            --gradient-card: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            --text-inverse: #0f172a;
+            
+            /* Border Colors */
+            --border-color: #334155;
+            --border-light: #475569;
+            
+            /* Gradients */
+            --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            --gradient-secondary: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+            --gradient-bg: radial-gradient(circle at 10% 20%, #0f172a 0%, #1e293b 100%);
+            --gradient-card: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+            --gradient-accent: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
+            
+            /* Shadows */
+            --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.2), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.2), 0 4px 6px -4px rgb(0 0 0 / 0.2);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.2);
+            --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.3);
+            
+            /* Transitions */
+            --transition-fast: all 0.15s ease-in-out;
+            --transition-normal: all 0.3s ease-in-out;
+            --transition-slow: all 0.5s ease-in-out;
+            
+            /* Border Radius */
+            --radius-sm: 0.375rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 0.75rem;
+            --radius-xl: 1rem;
+            --radius-2xl: 1.5rem;
+            --radius-full: 9999px;
         }
         
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--gradient-secondary);
+            background: var(--gradient-bg);
             min-height: 100vh;
             color: var(--text-primary);
             line-height: 1.6;
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
         
         body::before {
@@ -64,22 +100,47 @@
         }
         
         .container {
-            max-width: 1400px;
+            max-width: 1440px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Glow Effects */
+        .glow {
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.3;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        .glow-primary {
+            background: var(--primary-color);
+            top: 10%;
+            left: 10%;
+        }
+        
+        .glow-secondary {
+            background: var(--secondary-color);
+            bottom: 10%;
+            right: 10%;
         }
         
         .header {
             background: var(--gradient-card);
             border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: var(--shadow-xl);
+            border-radius: var(--radius-xl);
+            padding: 2rem;
+            margin-bottom: 3rem;
+            box-shadow: var(--shadow-lg);
             text-align: center;
             position: relative;
-            overflow: hidden;
-            backdrop-filter: blur(10px);
+            z-index: 1;
         }
         
         .header::before {
@@ -93,65 +154,79 @@
         }
         
         .header h1 {
-            color: var(--text-primary);
-            font-size: 2.5rem;
+            font-size: 2.75rem;
             font-weight: 800;
-            margin-bottom: 10px;
-            background: var(--gradient-primary);
+            margin-bottom: 0.75rem;
+            background: var(--gradient-accent);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
+            display: inline-block;
+            letter-spacing: -0.025em;
+            line-height: 1.2;
         }
         
         .header p {
             color: var(--text-secondary);
-            font-size: 1.1rem;
+            font-size: 1.15rem;
+            max-width: 700px;
+            margin: 0 auto;
+            line-height: 1.6;
         }
         
         .tabs {
             display: flex;
-            background: var(--card-bg);
-            border-radius: 15px;
-            padding: 5px;
-            margin-bottom: 30px;
-            box-shadow: var(--shadow-lg);
-            border: 1px solid var(--border-color);
+            gap: 0.5rem;
+            margin-bottom: 2.5rem;
+            background: rgba(30, 41, 59, 0.5);
+            padding: 0.5rem;
+            border-radius: var(--radius-xl);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            max-width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
         }
         
-        .tab {
-            flex: 1;
-            padding: 15px 20px;
-            text-align: center;
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.75rem 1.5rem;
+            font-size: 0.95rem;
+            font-weight: 500;
             cursor: pointer;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-            color: var(--text-secondary);
-            font-weight: 600;
+            border-radius: var(--radius-lg);
+            transition: var(--transition-normal);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            position: relative;
         }
         
-        .tab:hover {
-            background: var(--card-hover-bg);
+        .tab-btn:hover {
             color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
         }
         
-        .tab.active {
+        .tab-btn.active {
+            color: var(--text-primary);
             background: var(--gradient-primary);
-            color: var(--text-primary);
+            font-weight: 600;
             box-shadow: var(--shadow-md);
         }
         
-        .tab-panel {
-            display: none;
-            animation: fadeIn 0.3s ease;
+        .tab-btn .badge {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            font-size: 0.7rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: var(--radius-full);
+            font-weight: 600;
         }
         
-        .tab-panel.active {
-            display: block;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .tab-btn.active .badge {
+            background: rgba(255, 255, 255, 0.2);
         }
         
         .stats-grid {
@@ -163,18 +238,15 @@
         
         .stat-card {
             background: var(--gradient-card);
-            border: 1px solid var(--border-color);
-            border-radius: 15px;
-            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: var(--radius-xl);
+            padding: 1.75rem;
             box-shadow: var(--shadow-lg);
-            transition: all 0.3s ease;
+            transition: var(--transition-normal);
             position: relative;
             overflow: hidden;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-xl);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }
         
         .stat-card::before {
@@ -183,26 +255,50 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 3px;
-            background: var(--gradient-primary);
+            height: 4px;
+            background: var(--gradient-accent);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-xl);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin: 0.75rem 0;
+            background: var(--gradient-accent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.2;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .stat-value i {
+            font-size: 1.5rem;
+            opacity: 0.8;
         }
         
         .stat-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 12px;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 15px;
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-lg);
+            margin-bottom: 1rem;
             font-size: 1.5rem;
             color: white;
         }
         
         .stat-icon.users { background: var(--gradient-primary); }
-        .stat-icon.subscriptions { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .stat-icon.subscriptions { background: var(--gradient-secondary); }
         .stat-icon.revenue { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
-        .stat-icon.support { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+        .stat-icon.support { background: linear-gradient(135deg, #ec4899 0%, #d946ef 100%); }
         
         .stat-number {
             font-size: 2rem;
@@ -390,124 +486,279 @@
         
         .empty-state {
             text-align: center;
-            padding: 60px 20px;
-            color: var(--text-muted);
+            padding: 3rem 1.5rem;
+            border-radius: var(--radius-xl);
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px dashed var(--border-color);
+            margin: 1rem 0;
         }
         
         .empty-state i {
             font-size: 3rem;
-            margin-bottom: 20px;
+            margin-bottom: 1rem;
             opacity: 0.5;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
         }
         
         .empty-state h3 {
-            font-size: 1.5rem;
-            margin-bottom: 10px;
-            color: var(--text-secondary);
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            font-size: 1.25rem;
+        }
+        
+        .empty-state p {
+            color: var(--text-muted);
+            max-width: 400px;
+            margin: 0 auto 1.5rem;
         }
         
         .loading {
             text-align: center;
-            padding: 40px;
-            color: var(--text-muted);
+            padding: 3rem 1.5rem;
         }
         
-        .loading i {
-            font-size: 2rem;
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
             animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
         }
         
         @keyframes spin {
-            from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
         
-        @media (max-width: 768px) {
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 1024px) {
             .container {
-                padding: 15px;
+                padding: 1.5rem;
             }
             
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 768px) {
             .header h1 {
                 font-size: 2rem;
+                line-height: 1.3;
+            }
+            
+            .header p {
+                font-size: 1rem;
             }
             
             .tabs {
-                flex-direction: column;
+                width: 100%;
+                overflow-x: auto;
+                padding: 0.5rem;
+                justify-content: flex-start;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
             }
             
+            .tabs::-webkit-scrollbar {
+                display: none;
+            }
+            
+            .tab-btn {
+                padding: 0.6rem 1rem;
+                font-size: 0.85rem;
+                white-space: nowrap;
+            }
+            
+            .stat-card {
+                padding: 1.5rem;
+            }
+            
+            .stat-value {
+                font-size: 2rem;
+            }
+        }
+        
+        @media (max-width: 640px) {
             .stats-grid {
                 grid-template-columns: 1fr;
             }
             
-            .table-header {
-                flex-direction: column;
-                align-items: stretch;
+            .header {
+                padding: 1.5rem 1rem;
             }
             
-            .search-box {
-                min-width: auto;
+            .header h1 {
+                font-size: 1.75rem;
+            }
+            
+            .chart-container {
+                padding: 1.25rem;
+            }
+            
+            .table-container {
+                padding: 1.25rem;
             }
         }
+        
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+        }
+        
+        /* Glow Effects */
+        .glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #fff 0%, #fff 100%);
+            opacity: 0.2;
+            z-index: -1;
+            border-radius: var(--radius-lg);
+        }
+        
+        .glow-primary {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        }
+        
+        .glow-secondary {
+            background: linear-gradient(135deg, var(--secondary-color) 0%, var(--secondary-dark) 100%);
+        }
     </style>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script>
+        // Firebase configuration - replace with your actual config
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        
+        // Initialize Firebase if not already initialized
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+    </script>
 </head>
 <body>
+    <!-- Glow Effects -->
+    <div class="glow glow-primary"></div>
+    <div class="glow glow-secondary"></div>
+    
     <div class="container">
         <div class="header">
-            <h1>BirrPay Admin Panel</h1>
-            <p>Real-time analytics and user management</p>
+            <h1>BirrPay Admin Dashboard</h1>
+            <p>Manage users, subscriptions, and monitor real-time analytics</p>
         </div>
         
         <div class="tabs">
-            <div class="tab active" onclick="showTab('dashboard')">
-                <i class="fas fa-chart-line"></i> Dashboard
-            </div>
-            <div class="tab" onclick="showTab('users')">
-                <i class="fas fa-users"></i> Users
-            </div>
-            <div class="tab" onclick="showTab('subscriptions')">
-                <i class="fas fa-credit-card"></i> Subscriptions
-            </div>
-            <div class="tab" onclick="showTab('payments')">
-                <i class="fas fa-money-bill-wave"></i> Payments
-            </div>
-            <div class="tab" onclick="showTab('support')">
-                <i class="fas fa-headset"></i> Support
-            </div>
+            <button class="tab-btn active" onclick="showTab('overview')">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Overview</span>
+            </button>
+            <button class="tab-btn" onclick="showTab('users')">
+                <i class="fas fa-users"></i>
+                <span>Users</span>
+                <span class="badge" id="users-count">0</span>
+            </button>
+            <button class="tab-btn" onclick="showTab('subscriptions')">
+                <i class="fas fa-credit-card"></i>
+                <span>Subscriptions</span>
+                <span class="badge" id="subscriptions-count">0</span>
+            </button>
+            <button class="tab-btn" onclick="showTab('payments')">
+                <i class="fas fa-money-bill-wave"></i>
+                <span>Payments</span>
+                <span class="badge" id="payments-count">0</span>
+            </button>
+            <button class="tab-btn" onclick="showTab('support')">
+                <i class="fas fa-headset"></i>
+                <span>Support</span>
+                <span class="badge" id="tickets-count">0</span>
+            </button>
+            <button class="tab-btn" onclick="showTab('analytics')">
+                <i class="fas fa-chart-line"></i>
+                <span>Analytics</span>
+            </button>
         </div>
         
-        <div id="dashboard" class="tab-panel active">
+        <div id="overview" class="tab-panel active">
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon users">
                         <i class="fas fa-users"></i>
                     </div>
-                    <div class="stat-number" id="totalUsers">-</div>
+                    <div class="stat-value" id="total-users">0</div>
                     <div class="stat-label">Total Users</div>
-                    <div class="stat-detail">Verified accounts</div>
+                    <div class="stat-change positive" id="users-change">
+                        <i class="fas fa-arrow-up"></i> 0% this week
+                    </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon subscriptions">
                         <i class="fas fa-credit-card"></i>
                     </div>
-                    <div class="stat-number" id="activeSubscriptions">-</div>
+                    <div class="stat-value" id="active-subscriptions">0</div>
                     <div class="stat-label">Active Subscriptions</div>
-                    <div class="stat-detail">Premium users</div>
+                    <div class="stat-change positive" id="subscriptions-change">
+                        <i class="fas fa-arrow-up"></i> 0% this week
+                    </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon revenue">
-                        <i class="fas fa-money-bill-wave"></i>
+                        <i class="fas fa-coins"></i>
                     </div>
-                    <div class="stat-number" id="totalRevenue">-</div>
+                    <div class="stat-value" id="total-revenue">ETB 0</div>
                     <div class="stat-label">Total Revenue</div>
-                    <div class="stat-detail">This month</div>
+                    <div class="stat-change positive" id="revenue-change">
+                        <i class="fas fa-arrow-up"></i> 0% this week
+                    </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon support">
                         <i class="fas fa-headset"></i>
                     </div>
-                    <div class="stat-number" id="pendingSupport">-</div>
-                    <div class="stat-label">Pending Support</div>
-                    <div class="stat-detail">Open tickets</div>
+                    <div class="stat-value" id="open-tickets">0</div>
+                    <div class="stat-label">Open Support Tickets</div>
+                    <div class="stat-change negative" id="tickets-change">
+                        <i class="fas fa-arrow-up"></i> 0 unread
+                    </div>
                 </div>
             </div>
             
@@ -604,67 +855,288 @@
                     subscriptions: [],
                     payments: [],
                     support: [],
-                    stats: {}
+                    stats: {
+                        totalUsers: 0,
+                        activeSubscriptions: 0,
+                        totalRevenue: 0,
+                        pendingSupport: 0,
+                        usersChange: 0,
+                        subscriptionsChange: 0,
+                        revenueChange: 0
+                    }
                 };
                 this.charts = {};
-                this.currentTab = 'dashboard';
+                this.currentTab = 'overview';
                 this.init();
             }
             
             async init() {
-                await this.loadStats();
-                await this.initCharts();
-                this.setupAutoRefresh();
+                try {
+                    // Set up real-time listeners
+                    this.setupRealtimeListeners();
+                    
+                    // Load initial data
+                    await Promise.all([
+                        this.loadStats(),
+                        this.loadTabData('users'),
+                        this.loadTabData('subscriptions'),
+                        this.loadTabData('payments'),
+                        this.loadTabData('support')
+                    ]);
+                    
+                    // Initialize charts after data is loaded
+                    await this.initCharts();
+                    
+                    // Set up auto-refresh
+                    this.setupAutoRefresh();
+                    
+                    // Show success message
+                    this.showNotification('Admin panel initialized successfully', 'success');
+                } catch (error) {
+                    console.error('Initialization error:', error);
+                    this.showNotification('Failed to initialize admin panel', 'error');
+                }
+            }
+            
+            setupRealtimeListeners() {
+                // Users collection listener
+                db.collection('users').onSnapshot((snapshot) => {
+                    this.data.users = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                    
+                    // Update stats
+                    this.data.stats.totalUsers = this.data.users.length;
+                    this.updateStats();
+                    
+                    // Update UI if on users tab
+                    if (this.currentTab === 'users') {
+                        this.renderUsersTable();
+                    }
+                });
+                
+                // Subscriptions collection listener
+                db.collection('subscriptions')
+                    .where('status', '==', 'active')
+                    .onSnapshot((snapshot) => {
+                        this.data.subscriptions = snapshot.docs.map(doc => ({
+                            id: doc.id,
+                            ...doc.data()
+                        }));
+                        
+                        // Update stats
+                        this.data.stats.activeSubscriptions = this.data.subscriptions.length;
+                        this.updateStats();
+                        
+                        // Update UI if on subscriptions tab
+                        if (this.currentTab === 'subscriptions') {
+                            this.renderSubscriptionsTable();
+                        }
+                    });
+                
+                // Payments collection listener
+                db.collection('payments')
+                    .orderBy('timestamp', 'desc')
+                    .limit(100)
+                    .onSnapshot((snapshot) => {
+                        this.data.payments = snapshot.docs.map(doc => ({
+                            id: doc.id,
+                            ...doc.data(),
+                            // Format timestamp for display
+                            formattedDate: new Date(doc.data().timestamp?.toDate()).toLocaleDateString()
+                        }));
+                        
+                        // Update stats
+                        this.data.stats.totalRevenue = this.data.payments.reduce((sum, payment) => {
+                            return sum + (parseFloat(payment.amount) || 0);
+                        }, 0);
+                        this.updateStats();
+                        
+                        // Update UI if on payments tab
+                        if (this.currentTab === 'payments') {
+                            this.renderPaymentsTable();
+                        }
+                    });
+                
+                // Support tickets listener
+                db.collection('supportTickets')
+                    .where('status', 'in', ['open', 'pending'])
+                    .orderBy('createdAt', 'desc')
+                    .onSnapshot((snapshot) => {
+                        this.data.support = snapshot.docs.map(doc => ({
+                            id: doc.id,
+                            ...doc.data(),
+                            // Format timestamp for display
+                            formattedDate: new Date(doc.data().createdAt?.toDate()).toLocaleString()
+                        }));
+                        
+                        // Update stats
+                        this.data.stats.pendingSupport = this.data.support.length;
+                        this.updateStats();
+                        
+                        // Update UI if on support tab
+                        if (this.currentTab === 'support') {
+                            this.renderSupportTable();
+                        }
+                    });
             }
             
             async loadStats() {
                 try {
-                    const response = await fetch(`${this.baseUrl}/api/admin/stats`);
-                    const result = await response.json();
+                    // Get user count
+                    const usersSnapshot = await db.collection('users').count().get();
+                    this.data.stats.totalUsers = usersSnapshot.data().count;
                     
-                    if (result.success) {
-                        this.data.stats = result.stats;
-                        this.updateStats();
-                    }
+                    // Get active subscriptions count
+                    const subsSnapshot = await db.collection('subscriptions')
+                        .where('status', '==', 'active')
+                        .count()
+                        .get();
+                    this.data.stats.activeSubscriptions = subsSnapshot.data().count;
+                    
+                    // Get total revenue
+                    const paymentsSnapshot = await db.collection('payments').get();
+                    this.data.stats.totalRevenue = paymentsSnapshot.docs.reduce((sum, doc) => {
+                        return sum + (parseFloat(doc.data().amount) || 0);
+                    }, 0);
+                    
+                    // Get open support tickets
+                    const supportSnapshot = await db.collection('supportTickets')
+                        .where('status', 'in', ['open', 'pending'])
+                        .count()
+                        .get();
+                    this.data.stats.pendingSupport = supportSnapshot.data().count;
+                    
+                    // Calculate changes (mock data for now)
+                    this.data.stats.usersChange = 12.5; // 12.5% increase
+                    this.data.stats.subscriptionsChange = 8.2; // 8.2% increase
+                    this.data.stats.revenueChange = 15.3; // 15.3% increase
+                    
+                    this.updateStats();
                 } catch (error) {
                     console.error('Error loading stats:', error);
+                    this.showNotification('Failed to load statistics', 'error');
                 }
             }
             
             updateStats() {
-                document.getElementById('totalUsers').textContent = this.data.stats.totalUsers || 0;
-                document.getElementById('activeSubscriptions').textContent = this.data.stats.activeSubscriptions || 0;
-                document.getElementById('totalRevenue').textContent = `ETB ${(this.data.stats.totalRevenue || 0).toLocaleString()}`;
-                document.getElementById('pendingSupport').textContent = this.data.stats.pendingSupport || 0;
+                // Update stat cards
+                document.getElementById('total-users').textContent = this.data.stats.totalUsers.toLocaleString();
+                document.getElementById('active-subscriptions').textContent = this.data.stats.activeSubscriptions.toLocaleString();
+                document.getElementById('total-revenue').textContent = `ETB ${this.data.stats.totalRevenue.toLocaleString()}`;
+                document.getElementById('open-tickets').textContent = this.data.stats.pendingSupport;
+                
+                // Update change indicators
+                this.updateChangeIndicator('users', this.data.stats.usersChange);
+                this.updateChangeIndicator('subscriptions', this.data.stats.subscriptionsChange);
+                this.updateChangeIndicator('revenue', this.data.stats.revenueChange);
+                
+                // Update badge counts
+                document.getElementById('users-count').textContent = this.data.stats.totalUsers;
+                document.getElementById('subscriptions-count').textContent = this.data.stats.activeSubscriptions;
+                document.getElementById('payments-count').textContent = this.data.payments?.length || 0;
+                document.getElementById('tickets-count').textContent = this.data.stats.pendingSupport;
+            }
+            
+            updateChangeIndicator(metric, change) {
+                const element = document.getElementById(`${metric}-change`);
+                if (!element) return;
+                
+                const isPositive = change >= 0;
+                const icon = isPositive ? 'fa-arrow-up' : 'fa-arrow-down';
+                const changeClass = isPositive ? 'positive' : 'negative';
+                
+                element.innerHTML = `<i class="fas ${icon}"></i> ${Math.abs(change)}% this week`;
+                element.className = `stat-change ${changeClass}`;
             }
             
             async loadTabData(tabName) {
                 const content = document.getElementById(`${tabName}Content`);
+                if (!content) return;
+                
+                // Show loading state
+                content.innerHTML = `
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Loading ${tabName}...</p>
+                    </div>
+                `;
                 
                 try {
                     switch (tabName) {
                         case 'users':
-                            this.data.users = await this.fetchUsers();
+                            const usersSnapshot = await db.collection('users')
+                                .orderBy('createdAt', 'desc')
+                                .limit(100)
+                                .get();
+                            this.data.users = usersSnapshot.docs.map(doc => ({
+                                id: doc.id,
+                                ...doc.data(),
+                                formattedDate: doc.data().createdAt?.toDate().toLocaleDateString()
+                            }));
                             this.renderUsersTable();
                             break;
+                            
                         case 'subscriptions':
-                            this.data.subscriptions = await this.fetchSubscriptions();
+                            const subsSnapshot = await db.collection('subscriptions')
+                                .orderBy('startDate', 'desc')
+                                .limit(100)
+                                .get();
+                            this.data.subscriptions = subsSnapshot.docs.map(doc => ({
+                                id: doc.id,
+                                ...doc.data(),
+                                formattedStartDate: doc.data().startDate?.toDate().toLocaleDateString(),
+                                formattedEndDate: doc.data().endDate?.toDate().toLocaleDateString()
+                            }));
                             this.renderSubscriptionsTable();
                             break;
+                            
                         case 'payments':
-                            this.data.payments = await this.fetchPayments();
+                            const paymentsSnapshot = await db.collection('payments')
+                                .orderBy('timestamp', 'desc')
+                                .limit(100)
+                                .get();
+                            this.data.payments = paymentsSnapshot.docs.map(doc => ({
+                                id: doc.id,
+                                ...doc.data(),
+                                formattedDate: doc.data().timestamp?.toDate().toLocaleString(),
+                                amountFormatted: `ETB ${parseFloat(doc.data().amount || 0).toFixed(2)}`
+                            }));
                             this.renderPaymentsTable();
                             break;
+                            
                         case 'support':
-                            this.data.support = await this.fetchSupport();
+                            const supportSnapshot = await db.collection('supportTickets')
+                                .orderBy('createdAt', 'desc')
+                                .limit(100)
+                                .get();
+                            this.data.support = supportSnapshot.docs.map(doc => ({
+                                id: doc.id,
+                                ...doc.data(),
+                                formattedDate: doc.data().createdAt?.toDate().toLocaleString(),
+                                statusClass: doc.data().status === 'open' ? 'status active' : 
+                                            doc.data().status === 'pending' ? 'status pending' : 'status inactive'
+                            }));
                             this.renderSupportTable();
                             break;
+                            
                         case 'analytics':
-                            this.renderAnalytics();
+                            await this.renderAnalytics();
                             break;
                     }
                 } catch (error) {
-                    content.innerHTML = '<div class="alert alert-error">Failed to load data.</div>';
+                    console.error(`Error loading ${tabName}:`, error);
+                    content.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <h3>Error Loading Data</h3>
+                            <p>Failed to load ${tabName}. Please try again later.</p>
+                            <button class="btn btn-primary" onclick="adminPanel.loadTabData('${tabName}')">
+                                <i class="fas fa-sync"></i> Retry
+                            </button>
+                        </div>
+                    `;
                 }
             }
             
@@ -741,50 +1213,182 @@
             
             renderUsersTable() {
                 const content = document.getElementById('usersContent');
+                if (!content) return;
+                
                 if (this.data.users.length === 0) {
                     content.innerHTML = `
                         <div class="empty-state">
                             <i class="fas fa-users"></i>
-                            <h3>No users found</h3>
-                            <p>No users have been registered yet.</p>
+                            <h3>No Users Found</h3>
+                            <p>There are no users in the system yet.</p>
                         </div>
                     `;
                     return;
                 }
                 
-                const html = `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Phone</th>
-                                <th>Status</th>
-                                <th>Verified</th>
-                                <th>Join Date</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${this.data.users.map(user => `
+                const table = `
+                    <div class="table-toolbar">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="userSearch" placeholder="Search users..." onkeyup="adminPanel.filterTable('userSearch', 'usersTable')">
+                        </div>
+                        <div class="table-actions">
+                            <button class="btn btn-primary" onclick="adminPanel.exportToCSV('users', 'users')">
+                                <i class="fas fa-download"></i> Export CSV
+                            </button>
+                            <button class="btn btn-secondary" onclick="adminPanel.showAddUserModal()">
+                                <i class="fas fa-plus"></i> Add User
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="data-table" id="usersTable">
+                            <thead>
                                 <tr>
-                                    <td>${user.id}</td>
-                                    <td>${user.name || 'N/A'}</td>
-                                    <td>${user.phoneNumber || 'N/A'}</td>
-                                    <td><span class="status ${user.status || 'active'}">${user.status || 'active'}</span></td>
-                                    <td><span class="status ${user.phoneVerified ? 'active' : 'pending'}">${user.phoneVerified ? 'Yes' : 'No'}</span></td>
-                                    <td>${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</td>
-                                    <td>
-                                        <button class="btn btn-secondary" onclick="viewUser('${user.id}')">
-                                            <i class="fas fa-eye"></i> View
-                                        </button>
-                                    </td>
+                                    <th>User</th>
+                                    <th>Contact</th>
+                                    <th>Status</th>
+                                    <th>Joined</th>
+                                    <th>Last Active</th>
+                                    <th>Actions</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                ${this.data.users.map(user => `
+                                    <tr>
+                                        <td>
+                                            <div class="user-info">
+                                                <div class="user-avatar">
+                                                    ${user.photoURL ? 
+                                                        `<img src="${user.photoURL}" alt="${user.displayName || 'User'}">` : 
+                                                        `<div class="avatar-placeholder">
+                                                            ${(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                                                        </div>`
+                                                    }
+                                                </div>
+                                                <div class="user-details">
+                                                    <div class="user-name">${user.displayName || 'Unnamed User'}</div>
+                                                    <div class="user-id">ID: ${user.id.substring(0, 8)}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="contact-info">
+                                                ${user.email ? `<div class="email"><i class="fas fa-envelope"></i> ${user.email}</div>` : ''}
+                                                ${user.phoneNumber ? `<div class="phone"><i class="fas fa-phone"></i> ${user.phoneNumber}</div>` : ''}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="status-badge ${user.disabled ? 'inactive' : 'active'}">
+                                                <i class="fas ${user.disabled ? 'fa-user-slash' : 'fa-user-check'}"></i>
+                                                ${user.disabled ? 'Inactive' : 'Active'}
+                                            </span>
+                                            ${user.emailVerified ? 
+                                                '<span class="status-badge success"><i class="fas fa-check-circle"></i> Verified</span>' : 
+                                                '<span class="status-badge warning"><i class="fas fa-exclamation-circle"></i> Unverified</span>'
+                                            }
+                                        </td>
+                                        <td>${user.metadata?.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString() : 'N/A'}</td>
+                                        <td>${user.metadata?.lastSignInTime ? this.formatTimeAgo(new Date(user.metadata.lastSignInTime)) : 'Never'}</td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="btn btn-icon btn-sm btn-info" onclick="adminPanel.viewUser('${user.id}')" title="View User">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-icon btn-sm btn-warning" onclick="adminPanel.editUser('${user.id}')" title="Edit User">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                ${!user.disabled ? `
+                                                    <button class="btn btn-icon btn-sm btn-danger" 
+                                                        onclick="adminPanel.toggleUserStatus('${user.id}', true)" 
+                                                        title="Disable User">
+                                                        <i class="fas fa-user-slash"></i>
+                                                    </button>
+                                                ` : `
+                                                    <button class="btn btn-icon btn-sm btn-success" 
+                                                        onclick="adminPanel.toggleUserStatus('${user.id}', false)" 
+                                                        title="Enable User">
+                                                        <i class="fas fa-user-check"></i>
+                                                    </button>
+                                                `}
+                                                <div class="dropdown">
+                                                    <button class="btn btn-icon btn-sm btn-secondary dropdown-toggle" title="More Actions">
+                                                        <i class="fas fa-ellipsis-v"></i>
+                                                    </button>
+                                                    <div class="dropdown-menu">
+                                                        <a class="dropdown-item" href="#" onclick="adminPanel.impersonateUser('${user.id}')">
+                                                            <i class="fas fa-user-secret"></i> Impersonate
+                                                        </a>
+                                                        <a class="dropdown-item" href="#" onclick="adminPanel.sendResetPassword('${user.id}')">
+                                                            <i class="fas fa-key"></i> Reset Password
+                                                        </a>
+                                                        <a class="dropdown-item text-danger" href="#" 
+                                                            onclick="adminPanel.confirmDeleteUser('${user.id}', '${user.displayName || 'this user'}')">
+                                                            <i class="fas fa-trash"></i> Delete
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="table-footer">
+                        <div class="table-info">
+                            Showing ${Math.min(this.data.users.length, 100)} of ${this.data.stats.totalUsers} users
+                        </div>
+                        <div class="table-pagination">
+                            <button class="btn btn-sm btn-secondary" disabled>
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </button>
+                            <span class="page-info">Page 1</span>
+                            <button class="btn btn-sm btn-secondary">
+                                Next <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Add User Modal -->
+                    <div id="addUserModal" class="modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3>Add New User</h3>
+                                <span class="close" onclick="adminPanel.closeModal('addUserModal')">&times;</span>
+                            </div>
+                            <div class="modal-body">
+                                <form id="addUserForm" onsubmit="adminPanel.handleAddUser(event)">
+                                    <div class="form-group">
+                                        <label for="userEmail">Email Address</label>
+                                        <input type="email" id="userEmail" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="userPassword">Password</label>
+                                        <input type="password" id="userPassword" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="userDisplayName">Display Name</label>
+                                        <input type="text" id="userDisplayName">
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="button" class="btn btn-secondary" onclick="adminPanel.closeModal('addUserModal')">
+                                            Cancel
+                                        </button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-user-plus"></i> Create User
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 `;
-                content.innerHTML = html;
+                
+                content.innerHTML = table;
+                this.initializeDataTable('usersTable');
             }
             
             renderSubscriptionsTable() {
