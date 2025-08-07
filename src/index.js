@@ -979,7 +979,7 @@ console.log("Bot middleware:", bot.middleware?.length || 0);
 // Register additional handlers
 console.log("Registering additional handlers...");
 setupStartHandler(bot);
-subscribeHandler(bot);
+setupSubscribeHandler(bot);
 mySubscriptionsHandler(bot);
 cancelSubscriptionHandler(bot);
 screenshotUploadHandler(bot);
