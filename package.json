@@ -4,7 +4,7 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "prestart": "node scripts/verify-env.js",
+    "prestart": "node scripts/fix-debug.js && node scripts/verify-env.js",
     "start": "NODE_OPTIONS='--no-warnings=ExperimentalWarning --unhandled-rejections=strict' node src/index.js",
     "dev": "NODE_OPTIONS='--no-warnings=ExperimentalWarning' node --watch src/index.js",
     "test": "node --test tests/*.test.js",
