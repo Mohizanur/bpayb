@@ -199,6 +199,44 @@ function calculateEndDate(startDate, duration) {
   return date.toISOString();
 }
 
+/**
+ * Process a payment
+ * @param {Object} paymentData - Payment data
+ * @param {string} paymentMethod - Payment method ID
+ * @returns {Promise<Object>} Result of the payment processing
+ */
+export async function processPayment(paymentData, paymentMethod) {
+  try {
+    // Validate payment method
+    const validMethod = Object.values(PAYMENT_METHODS).some(m => m.id === paymentMethod);
+    if (!validMethod) {
+      return { success: false, error: 'Invalid payment method' };
+    }
+
+    // Create payment record
+    const paymentResult = await createPayment({
+      ...paymentData,
+      paymentMethod,
+      status: 'pending_verification',
+      createdAt: new Date().toISOString()
+    });
+
+    if (!paymentResult.success) {
+      return { success: false, error: paymentResult.error };
+    }
+
+    return { 
+      success: true, 
+      paymentId: paymentResult.paymentId,
+      status: 'pending_verification',
+      message: 'Payment is pending verification'
+    };
+  } catch (error) {
+    console.error('Error processing payment:', error);
+    return { success: false, error: 'Failed to process payment' };
+  }
+}
+
 // Verify payment (admin function)
 export const verifyPayment = async (paymentId, adminId, verificationData) => {
   try {
@@ -224,10 +262,14 @@ export const verifyPayment = async (paymentId, adminId, verificationData) => {
   }
 };
 
-// This function was a duplicate and has been removed. Use getPaymentInstructions(paymentMethodId, reference, lang) instead.
-
 // Calculate subscription amount based on duration
-export const calculateAmount = (basePrice, duration) => {
+/**
+ * Calculate subscription amount based on duration
+ * @param {number} basePrice - Base price per month
+ * @param {string} duration - Duration string (e.g., '1_month', '3_months')
+ * @returns {number} Calculated amount
+ */
+export function calculateAmount(basePrice, duration) {
   const durationMultipliers = {
     '1_month': 1,
     '3_months': 2.7, // 10% discount
