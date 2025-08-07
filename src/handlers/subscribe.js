@@ -3,8 +3,8 @@ import { processPayment, PAYMENT_METHODS, calculateAmount, formatCurrency } from
 import { loadServices } from "../utils/loadServices.js";
 
 export default function subscribeHandler(bot) {
-  // Handle service selection
-  bot.action(/select_service_(.+)/, async (ctx) => {
+  // Handle service selection with proper ID matching
+  bot.action(/^select_service_([a-z0-9]+(?:[_-][a-z0-9]+)*)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
       const lang = ctx.userLang || 'en';
@@ -86,8 +86,8 @@ ${selectedService.description}
     }
   });
   
-  // Handle duration selection
-  bot.action(/select_duration_(.+)_(.+)/, async (ctx) => {
+  // Handle duration selection with specific pattern to handle service IDs with underscores
+  bot.action(/^select_duration_([^_]+(?:_[^_]+)*)_([^_]+(?:_[^_]+)*)$/, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
       const durationId = ctx.match[2];
