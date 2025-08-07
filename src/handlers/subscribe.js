@@ -353,14 +353,14 @@ ${selectedService.description}
           `አገልግሎት: *${selectedService.name}*\n` +
           `የዕቅድ ቆይታ: *${getDurationName(durationId, lang)}*\n` +
           `መጠን: *${formatCurrency(amount)}*\n` +
-          `የክፍያ ማጣቀሻ: \`${paymentReference}\`\n\n` +
+          `የክፍያ ማጣቀሻ: \`${initialPaymentReference}\`\n\n` +
           `${paymentInstructions}\n\n` +
           `እባክዎ ክፍያውን ካደረጉ በኋላ የክፍያ ማረጋገጫ ስክሪንሾት ያስቀምጡ።`
         : `💳 *Payment Instructions*\n\n` +
           `Service: *${selectedService.name}*\n` +
           `Plan Duration: *${getDurationName(durationId, lang)}*\n` +
           `Amount: *${formatCurrency(amount)}*\n` +
-          `Payment Reference: \`${paymentReference}\`\n\n` +
+          `Payment Reference: \`${initialPaymentReference}\`\n\n` +
           `${paymentInstructions}\n\n` +
           `After making the payment, please upload a screenshot of the payment confirmation.`;
       
