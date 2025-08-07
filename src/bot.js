@@ -79,6 +79,25 @@ const agent = new https.Agent({
   rejectUnauthorized: true
 });
 
+// Test Telegram API connectivity
+const testTelegramConnection = async () => {
+  const testUrl = `${process.env.TELEGRAM_API_ROOT || 'https://api.telegram.org'}/bot${process.env.TELEGRAM_BOT_TOKEN}/getMe`;
+  console.log('Testing connection to Telegram API at:', testUrl);
+  
+  try {
+    const response = await fetch(testUrl, { 
+      agent: httpAgent,
+      timeout: 10000 
+    });
+    const data = await response.json();
+    console.log('Telegram API connection test result:', data);
+    return data.ok === true;
+  } catch (error) {
+    console.error('Telegram API connection test failed:', error);
+    return false;
+  }
+};
+
 // Create and export the bot instance with enhanced configuration
 export const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN, {
   telegram: {

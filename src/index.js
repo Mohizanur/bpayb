@@ -1867,6 +1867,24 @@ if (!process.env.ADMIN_TELEGRAM_ID) {
   console.warn('⚠️  Warning: ADMIN_TELEGRAM_ID environment variable is not set. Admin features will be disabled.');
 }
 
+// Test Telegram API connection
+const testTelegramConnection = async () => {
+  const testUrl = `${process.env.TELEGRAM_API_ROOT || 'https://api.telegram.org'}/bot${process.env.TELEGRAM_BOT_TOKEN}/getMe`;
+  console.log('🔍 Testing connection to Telegram API at:', testUrl);
+  
+  try {
+    const response = await fetch(testUrl, { 
+      timeout: 10000 
+    });
+    const data = await response.json();
+    console.log('✅ Telegram API connection test result:', data);
+    return data.ok === true;
+  } catch (error) {
+    console.error('❌ Telegram API connection test failed:', error);
+    return false;
+  }
+};
+
 // Helper function to set webhook with retry logic
 const setupWebhook = async (url, maxRetries = 3, delay = 5000) => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -1890,7 +1908,20 @@ const setupWebhook = async (url, maxRetries = 3, delay = 5000) => {
 };
 
 // Start the server
-const startServer = async () => {
+async function startServer() {
+  try {
+    // Test Telegram API connection first
+    console.log('🚀 Starting server initialization...');
+    const isConnected = await testTelegramConnection();
+    if (!isConnected) {
+      console.error('❌ Cannot connect to Telegram API. Please check your network settings or use a proxy.');
+      process.exit(1);
+    }
+  } catch (error) {
+    console.error('❌ Error initializing server:', error);
+    process.exit(1);
+  }
+
   const port = process.env.PORT || 3000;
   const maxPortAttempts = 5;
   let currentPort = port;
