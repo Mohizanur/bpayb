@@ -330,7 +330,7 @@ ${selectedService.description}
       const amount = calculateAmount(selectedService.price, durationId);
       
       // Generate a unique reference for this payment
-      const paymentReference = `BP-${Date.now()}-${userId.toString().slice(-4)}`;
+      const initialPaymentReference = `BP-${Date.now()}-${userId.toString().slice(-4)}`;
       
       // Store payment info in user's session for screenshot upload
       ctx.session.pendingPayment = {
@@ -339,14 +339,14 @@ ${selectedService.description}
         durationId,
         paymentMethodId: paymentMethod.id,
         amount,
-        paymentReference,
+        paymentReference: initialPaymentReference,
         timestamp: Date.now()
       };
       
       // Show payment instructions
       const paymentInstructions = lang === 'am' 
-        ? paymentMethod.instructions_am.replace('{reference}', paymentReference)
-        : paymentMethod.instructions.replace('{reference}', paymentReference);
+        ? paymentMethod.instructions_am.replace('{reference}', initialPaymentReference)
+        : paymentMethod.instructions.replace('{reference}', initialPaymentReference);
       
       const paymentMessage = lang === 'am'
         ? `💳 *የክፍያ መመሪያዎች*\n\n` +
@@ -421,13 +421,13 @@ ${selectedService.description}
       }
       
       // Ensure we have a payment reference
-      const paymentReference = paymentResult.paymentReference || 
+      const finalPaymentReference = paymentResult.paymentReference || 
         `TEMP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
       
       // Show payment instructions
       const instructions = lang === 'am' 
-        ? paymentMethod.instructions_am.replace('{reference}', paymentReference)
-        : paymentMethod.instructions.replace('{reference}', paymentReference);
+        ? paymentMethod.instructions_am.replace('{reference}', finalPaymentReference)
+        : paymentMethod.instructions.replace('{reference}', finalPaymentReference);
       
       const message = lang === 'am'
         ? `💳 **የክፍያ መመሪያዎች**
@@ -436,7 +436,7 @@ ${selectedService.description}
 **የእቅድ ቆይታ:** ${getDurationName(durationId, 'am')}
 **መጠን:** ${formatCurrency(amount)}
 **የክፍያ ዘዴ:** ${paymentMethod.name_am}
-**የክፍያ ማጣቀሻ:** ${paymentReference}
+**የክፍያ ማጣቀሻ:** ${finalPaymentReference}
 
 **የክፍያ መመሪያዎች:**
 ${instructions}
@@ -448,7 +448,7 @@ ${instructions}
 **Duration:** ${getDurationName(durationId, 'en')}
 **Amount:** ${formatCurrency(amount)}
 **Payment Method:** ${paymentMethod.name}
-**Payment Reference:** ${paymentReference}
+**Payment Reference:** ${finalPaymentReference}
 
 **Payment Instructions:**
 ${instructions}
