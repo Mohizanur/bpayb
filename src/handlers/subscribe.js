@@ -9,11 +9,16 @@ export default function subscribeHandler(bot) {
       const serviceId = ctx.match[1];
       const lang = ctx.userLang || 'en';
       
+      console.log(`🔍 Looking up service with ID: ${serviceId}`);
+      
       // Load services
       const services = await loadServices();
+      console.log('Available services:', services.map(s => `${s.serviceID} (${s.name})`).join(', '));
+      
       const selectedService = services.find(s => s.serviceID === serviceId);
       
       if (!selectedService) {
+        console.error(`❌ Service not found: ${serviceId}`);
         await ctx.answerCbQuery(lang === 'am' ? 'አገልግሎት አልተገኘም' : 'Service not found');
         return;
       }
@@ -88,11 +93,16 @@ ${selectedService.description}
       const durationId = ctx.match[2];
       const lang = ctx.userLang || 'en';
       
+      console.log(`🔍 Duration selected - Service: ${serviceId}, Duration: ${durationId}`);
+      
       // Load services
       const services = await loadServices();
+      console.log('Available services:', services.map(s => `${s.serviceID} (${s.name})`).join(', '));
+      
       const selectedService = services.find(s => s.serviceID === serviceId);
       
       if (!selectedService) {
+        console.error(`❌ Service not found: ${serviceId}`);
         await ctx.answerCbQuery(lang === 'am' ? 'አገልግሎት አልተገኘም' : 'Service not found');
         return;
       }
