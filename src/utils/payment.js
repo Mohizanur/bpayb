@@ -1,4 +1,4 @@
-import { createPayment, updatePaymentStatus, updateSubscription, getPaymentById, getPayment } from "./database.js";
+import { createPayment, updatePaymentStatus, updateSubscription, getPaymentById } from "./database.js";
 import { notifyAdminsAboutPayment } from "./paymentVerification.js";
 
 // Payment Methods Configuration
@@ -101,6 +101,7 @@ export async function createManualPayment(subscriptionData, paymentMethod, user)
     }
 
     const paymentReference = generateManualPaymentReference(subscriptionData.userId);
+    const userName = user?.username || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || `User-${subscriptionData.userId}`;
     
     // Create a pending payment record
     const paymentData = {
@@ -111,18 +112,27 @@ export async function createManualPayment(subscriptionData, paymentMethod, user)
       paymentMethod: paymentMethod.id,
       status: 'pending_verification',
       paymentReference,
-      userName: user?.username || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || `User-${subscriptionData.userId}`,
+      userName,
       serviceId: subscriptionData.serviceId,
       serviceName: subscriptionData.serviceName,
       duration: subscriptionData.duration,
       metadata: {
+        user: {
+          id: user?.id || subscriptionData.userId,
+          username: user?.username,
+          firstName: user?.first_name,
+          lastName: user?.last_name
+        },
+        service: {
+          id: subscriptionData.serviceId,
+          name: subscriptionData.serviceName
+        },
         duration: subscriptionData.duration,
-        serviceId: subscriptionData.serviceId,
-        serviceName: subscriptionData.serviceName,
         createdAt: new Date().toISOString()
       }
     };
 
+    // Save payment to database
     const paymentResult = await createPayment(paymentData);
 
     if (!paymentResult.success) {
@@ -134,7 +144,7 @@ export async function createManualPayment(subscriptionData, paymentMethod, user)
       };
     }
 
-    // Update subscription with payment ID
+    // Update subscription with payment ID if it exists
     if (subscriptionData.subscriptionId) {
       await updateSubscription(subscriptionData.subscriptionId, {
         paymentId: paymentResult.id,
@@ -144,19 +154,19 @@ export async function createManualPayment(subscriptionData, paymentMethod, user)
     }
 
     // Prepare response with payment instructions
-    const response = {
+    const instructions = getPaymentInstructions(paymentMethod.id, paymentReference, user?.language_code || 'en');
+    
+    return {
       success: true,
       paymentId: paymentResult.id,
-      subscriptionId: subscriptionData.id,
       paymentReference: paymentReference,
       amount: subscriptionData.amount,
       currency: 'ETB',
-      paymentMethod: paymentMethod.id,
+      paymentMethod: paymentMethod,
       requiresVerification: true,
-      instructions: getPaymentInstructions(paymentMethod.id, paymentReference, subscriptionData.language || 'en')
+      instructions: instructions,
+      message: 'Please send your payment proof to complete the process.'
     };
-    
-    return response;
   } catch (error) {
     console.error('Error creating manual payment:', error);
     return {
@@ -199,83 +209,78 @@ function calculateEndDate(startDate, duration) {
   return date.toISOString();
 }
 
+// Note: All payments are now handled manually
+// The processPayment function has been removed as we only support manual payments
+
 /**
- * Process a payment
- * @param {Object} paymentData - Payment data
- * @param {string} paymentMethod - Payment method ID
- * @returns {Promise<Object>} Result of the payment processing
+ * Verify a payment (admin function)
+ * @param {string} paymentId - ID of the payment to verify
+ * @param {string} adminId - ID of the admin verifying the payment
+ * @param {Object} verificationData - Verification details
+ * @param {boolean} verificationData.isVerified - Whether the payment is verified
+ * @param {string} [verificationData.transactionId] - Optional transaction ID
+ * @param {string} [verificationData.notes] - Optional notes about the verification
+ * @returns {Promise<Object>} Result of the verification
  */
-export async function processPayment(paymentData, paymentMethod) {
-  try {
-    // Validate payment method
-    const validMethod = Object.values(PAYMENT_METHODS).some(m => m.id === paymentMethod);
-    if (!validMethod) {
-      return { success: false, error: 'Invalid payment method' };
-    }
-
-    // Prepare payment data
-    const paymentRecord = {
-      ...paymentData,
-      userId: paymentData.userId || (paymentData.userId === 0 ? 0 : undefined), // Handle 0 as valid userId
-      subscriptionId: paymentData.subscriptionId || null, // Ensure subscriptionId is always defined
-      paymentMethod,
-      status: 'pending_verification',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    // Remove any undefined values that could cause Firestore errors
-    Object.keys(paymentRecord).forEach(key => {
-      if (paymentRecord[key] === undefined) {
-        delete paymentRecord[key];
-      }
-    });
-
-    // Create payment record
-    const paymentResult = await createPayment(paymentRecord);
-
-    if (!paymentResult.success) {
-      return { success: false, error: paymentResult.error };
-    }
-
-    // Get the payment reference from the created payment document
-    const paymentDoc = await getPayment(paymentResult.paymentId);
-    
-    return { 
-      success: true, 
-      paymentId: paymentResult.paymentId,
-      paymentReference: paymentDoc?.paymentReference || paymentData.paymentReference,
-      status: 'pending_verification',
-      message: 'Payment is pending verification'
-    };
-  } catch (error) {
-    console.error('Error processing payment:', error);
-    return { success: false, error: 'Failed to process payment' };
-  }
-}
-
-// Verify payment (admin function)
 export const verifyPayment = async (paymentId, adminId, verificationData) => {
   try {
     const { isVerified, transactionId, notes } = verificationData;
     
+    // Get the current payment
+    const payment = await getPaymentById(paymentId);
+    if (!payment) {
+      throw new Error('Payment not found');
+    }
+    
     if (isVerified) {
       // Update payment status to completed
-      await updatePaymentStatus(paymentId, 'completed', transactionId);
+      await updatePaymentStatus(paymentId, 'completed', {
+        verifiedBy: adminId,
+        verifiedAt: new Date().toISOString(),
+        transactionId,
+        notes
+      });
       
-      // Get subscription and update its status
-      // This will be handled by the admin approval process
+      // If there's an associated subscription, update its status
+      if (payment.subscriptionId) {
+        await updateSubscription(payment.subscriptionId, {
+          status: 'active',
+          startDate: new Date().toISOString(),
+          endDate: calculateEndDate(new Date().toISOString(), payment.metadata?.duration || '1_month'),
+          paymentStatus: 'completed',
+          paymentId: paymentId,
+          updatedAt: new Date().toISOString()
+        });
+      }
       
-      return { success: true, status: 'completed' };
+      return { 
+        success: true, 
+        status: 'completed',
+        message: 'Payment verified successfully',
+        paymentId
+      };
     } else {
       // Update payment status to failed
-      await updatePaymentStatus(paymentId, 'failed');
+      await updatePaymentStatus(paymentId, 'failed', {
+        verifiedBy: adminId,
+        verifiedAt: new Date().toISOString(),
+        notes: notes || 'Payment verification failed'
+      });
       
-      return { success: true, status: 'failed' };
+      return { 
+        success: true, 
+        status: 'failed',
+        message: 'Payment verification failed',
+        paymentId
+      };
     }
   } catch (error) {
     console.error('Error verifying payment:', error);
-    return { success: false, error: error.message };
+    return { 
+      success: false, 
+      error: error.message || 'Failed to verify payment',
+      paymentId
+    };
   }
 };
 

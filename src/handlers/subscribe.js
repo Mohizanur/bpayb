@@ -1,10 +1,9 @@
-import { createSubscription, getUser, createSupportTicket } from "../utils/database.js";
+import { createSubscription, getUser } from "../utils/database.js";
 import { 
   PAYMENT_METHODS, 
   calculateAmount, 
   formatCurrency, 
-  createManualPayment, 
-  processPayment 
+  createManualPayment
 } from "../utils/payment.js";
 import { loadServices } from "../utils/loadServices.js";
 import { notifyAdminsAboutPayment } from "../utils/paymentVerification.js";

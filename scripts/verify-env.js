@@ -8,8 +8,7 @@ const requiredVars = [
   'FIREBASE_CONFIG',
   'PORT',
   'NODE_ENV',
-  'ADMIN_USER_IDS',
-  'PAYMENT_WEBHOOK_SECRET'
+  'ADMIN_USER_IDS'
 ];
 
 let missingVars = [];

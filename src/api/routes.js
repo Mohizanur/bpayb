@@ -21,7 +21,6 @@ import {
   getSupportMessages
 } from "../utils/database.js";
 import { 
-  processPayment, 
   PAYMENT_METHODS, 
   calculateAmount, 
   formatCurrency 
