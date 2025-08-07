@@ -178,19 +178,24 @@ ${selectedService.description}
     }
   });
   
-  // Handle payment method selection
-  bot.action(/select_payment_(.+)_(.+)_(.+)/, async (ctx) => {
+  // Handle payment method selection with proper pattern matching
+  bot.action(/^select_payment_([a-z0-9]+)_(\d+_months?|1_month)_([a-z_]+)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
       const durationId = ctx.match[2];
       const paymentMethodId = ctx.match[3];
       const lang = ctx.userLang || 'en';
       
-      // Load services
+      // Load services with detailed logging
+      console.log(`🔍 Payment selected - Service: ${serviceId}, Duration: ${durationId}, Method: ${paymentMethodId}`);
+      
       const services = await loadServices();
+      console.log('Available services:', services.map(s => `${s.serviceID} (${s.name})`).join(', '));
+      
       const selectedService = services.find(s => s.serviceID === serviceId);
       
       if (!selectedService) {
+        console.error(`❌ Service not found: ${serviceId}`);
         await ctx.answerCbQuery(lang === 'am' ? 'አገልግሎት አልተገኘም' : 'Service not found');
         return;
       }
