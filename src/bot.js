@@ -26,7 +26,7 @@ const fetchWithRetry = async (url, options = {}, retries = MAX_RETRIES, delay = 
     try {
       const response = await fetch(url, {
         ...options,
-        agent,
+        agent: httpAgent,
         signal: controller.signal,
         timeout: REQUEST_TIMEOUT,
         retry: retries,
@@ -68,10 +68,10 @@ const fetchWithRetry = async (url, options = {}, retries = MAX_RETRIES, delay = 
 };
 
 // Enhanced HTTP agent for better connection handling
-const https = require('https');
-const http = require('http');
+import { Agent as HttpsAgent } from 'https';
+import { Agent as HttpAgent } from 'http';
 
-const agent = new https.Agent({
+const httpAgent = new HttpsAgent({
   keepAlive: true,
   maxSockets: 100,
   keepAliveMsecs: 60000, // 1 minute
