@@ -1735,21 +1735,58 @@ fastify.put('/api/services/:id', { preHandler: requireAdmin }, async (req, reply
     return { ok: true, message: 'Service updated successfully' };
   } catch (error) {
     reply.status(500).send({ error: error.message });
-  }
-});
-
-// Bot menu commands are already set up in the main command handlers
 
 // Telegram webhook endpoint
-fastify.post("/telegram", async (req, reply) => {
+fastify.post("/telegram", async (request, reply) => {
+  const updateId = request.body?.update_id;
+  const messageType = Object.keys(request.body)
+    .filter(key => key !== 'update_id')
+    .find(key => key in request.body);
+  
+  // Log the incoming update for debugging
+  console.log(`📥 Received webhook update #${updateId} (${messageType || 'unknown'})`);
+  
   try {
-    console.log("Received webhook update");
-    console.log("Update body:", JSON.stringify(req.body, null, 2));
-    await bot.handleUpdate(req.body);
-    reply.send({ ok: true });
+    // Process the update with a timeout to prevent hanging
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Request timeout')), 9000)
+    );
+    
+    await Promise.race([
+      bot.handleUpdate(request.body),
+      timeout
+    ]);
+    
+    // Log successful processing
+    console.log(`✅ Processed update #${updateId} successfully`);
+    
+    // Always return 200 OK to acknowledge receipt of the update
+    return { status: 'ok' };
   } catch (error) {
-    console.error("Error handling webhook update:", error);
-    reply.status(500).send({ ok: false, error: error.message });
+    // Log the error with more context
+    console.error(`❌ Error handling update #${updateId}:`, error.message);
+    console.error('Update data:', JSON.stringify({
+      update_id: updateId,
+      message_type: messageType,
+      from: request.body?.message?.from?.id || 'unknown',
+      text: request.body?.message?.text || request.body?.callback_query?.data || 'no text'
+    }, null, 2));
+    
+    // Still return 200 OK to prevent Telegram from retrying the same update
+    // (unless it's a critical error that needs to be retried)
+    const isRetryable = !error.message.includes('retry after') && 
+                       !error.message.includes('too many requests');
+    
+    if (isRetryable) {
+      console.log('⚠️  This error is retryable');
+    } else {
+      console.log('ℹ️  This error is not retryable, marking as handled');
+    }
+    
+    return { 
+      status: isRetryable ? 'error' : 'ok',
+      message: error.message 
+    };
   }
 });
 
@@ -1776,31 +1813,88 @@ if (!process.env.ADMIN_TELEGRAM_ID) {
   console.warn('⚠️  Warning: ADMIN_TELEGRAM_ID environment variable is not set. Admin features will be disabled.');
 }
 
+// Helper function to set webhook with retry logic
+const setupWebhook = async (url, maxRetries = 3, delay = 5000) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🔗 Setting up webhook (attempt ${attempt}/${maxRetries})...`);
+      await bot.telegram.setWebhook(`${url}/telegram`);
+      console.log('✅ Webhook set successfully');
+      return true;
+    } catch (error) {
+      console.error(`❌ Webhook setup attempt ${attempt} failed:`, error.message);
+      
+      if (attempt < maxRetries) {
+        console.log(`⏳ Retrying in ${delay / 1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        console.error('❌ Failed to set webhook after multiple attempts');
+        return false;
+      }
+    }
+  }
+};
+
 // Start the server
 const startServer = async () => {
   const port = process.env.PORT || 3000;
-  const maxAttempts = 5;
+  const maxPortAttempts = 5;
   let currentPort = port;
   
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  // Get webhook URL from environment or use ngrok if in development
+  const isProduction = process.env.NODE_ENV === 'production';
+  const webhookUrl = process.env.WEBHOOK_URL || (isProduction ? null : 'https://your-ngrok-url.ngrok.io');
+  
+  for (let attempt = 1; attempt <= maxPortAttempts; attempt++) {
     try {
+      // Start the Fastify server
       await fastify.listen({ port: currentPort, host: "0.0.0.0" });
       
       console.log(`🚀 BirrPay Bot & Admin Panel running on port ${currentPort}`);
-      console.log(`📱 Telegram Bot: Webhook ready at /telegram`);
-      console.log(`🔧 Admin Panel: http://localhost:${currentPort}/panel`);
-      console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID}`);
       
-      // Bot menu commands are already set up in the main command handlers
-      console.log(`📝 Bot menu commands configured!`);
+      // Set up webhook if in production or if webhook URL is provided
+      if (isProduction || webhookUrl) {
+        const webhookSuccess = await setupWebhook(webhookUrl);
+        if (!webhookSuccess) {
+          console.warn('⚠️  Webhook setup failed, some features may not work correctly');
+        }
+      } else {
+        console.log('ℹ️  Running in development mode with polling');
+        bot.launch().then(() => {
+          console.log('🤖 Bot is running in polling mode');
+        }).catch(err => {
+          console.error('❌ Failed to start bot in polling mode:', err);
+        });
+      }
+      
+      console.log(`📱 Telegram Bot: ${webhookUrl ? 'Webhook' : 'Polling'} mode`);
+      console.log(`🔧 Admin Panel: http://localhost:${currentPort}/panel`);
+      console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID || 'Not set'}`);
+      
+      // Set up bot commands
+      try {
+        await bot.telegram.setMyCommands([
+          { command: 'start', description: 'Start the bot' },
+          { command: 'help', description: 'Show help information' },
+          { command: 'subscribe', description: 'Subscribe to a service' },
+          { command: 'mysubscriptions', description: 'View your subscriptions' },
+          { command: 'support', description: 'Get help and support' },
+          { command: 'lang', description: 'Change language' },
+          { command: 'faq', description: 'Frequently asked questions' }
+        ]);
+        console.log('✅ Bot commands set up successfully');
+      } catch (error) {
+        console.error('❌ Failed to set up bot commands:', error.message);
+      }
+      
       return; // Successfully started the server
     } catch (err) {
       if (err.code === 'EADDRINUSE') {
         console.warn(`⚠️  Port ${currentPort} is in use, trying port ${currentPort + 1}...`);
         currentPort++;
         
-        if (attempt === maxAttempts) {
-          console.error(`❌ Failed to start server after ${maxAttempts} attempts`);
+        if (attempt === maxPortAttempts) {
+          console.error(`❌ Failed to start server after ${maxPortAttempts} attempts`);
           process.exit(1);
         }
       } else {
