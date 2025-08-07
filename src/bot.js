@@ -1,8 +1,19 @@
 import { Telegraf } from 'telegraf';
+import { Agent } from 'https';
 
 // Configuration
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 2000; // 2 seconds
+const MAX_RETRIES = 5;
+const RETRY_DELAY = 3000; // 3 seconds
+const REQUEST_TIMEOUT = 15000; // 15 seconds
+
+// Create a custom HTTPS agent with keepAlive
+const httpAgent = new Agent({
+  keepAlive: true,
+  keepAliveMsecs: 60000, // 1 minute
+  maxSockets: 100,
+  maxFreeSockets: 10,
+  timeout: REQUEST_TIMEOUT
+});
 
 // Custom fetch with retry and timeout logic
 const fetchWithRetry = async (url, options = {}, retries = MAX_RETRIES, delay = RETRY_DELAY) => {
@@ -10,15 +21,18 @@ const fetchWithRetry = async (url, options = {}, retries = MAX_RETRIES, delay = 
   
   for (let i = 0; i < retries; i++) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout per attempt
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
     
     try {
       const response = await fetch(url, {
         ...options,
+        agent,
         signal: controller.signal,
-        timeout: 10000, // Total timeout including retries
+        timeout: REQUEST_TIMEOUT,
         retry: retries,
-        retryDelay: delay
+        retryDelay: delay,
+        // Add proxy support if needed
+        // agent: new HttpsProxyAgent(process.env.HTTPS_PROXY)
       });
       
       clearTimeout(timeoutId);
@@ -41,7 +55,7 @@ const fetchWithRetry = async (url, options = {}, retries = MAX_RETRIES, delay = 
       }
       
       if (i < retries - 1) {
-        const waitTime = delay * (i + 1); // Exponential backoff
+        const waitTime = delay * Math.pow(2, i); // Exponential backoff
         console.warn(`Attempt ${i + 1} failed, retrying in ${waitTime}ms...`, error.message);
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }
@@ -67,57 +81,72 @@ const agent = new https.Agent({
 
 // Create and export the bot instance with enhanced configuration
 export const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN, {
-  handlerTimeout: 45000, // Increased timeout to 45 seconds
   telegram: {
-    agent: agent, // Use our custom agent
-    apiRoot: 'https://api.telegram.org',
+    agent: httpAgent, // Use our custom HTTPS agent
+    apiRoot: process.env.TELEGRAM_API_ROOT || 'https://api.telegram.org',
     webhookReply: true,
     testEnv: process.env.NODE_ENV === 'test',
-    testEnvUrl: process.env.TELEGRAM_TEST_URL,
-    // Add custom request method with retry logic
+    // Custom request handler with retry logic
     request: async (url, options = {}) => {
+      const maxRetries = 3;
+      let lastError;
       const startTime = Date.now();
-      const requestId = Math.random().toString(36).substring(2, 10);
+      const requestId = Math.random().toString(36).substring(2, 8);
       
       console.log(`[${requestId}] Starting request to: ${url}`);
       
-      try {
-        const response = await fetchWithRetry(url, {
-          ...options,
-          agent: url.startsWith('https') ? agent : new http.Agent(),
-          headers: {
-            ...options.headers,
-            'Connection': 'keep-alive',
-            'Keep-Alive': 'timeout=10, max=1000'
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await fetchWithRetry(url, {
+            ...options,
+            agent: httpAgent,
+            headers: {
+              'Content-Type': 'application/json',
+              'Connection': 'keep-alive',
+              'Keep-Alive': 'timeout=10, max=1000',
+              ...options.headers,
+            },
+          });
+          
+          const data = await response.json();
+          const duration = Date.now() - startTime;
+          
+          console.log(`[${requestId}] Request completed in ${duration}ms`);
+          
+          if (!data.ok) {
+            // If it's a rate limit error, wait and retry
+            if (data.error_code === 429) {
+              const retryAfter = data.parameters?.retry_after || 5;
+              console.warn(`[${requestId}] Rate limited, retrying after ${retryAfter} seconds...`);
+              await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+              continue;
+            }
+            
+            const error = new Error(data.description || 'Telegram API error');
+            error.code = data.error_code;
+            error.response = data;
+            console.error(`[${requestId}] Telegram API error:`, data);
+            throw error;
           }
-        });
-        
-        const data = await response.json();
-        const duration = Date.now() - startTime;
-        
-        console.log(`[${requestId}] Request completed in ${duration}ms`);
-        
-        if (!data.ok) {
-          const error = new Error(data.description || 'Telegram API error');
-          error.code = data.error_code;
-          error.response = data;
-          console.error(`[${requestId}] Telegram API error:`, data);
-          throw error;
+          
+          return data.result;
+          
+        } catch (error) {
+          lastError = error;
+          const duration = Date.now() - startTime;
+          console.error(`[${requestId}] Request attempt ${attempt} failed after ${duration}ms:`, error.message);
+          
+          // If it's not the last attempt, wait before retrying
+          if (attempt < maxRetries) {
+            const backoffTime = Math.min(1000 * Math.pow(2, attempt - 1), 30000); // Max 30s
+            console.warn(`[${requestId}] Retrying in ${backoffTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoffTime));
+          } else {
+            // If this was the last attempt, throw the error
+            console.error(`[${requestId}] All ${maxRetries} attempts failed after ${duration}ms`);
+            throw lastError || new Error('Unknown error in Telegram API request');
+          }
         }
-        
-        return data;
-      } catch (error) {
-        const duration = Date.now() - startTime;
-        console.error(`[${requestId}] Request failed after ${duration}ms:`, error.message);
-        
-        // Add more context to the error
-        error.requestUrl = url;
-        error.requestOptions = {
-          ...options,
-          headers: { ...options.headers, 'authorization': '***REDACTED***' }
-        };
-        
-        throw error;
       }
     }
   },
