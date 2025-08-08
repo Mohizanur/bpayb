@@ -7,6 +7,8 @@ export const requireAdmin = (req, reply, done) => {
       ? headerAuth.slice(7).trim()
       : undefined;
     const headerToken = req.headers?.['x-admin-token'] || bearerToken;
+    // Cookie (set as HttpOnly on /panel)
+    const cookieToken = req.cookies?.admin_token;
 
     const queryOrBodyAdmin = (req.query && req.query.admin) || (req.body && req.body.admin);
 
@@ -16,7 +18,10 @@ export const requireAdmin = (req, reply, done) => {
     let authorized = false;
     if (configuredToken) {
       // Validate against ADMIN_TOKEN
-      authorized = headerToken === configuredToken || queryOrBodyAdmin === configuredToken;
+      authorized =
+        headerToken === configuredToken ||
+        cookieToken === configuredToken ||
+        queryOrBodyAdmin === configuredToken;
     } else {
       // Fallback: validate Telegram ID via query/body param
       authorized = Boolean(queryOrBodyAdmin) && String(queryOrBodyAdmin) === String(adminTelegramId || '');

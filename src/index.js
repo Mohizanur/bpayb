@@ -69,6 +69,9 @@ try {
   services = [];
 }
 
+// Register cookie plugin for auth cookie
+await fastify.register(import('@fastify/cookie'));
+
 // Register static file serving for public directory
 try {
   // Serve public files
@@ -108,6 +111,21 @@ try {
       try {
         // Log request for debugging in Render
         console.log('📄 Serving /panel to', req.headers['x-forwarded-for'] || req.ip);
+        // Auto-set admin token cookie if configured
+        try {
+          const token = process.env.ADMIN_TOKEN;
+          if (token) {
+            reply.setCookie('admin_token', token, {
+              path: '/',
+              httpOnly: true,
+              sameSite: 'lax',
+              secure: req.protocol === 'https' || (req.headers['x-forwarded-proto'] || '').includes('https'),
+              maxAge: 60 * 60 * 24 * 7 // 7 days
+            });
+          }
+        } catch (cookieErr) {
+          console.warn('⚠️ Could not set admin_token cookie:', cookieErr?.message);
+        }
         // Security headers for the admin panel HTML (relaxed to ensure CDN works in production)
         reply
           .header('Content-Security-Policy', "default-src 'self' data: blob: https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; connect-src 'self' https:; font-src 'self' data: https:")
