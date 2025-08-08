@@ -277,57 +277,6 @@ registerAdminPaymentHandlers(bot);
 // Initialize start handler
 setupStartHandler(bot);
 
-// Add admin command
-bot.command("admin", async (ctx) => {
-  try {
-    console.log("🚀 ADMIN COMMAND TRIGGERED!");
-    const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
-    if (!isAdmin) {
-      await ctx.reply("❌ Unauthorized access. This command is for administrators only.");
-      return;
-    }
-    
-    const lang = ctx.userLang || 'en';
-    // Get the base URL for the admin panel
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-    const adminPanelUrl = `${baseUrl}/panel`;
-    
-    const message = lang === 'am' 
-      ? `👋 እንኳን ወደ የአስተዳዳሪ ፓነል መጡ!\n\n🌐 የድረ-ገጽ አስተዳዳሪ ፓነል: ${adminPanelUrl}\n\nወይም ከታች ካሉት አማራጮች ይምረጡ:`
-      : `👋 Welcome to the Admin Panel!\n\n🌐 Web Admin Panel: ${adminPanelUrl}\n\nOr choose an option below:`;
-      
-    const keyboard = {
-      inline_keyboard: [
-        [
-          { text: '🌐 Open Web Panel', url: adminPanelUrl }
-        ],
-        [
-          { text: lang === 'am' ? '📊 ስታቲስቲክስ' : '📊 Statistics', callback_data: 'admin_stats' },
-          { text: lang === 'am' ? '👥 ተጠቃሚዎች' : '👥 Users', callback_data: 'admin_users' }
-        ],
-        [
-          { text: lang === 'am' ? '📩 ያልተረጋገጡ ሰብስክሪፕሽኖች' : '📩 Pending Subscriptions', callback_data: 'admin_pending' },
-          { text: lang === 'am' ? '✅ ንቁ ሰብስክሪፕሽኖች' : '✅ Active Subscriptions', callback_data: 'admin_active' }
-        ],
-        [
-          { text: lang === 'am' ? '❌ የተሰረዙ ሰብስክሪፕሽኖች' : '❌ Cancelled Subscriptions', callback_data: 'admin_cancelled' },
-          { text: lang === 'am' ? '📨 ድጋፍ መልዕክቶች' : '📨 Support Messages', callback_data: 'admin_support' }
-        ],
-        [
-          { text: lang === 'am' ? '📢 ማስተናገድ' : '📢 Broadcast', callback_data: 'admin_broadcast' },
-          { text: lang === 'am' ? '⚙ ቅንብሮች' : '⚙ Settings', callback_data: 'admin_settings' }
-        ]
-      ]
-    };
-    
-    await ctx.reply(message, { reply_markup: keyboard, parse_mode: 'Markdown' });
-    console.log("✅ Admin menu sent successfully!");
-  } catch (error) {
-    console.error("Error in admin command:", error);
-    await ctx.reply("An error occurred while processing your request. Please try again later.");
-  }
-});
-
 // Add admin callback handlers
 // Admin stats handler is defined later in the file
 
