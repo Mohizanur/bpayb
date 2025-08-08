@@ -503,6 +503,16 @@ export async function updateService(serviceId, updates) {
   }
 }
 
+export async function deleteService(serviceId) {
+  try {
+    const result = await firestoreManager.deleteDocument('services', serviceId);
+    return result;
+  } catch (error) {
+    console.error('Error deleting service:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 // Data migration and backup functions
 export async function migrateServicesData() {
   try {

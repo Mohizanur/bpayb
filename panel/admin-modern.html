@@ -924,11 +924,8 @@
             
             async init() {
                 try {
-                    // Initialize Firebase listeners
-                this.initFirebaseListeners();
-                
-                // Make instance available globally for HTML onclick handlers
-                window.adminPanel = this;
+                    // Make instance available globally for HTML onclick handlers
+                    window.adminPanel = this;
                     
                     // Load initial data
                     await Promise.all([
@@ -1019,6 +1016,125 @@
                     console.error('Error initializing Firebase listeners:', error);
                     this.showError('Failed to initialize data. Please refresh the page.');
                 }
+            }
+            
+            async loadStats() {
+                try {
+                    console.log('Loading stats from API...');
+                    const response = await fetch(`${this.baseUrl}/api/admin/stats`);
+                    console.log('Stats response status:', response.status);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    console.log('Stats data received:', data);
+                    
+                    if (data.success && data.stats) {
+                        this.data.stats = data.stats;
+                        console.log('Stats stored, updating display...');
+                        this.updateStatsDisplay();
+                        console.log('Stats display updated');
+                    } else {
+                        console.error('Invalid stats response:', data);
+                    }
+                } catch (error) {
+                    console.error('Error loading stats:', error);
+                    this.showNotification('Failed to load statistics', 'error');
+                }
+            }
+
+            async loadTabData(tab) {
+                try {
+                    let endpoint = '';
+                    switch(tab) {
+                        case 'users':
+                            endpoint = '/api/users';
+                            break;
+                        case 'subscriptions':
+                            endpoint = '/api/subscriptions';
+                            break;
+                        case 'payments':
+                            endpoint = '/api/payments';
+                            break;
+                        case 'support':
+                            endpoint = '/api/admin/support';
+                            break;
+                        default:
+                            return;
+                    }
+
+                    const response = await fetch(`${this.baseUrl}${endpoint}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        switch(tab) {
+                            case 'users':
+                                this.data.users = data.users || [];
+                                this.renderUsers();
+                                break;
+                            case 'subscriptions':
+                                this.data.subscriptions = data.subscriptions || [];
+                                this.renderSubscriptions();
+                                break;
+                            case 'payments':
+                                this.data.payments = data.payments || [];
+                                this.renderPayments();
+                                break;
+                            case 'support':
+                                this.data.support = data.messages || [];
+                                this.renderSupportTickets();
+                                break;
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error loading ${tab} data:`, error);
+                    this.showNotification(`Failed to load ${tab} data`, 'error');
+                }
+            }
+
+            updateStatsDisplay() {
+                console.log('Updating stats display with data:', this.data.stats);
+                
+                // Update stat cards with error checking
+                const totalUsersEl = document.getElementById('total-users');
+                const activeSubsEl = document.getElementById('active-subscriptions');
+                const totalRevenueEl = document.getElementById('total-revenue');
+                const openTicketsEl = document.getElementById('open-tickets');
+                
+                if (totalUsersEl) totalUsersEl.textContent = this.data.stats.totalUsers || 0;
+                if (activeSubsEl) activeSubsEl.textContent = this.data.stats.activeSubscriptions || 0;
+                if (totalRevenueEl) totalRevenueEl.textContent = `ETB ${(this.data.stats.totalRevenue || 0).toLocaleString()}`;
+                if (openTicketsEl) openTicketsEl.textContent = this.data.stats.pendingSupport || 0;
+
+                // Update badges with error checking
+                const usersBadge = document.getElementById('users-count');
+                const subsBadge = document.getElementById('subscriptions-count');
+                const paymentsBadge = document.getElementById('payments-count');
+                const ticketsBadge = document.getElementById('tickets-count');
+                
+                if (usersBadge) usersBadge.textContent = this.data.stats.totalUsers || 0;
+                if (subsBadge) subsBadge.textContent = this.data.stats.activeSubscriptions || 0;
+                if (paymentsBadge) paymentsBadge.textContent = this.data.stats.totalPayments || 0;
+                if (ticketsBadge) ticketsBadge.textContent = this.data.stats.pendingSupport || 0;
+
+                // Update change indicators with error checking
+                const usersChange = this.data.stats.usersChange || 0;
+                const subsChange = this.data.stats.subscriptionsChange || 0;
+                const revenueChange = this.data.stats.revenueChange || 0;
+
+                const usersChangeEl = document.getElementById('users-change');
+                const subsChangeEl = document.getElementById('subscriptions-change');
+                const revenueChangeEl = document.getElementById('revenue-change');
+                
+                if (usersChangeEl) usersChangeEl.innerHTML = `<i class="fas fa-arrow-${usersChange >= 0 ? 'up' : 'down'}"></i> ${Math.abs(usersChange)}% this week`;
+                if (subsChangeEl) subsChangeEl.innerHTML = `<i class="fas fa-arrow-${subsChange >= 0 ? 'up' : 'down'}"></i> ${Math.abs(subsChange)}% this week`;
+                if (revenueChangeEl) revenueChangeEl.innerHTML = `<i class="fas fa-arrow-${revenueChange >= 0 ? 'up' : 'down'}"></i> ${Math.abs(revenueChange)}% this week`;
+                
+                console.log('Stats display update completed');
             }
             
             async renderUsers() {
@@ -1174,20 +1290,31 @@
             }
             
             async fetchAnalyticsData() {
-                // This would normally fetch from your API
-                return {
-                    revenueData: {
-                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                        values: [1200, 1900, 1500, 2500, 2200, 3000]
-                    },
-                    userGrowth: {
-                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                        values: [100, 250, 400, 600, 800, 1200]
-                    },
-                    serviceUsage: {
-                        labels: ['Netflix', 'Amazon Prime', 'Disney+', 'Spotify', 'YouTube Premium'],
-                        values: [45, 30, 15, 7, 3]
+                try {
+                    const response = await fetch(`${this.baseUrl}/api/admin/analytics`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
+                    const data = await response.json();
+                    
+                    if (data.success && data.analytics) {
+                        return {
+                            revenueLabels: data.analytics.revenueLabels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                            revenueData: data.analytics.revenueData || [0, 0, 0, 0, 0, 0],
+                            userLabels: data.analytics.userLabels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                            userData: data.analytics.userData || [0, 0, 0, 0, 0, 0]
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error fetching analytics data:', error);
+                }
+                
+                // Fallback data
+                return {
+                    revenueLabels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    revenueData: [0, 0, 0, 0, 0, 0],
+                    userLabels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    userData: [0, 0, 0, 0, 0, 0]
                 };
             }
 
@@ -1303,6 +1430,44 @@
                 setInterval(() => {
                     this.loadStats();
                 }, 300000);
+            }
+
+            showNotification(message, type = 'info') {
+                const notification = document.createElement('div');
+                notification.className = `notification notification-${type}`;
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 15px 20px;
+                    border-radius: 8px;
+                    color: white;
+                    font-weight: 600;
+                    z-index: 10000;
+                    max-width: 300px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                `;
+                
+                switch(type) {
+                    case 'success':
+                        notification.style.background = '#10b981';
+                        break;
+                    case 'error':
+                        notification.style.background = '#ef4444';
+                        break;
+                    case 'warning':
+                        notification.style.background = '#f59e0b';
+                        break;
+                    default:
+                        notification.style.background = '#3b82f6';
+                }
+                
+                notification.textContent = message;
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.remove();
+                }, 5000);
             }
         }
 
@@ -1576,19 +1741,187 @@ Created: ${ticket.created ? new Date(ticket.created).toLocaleDateString() : 'N/A
             setTimeout(() => errorContainer.remove(), 5000);
         }
 
-        // Initialize when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
+        // Simple and reliable stats loading function
+        async function loadRealStats() {
+            console.log('Loading real stats from API...');
             try {
-                adminPanel = new AdminPanel();
-                adminPanel.init().catch(function(error) {
-                    console.error('Failed to initialize admin panel:', error);
-                    showError('Failed to initialize. Check console for details.');
-                });
+                const response = await fetch('/api/admin/stats');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('Stats data received:', data);
+                
+                if (data.success && data.stats) {
+                    // Update main dashboard stats
+                    const totalUsersEl = document.getElementById('total-users');
+                    const activeSubsEl = document.getElementById('active-subscriptions');
+                    const totalRevenueEl = document.getElementById('total-revenue');
+                    const openTicketsEl = document.getElementById('open-tickets');
+                    
+                    if (totalUsersEl) totalUsersEl.textContent = data.stats.totalUsers || 0;
+                    if (activeSubsEl) activeSubsEl.textContent = data.stats.activeSubscriptions || 0;
+                    if (totalRevenueEl) totalRevenueEl.textContent = `ETB ${(data.stats.totalRevenue || 0).toLocaleString()}`;
+                    if (openTicketsEl) openTicketsEl.textContent = data.stats.pendingSupport || 0;
+                    
+                    // Update sidebar counts
+                    const usersCountEl = document.getElementById('users-count');
+                    const subsCountEl = document.getElementById('subscriptions-count');
+                    const paymentsCountEl = document.getElementById('payments-count');
+                    const ticketsCountEl = document.getElementById('tickets-count');
+                    
+                    if (usersCountEl) usersCountEl.textContent = data.stats.totalUsers || 0;
+                    if (subsCountEl) subsCountEl.textContent = data.stats.totalSubscriptions || 0;
+                    if (paymentsCountEl) paymentsCountEl.textContent = data.stats.totalPayments || 0;
+                    if (ticketsCountEl) ticketsCountEl.textContent = data.stats.pendingSupport || 0;
+                    
+                    console.log('✅ All stats updated successfully!');
+                    return true;
+                } else {
+                    throw new Error('Invalid response format from API');
+                }
             } catch (error) {
-                console.error('Error initializing admin panel:', error);
-                showError('Critical error occurred. Please refresh the page.');
+                console.error('❌ Failed to load stats:', error);
+                return false;
             }
+        }
+
+        // Load tab-specific data
+        async function loadTabData(tabName) {
+            console.log(`Loading ${tabName} data...`);
+            try {
+                const response = await fetch(`/api/admin/${tabName}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log(`${tabName} data received:`, data);
+                
+                if (data.success) {
+                    return data[tabName] || [];
+                } else {
+                    throw new Error(`Failed to load ${tabName} data`);
+                }
+            } catch (error) {
+                console.error(`❌ Failed to load ${tabName} data:`, error);
+                return [];
+            }
+        }
+
+        // Initialize when DOM is loaded - SIMPLE AND RELIABLE APPROACH
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing admin panel...');
+            
+            // Load real stats immediately
+            loadRealStats().then(function(success) {
+                if (success) {
+                    console.log('✅ Admin panel loaded with real data!');
+                } else {
+                    console.error('❌ Failed to load initial data');
+                }
+            });
+            
+            // Set up tab switching
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabButtons.forEach(function(button) {
+                button.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    
+                    // Remove active class from all tabs and contents
+                    tabButtons.forEach(function(btn) { btn.classList.remove('active'); });
+                    tabContents.forEach(function(content) { content.classList.remove('active'); });
+                    
+                    // Add active class to clicked tab and corresponding content
+                    this.classList.add('active');
+                    const targetContent = document.getElementById(tabName + '-tab');
+                    if (targetContent) {
+                        targetContent.classList.add('active');
+                        
+                        // Load data for the selected tab
+                        if (tabName !== 'dashboard') {
+                            loadTabData(tabName).then(function(data) {
+                                console.log(`Loaded ${data.length} items for ${tabName} tab`);
+                                // Update the tab content with the data
+                                updateTabContent(tabName, data);
+                            });
+                        }
+                    }
+                });
+            });
+            
+            // Auto-refresh stats every 30 seconds
+            setInterval(function() {
+                loadRealStats();
+            }, 30000);
+            
+            console.log('✅ Admin panel initialization complete!');
         });
+
+        // Update tab content with data
+        function updateTabContent(tabName, data) {
+            const tabContent = document.getElementById(tabName + '-tab');
+            if (!tabContent) return;
+            
+            const tableBody = tabContent.querySelector('tbody');
+            if (!tableBody) return;
+            
+            // Clear existing content
+            tableBody.innerHTML = '';
+            
+            // Add data rows
+            if (data.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="100%" style="text-align: center; color: #64748b; padding: 20px;">No data available</td></tr>';
+                return;
+            }
+            
+            data.forEach(function(item) {
+                const row = document.createElement('tr');
+                
+                if (tabName === 'users') {
+                    row.innerHTML = `
+                        <td>${item.id || 'N/A'}</td>
+                        <td>${item.username || 'N/A'}</td>
+                        <td>${item.firstName || ''} ${item.lastName || ''}</td>
+                        <td>${item.email || 'N/A'}</td>
+                        <td><span class="status ${item.isActive ? 'active' : 'inactive'}">${item.isActive ? 'Active' : 'Inactive'}</span></td>
+                        <td>${new Date(item.createdAt).toLocaleDateString()}</td>
+                    `;
+                } else if (tabName === 'subscriptions') {
+                    row.innerHTML = `
+                        <td>${item.id || 'N/A'}</td>
+                        <td>${item.userId || 'N/A'}</td>
+                        <td>${item.serviceId || 'N/A'}</td>
+                        <td><span class="status ${item.status === 'active' ? 'active' : 'inactive'}">${item.status || 'N/A'}</span></td>
+                        <td>ETB ${item.amount || 0}</td>
+                        <td>${new Date(item.createdAt).toLocaleDateString()}</td>
+                    `;
+                } else if (tabName === 'payments') {
+                    row.innerHTML = `
+                        <td>${item.id || 'N/A'}</td>
+                        <td>${item.userId || 'N/A'}</td>
+                        <td>ETB ${item.amount || 0}</td>
+                        <td><span class="status ${item.status === 'completed' ? 'active' : 'inactive'}">${item.status || 'N/A'}</span></td>
+                        <td>${item.method || 'N/A'}</td>
+                        <td>${new Date(item.createdAt).toLocaleDateString()}</td>
+                    `;
+                } else if (tabName === 'support') {
+                    row.innerHTML = `
+                        <td>${item.id || 'N/A'}</td>
+                        <td>${item.userId || 'N/A'}</td>
+                        <td>${item.subject || 'N/A'}</td>
+                        <td><span class="status ${item.status === 'open' ? 'active' : 'inactive'}">${item.status || 'N/A'}</span></td>
+                        <td>${item.priority || 'Normal'}</td>
+                        <td>${new Date(item.createdAt).toLocaleDateString()}</td>
+                    `;
+                }
+                
+                tableBody.appendChild(row);
+            });
+        }
     </script>
 </body>
 </html>
