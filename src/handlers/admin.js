@@ -41,23 +41,45 @@ const notifyUser = async (bot, userId, message, options = {}) => {
 export default function adminHandler(bot) {
   // Handle /admin command
   bot.command('admin', async (ctx) => {
-    try {
-      if (!isAuthorizedAdmin(ctx)) {
-        await ctx.reply('❌ Unauthorized access. You do not have permission to use this command.');
-        return;
-      }
+    if (!isAuthorizedAdmin(ctx)) {
+      await ctx.reply("❌ **Access Denied**\n\nThis command is restricted to authorized administrators only.\n\n🔒 All access attempts are logged for security.");
+      return;
+    }
 
-      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+    // Log admin access
+    await logAdminAction('admin_panel_access', ctx.from.id, {
+      username: ctx.from.username,
+      firstName: ctx.from.first_name
+    });
+
+    try {
+      // Get pending subscription requests
+      const pendingSnapshot = await firestore
+        .collection('subscription_requests')
+        .where('status', '==', 'pending_admin_approval')
+        .get();
+
+      const pendingCount = pendingSnapshot.size;
+
+      // Get active subscriptions count
+      const activeSnapshot = await firestore
+        .collection('subscriptions')
+        .where('status', '==', 'active')
+        .get();
+
+      const activeCount = activeSnapshot.size;
+
+      // Get total users
+      const usersSnapshot = await firestore
+        .collection('users')
+        .get();
+
+      const usersCount = usersSnapshot.size;
       const webPanelUrl = `${process.env.WEB_APP_URL || 'https://your-deployed-url.com'}/panel`;
-      
-      const adminMessage = `👑 *Admin Panel*\n\n` +
-        `🔹 *Quick Actions*\n` +
-        `• View all users\n` +
-        `• Manage subscriptions\n` +
-        `• Process payments\n\n` +
-        `🔗 [Open Web Admin Panel](${webPanelUrl})`;
-      
-      await ctx.reply(adminMessage, {
+
+      const adminMenu = `🔧 **Admin Panel**\n\n📊 **Quick Stats:**\n• 🔄 Pending Approvals: ${pendingCount}\n• ✅ Active Subscriptions: ${activeCount}\n• 👥 Total Users: ${usersCount}\n\n**Management Options:**`;
+
+      await ctx.reply(adminMenu, {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
@@ -68,39 +90,80 @@ export default function adminHandler(bot) {
               }
             ],
             [
-              { text: '👥 Manage Users', callback_data: 'admin_users' },
-              { text: '📊 View Stats', callback_data: 'admin_stats' }
+              {
+                text: `🔄 Review Pending (${pendingCount})`,
+                callback_data: 'admin_pending'
+              }
             ],
             [
-              { text: '📝 Manage Services', callback_data: 'admin_services' },
-              { text: '💬 Support Tickets', callback_data: 'admin_support' }
+              {
+                text: '✅ Active Subscriptions',
+                callback_data: 'admin_active'
+              },
+              {
+                text: '👥 Manage Users',
+                callback_data: 'admin_users'
+              }
+            ],
+            [
+              {
+                text: '📊 Statistics',
+                callback_data: 'admin_stats'
+              },
+              {
+                text: '🛠️ Settings',
+                callback_data: 'admin_settings'
+              }
+            ],
+            [
+              {
+                text: '📢 Broadcast',
+                callback_data: 'admin_broadcast'
+              }
             ]
           ]
         }
       });
+
     } catch (error) {
       console.error('Error in admin command:', error);
-      await ctx.reply('❌ An error occurred while loading the admin panel.');
+      await ctx.reply('❌ Error loading admin panel.');
     }
   });
 
   // Handle admin panel button click
   bot.action('admin_panel', async (ctx) => {
-    try {
-      if (!isAuthorizedAdmin(ctx)) {
-        await ctx.answerCbQuery('❌ Unauthorized access');
-        return;
-      }
+    if (!isAuthorizedAdmin(ctx)) {
+      await ctx.answerCbQuery('❌ Unauthorized access');
+      return;
+    }
 
-      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+    try {
+      // Get pending subscription requests
+      const pendingSnapshot = await firestore
+        .collection('subscription_requests')
+        .where('status', '==', 'pending_admin_approval')
+        .get();
+
+      const pendingCount = pendingSnapshot.size;
+
+      // Get active subscriptions count
+      const activeSnapshot = await firestore
+        .collection('subscriptions')
+        .where('status', '==', 'active')
+        .get();
+
+      const activeCount = activeSnapshot.size;
+
+      // Get total users
+      const usersSnapshot = await firestore
+        .collection('users')
+        .get();
+
+      const usersCount = usersSnapshot.size;
       const webPanelUrl = `${process.env.WEB_APP_URL || 'https://your-deployed-url.com'}/panel`;
-      
-      const adminMessage = `👑 *Admin Panel*\n\n` +
-        `🔹 *Quick Actions*\n` +
-        `• View all users\n` +
-        `• Manage subscriptions\n` +
-        `• Process payments\n\n` +
-        `🔗 [Open Web Admin Panel](${webPanelUrl})`;
+
+      const adminMessage = `🔧 **Admin Panel**\n\n📊 **Quick Stats:**\n• 🔄 Pending Approvals: ${pendingCount}\n• ✅ Active Subscriptions: ${activeCount}\n• 👥 Total Users: ${usersCount}\n\n**Management Options:**`;
       
       await ctx.editMessageText(adminMessage, {
         parse_mode: 'Markdown',
@@ -113,16 +176,38 @@ export default function adminHandler(bot) {
               }
             ],
             [
-              { text: '👥 Manage Users', callback_data: 'admin_users' },
-              { text: '📊 View Stats', callback_data: 'admin_stats' }
+              {
+                text: `🔄 Review Pending (${pendingCount})`,
+                callback_data: 'admin_pending'
+              }
             ],
             [
-              { text: '📝 Manage Services', callback_data: 'admin_services' },
-              { text: '💬 Support Tickets', callback_data: 'admin_support' }
+              {
+                text: '✅ Active Subscriptions',
+                callback_data: 'admin_active'
+              },
+              {
+                text: '👥 Manage Users',
+                callback_data: 'admin_users'
+              }
             ],
             [
+              {
+                text: '📊 Statistics',
+                callback_data: 'admin_stats'
+              },
+              {
+                text: '🛠️ Settings',
+                callback_data: 'admin_settings'
+              }
+            ],
+            [
+              {
+                text: '📢 Broadcast',
+                callback_data: 'admin_broadcast'
+              },
               { 
-                text: lang === 'am' ? '⬅️ ወደ ዋናው ገጽ' : '⬅️ Back to Main', 
+                text: '❌ Close', 
                 callback_data: 'back_to_start' 
               }
             ]

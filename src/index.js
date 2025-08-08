@@ -1902,7 +1902,8 @@ async function startServer() {
           { command: 'mysubscriptions', description: 'View your subscriptions' },
           { command: 'support', description: 'Get help and support' },
           { command: 'lang', description: 'Change language' },
-          { command: 'faq', description: 'Frequently asked questions' }
+          { command: 'faq', description: 'Frequently asked questions' },
+          { command: 'admin', description: 'Admin panel (admin only)' }
         ]);
         console.log('✅ Bot commands set up successfully');
       } catch (error) {
