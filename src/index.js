@@ -67,14 +67,22 @@ try {
   services = [];
 }
 
-// Register static file serving
+// Register static file serving for public directory
 try {
   await fastify.register(import('@fastify/static'), {
     root: path.join(process.cwd(), 'public'),
     prefix: '/',
     decorateReply: false
   });
-  console.log("✅ Static file serving registered");
+  console.log("✅ Public static file serving registered");
+  
+  // Register static file serving for panel directory
+  await fastify.register(import('@fastify/static'), {
+    root: path.join(process.cwd(), 'panel'),
+    prefix: '/panel',
+    decorateReply: false
+  });
+  console.log("✅ Panel static file serving registered");
 } catch (error) {
   console.error("❌ Error registering static files:", error);
 }
@@ -1012,10 +1020,7 @@ const requireAdmin = (req, reply, done) => {
   done();
 };
 
-// Serve modern admin panel HTML
-fastify.get('/panel', async (req, reply) => {
-  return reply.sendFile('admin-modern.html', path.join(__dirname, '../panel/'));
-});
+// Panel files are now served by static file middleware
 
 // Admin API endpoints
 fastify.get('/api/stats', { preHandler: requireAdmin }, async (req, reply) => {
