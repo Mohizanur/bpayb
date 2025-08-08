@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BirrPay Admin Panel</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #e2e8f0; }
+        .container { display: flex; min-height: 100vh; }
+        .sidebar { width: 280px; background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); padding: 25px; border-right: 1px solid #334155; box-shadow: 2px 0 10px rgba(0,0,0,0.3); }
+        .main-content { flex: 1; padding: 25px; background: rgba(15, 23, 42, 0.8); }
+        .logo { text-align: center; margin-bottom: 35px; }
+        .logo h1 { color: #3b82f6; font-size: 1.8rem; font-weight: 800; margin-bottom: 5px; }
+        .logo p { color: #64748b; font-size: 0.85rem; }
+        .nav-item { padding: 15px 18px; margin: 10px 0; border-radius: 12px; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 15px; position: relative; }
+        .nav-item:hover { background: rgba(59, 130, 246, 0.1); transform: translateX(5px); }
+        .nav-item.active { background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); }
+        .nav-item i { width: 20px; text-align: center; }
+        .nav-count { background: rgba(59, 130, 246, 0.2); color: #3b82f6; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: auto; }
+        .nav-item.active .nav-count { background: rgba(255,255,255,0.2); color: white; }
+        .header { display: flex; justify-content: between; align-items: center; margin-bottom: 30px; padding: 20px; background: rgba(30, 41, 59, 0.6); border-radius: 15px; backdrop-filter: blur(10px); }
+        .header h2 { font-size: 1.8rem; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header-actions { display: flex; gap: 15px; }
+        .btn { padding: 12px 24px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3); }
+        .btn-secondary { background: rgba(30, 41, 59, 0.8); color: #e2e8f0; border: 1px solid #334155; }
+        .btn-secondary:hover { background: rgba(51, 65, 85, 0.8); }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; margin-bottom: 35px; }
+        .stat-card { background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 18px; padding: 25px; text-align: center; transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .stat-card:hover { transform: translateY(-5px); border-color: rgba(59, 130, 246, 0.4); box-shadow: 0 15px 35px rgba(0,0,0,0.2); }
+        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899); }
+        .stat-icon { display: inline-flex; align-items: center; justify-content: center; width: 70px; height: 70px; border-radius: 18px; margin-bottom: 15px; font-size: 1.8rem; color: white; }
+        .stat-icon.users { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
+        .stat-icon.subscriptions { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+        .stat-icon.revenue { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .stat-icon.support { background: linear-gradient(135deg, #ec4899 0%, #d946ef 100%); }
+        .stat-value { font-size: 2.8rem; font-weight: 900; margin: 15px 0; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-label { color: #94a3b8; font-size: 0.95rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-change { font-size: 0.8rem; margin-top: 8px; padding: 4px 8px; border-radius: 6px; }
+        .stat-change.positive { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+        .stat-change.negative { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .table-container { background: rgba(30, 41, 59, 0.8); border-radius: 15px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.2); backdrop-filter: blur(10px); }
+        .table-header { padding: 20px 25px; background: rgba(51, 65, 85, 0.8); border-bottom: 1px solid #334155; display: flex; justify-content: between; align-items: center; }
+        .table-title { font-size: 1.2rem; font-weight: 700; color: #e2e8f0; }
+        .table-actions { display: flex; gap: 10px; }
+        .search-box { padding: 8px 15px; border: 1px solid #334155; border-radius: 8px; background: rgba(15, 23, 42, 0.8); color: #e2e8f0; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 15px 20px; text-align: left; border-bottom: 1px solid rgba(51, 65, 85, 0.5); }
+        th { background: rgba(51, 65, 85, 0.6); font-weight: 700; color: #f1f5f9; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px; }
+        tr:hover { background: rgba(59, 130, 246, 0.05); }
+        .status { padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; }
+        .status.active { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .status.inactive { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .status.pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .action-btn { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; margin: 0 2px; }
+        .action-btn.edit { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        .action-btn.delete { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .notification { position: fixed; top: 25px; right: 25px; padding: 18px 25px; border-radius: 12px; color: white; z-index: 10000; font-weight: 600; box-shadow: 0 10px 25px rgba(0,0,0,0.3); backdrop-filter: blur(10px); }
+        .notification.success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .notification.error { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+        .notification.info { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 25px; margin-top: 30px; max-width: 1200px; }
+        .chart-container { background: rgba(30, 41, 59, 0.8); border-radius: 15px; padding: 25px; border: 1px solid rgba(59, 130, 246, 0.2); height: 350px; position: relative; }
+        .chart-title { font-size: 1.1rem; font-weight: 700; color: #e2e8f0; margin-bottom: 20px; text-align: center; }
+        .chart-wrapper { position: relative; height: 280px; width: 100%; }
+        .loading { display: flex; justify-content: center; align-items: center; padding: 40px; color: #64748b; }
+        .loading i { animation: spin 1s linear infinite; margin-right: 10px; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .empty-state { text-align: center; padding: 60px 20px; color: #64748b; }
+        .empty-state i { font-size: 3rem; margin-bottom: 15px; opacity: 0.5; }
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 25px; }
+        .pagination button { padding: 8px 12px; border: 1px solid #334155; background: rgba(30, 41, 59, 0.8); color: #e2e8f0; border-radius: 6px; cursor: pointer; }
+        .pagination button.active { background: #3b82f6; border-color: #3b82f6; }
+        .filters { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-select { padding: 8px 15px; border: 1px solid #334155; border-radius: 8px; background: rgba(15, 23, 42, 0.8); color: #e2e8f0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="logo">
+                <h1><i class="fas fa-chart-line"></i> BirrPay</h1>
+                <p>Admin Dashboard</p>
+            </div>
+            <div class="nav-item active" onclick="showTab('dashboard')">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </div>
+            <div class="nav-item" onclick="showTab('users')">
+                <i class="fas fa-users"></i> Users
+                <span class="nav-count" id="users-count">0</span>
+            </div>
+            <div class="nav-item" onclick="showTab('subscriptions')">
+                <i class="fas fa-credit-card"></i> Subscriptions
+                <span class="nav-count" id="subscriptions-count">0</span>
+            </div>
+            <div class="nav-item" onclick="showTab('payments')">
+                <i class="fas fa-money-bill"></i> Payments
+                <span class="nav-count" id="payments-count">0</span>
+            </div>
+            <div class="nav-item" onclick="showTab('support')">
+                <i class="fas fa-headset"></i> Support
+                <span class="nav-count" id="tickets-count">0</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+
+            <div id="dashboard-tab" class="tab-content active">
+                <div class="header">
+                    <h2><i class="fas fa-chart-line"></i> Dashboard Overview</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="exportData('csv')"><i class="fas fa-download"></i> Export CSV</button>
+                        <button class="btn btn-primary" onclick="loadRealStats()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                    </div>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon users"><i class="fas fa-users"></i></div>
+                        <div class="stat-value" id="total-users">0</div>
+                        <div class="stat-label">Total Users</div>
+                        <div class="stat-change positive" id="users-change">+0% from last month</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon subscriptions"><i class="fas fa-credit-card"></i></div>
+                        <div class="stat-value" id="active-subscriptions">0</div>
+                        <div class="stat-label">Active Subscriptions</div>
+                        <div class="stat-change positive" id="subs-change">+0% from last month</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon revenue"><i class="fas fa-coins"></i></div>
+                        <div class="stat-value" id="total-revenue">ETB 0</div>
+                        <div class="stat-label">Total Revenue</div>
+                        <div class="stat-change positive" id="revenue-change">+0% from last month</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon support"><i class="fas fa-headset"></i></div>
+                        <div class="stat-value" id="open-tickets">0</div>
+                        <div class="stat-label">Support Tickets</div>
+                        <div class="stat-change negative" id="tickets-change">0 pending</div>
+                    </div>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <div class="chart-title">Revenue Trend</div>
+                        <div class="chart-wrapper">
+                            <canvas id="revenueChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">User Growth</div>
+                        <div class="chart-wrapper">
+                            <canvas id="usersChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="users-tab" class="tab-content">
+                <div class="header">
+                    <h2><i class="fas fa-users"></i> Users Management</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="exportData('users')"><i class="fas fa-download"></i> Export</button>
+                        <button class="btn btn-primary" onclick="showTab('users')"><i class="fas fa-sync-alt"></i> Refresh</button>
+                    </div>
+                </div>
+                <div class="filters">
+                    <select class="filter-select" onchange="filterUsers(this.value)">
+                        <option value="all">All Users</option>
+                        <option value="active">Active Only</option>
+                        <option value="inactive">Inactive Only</option>
+                    </select>
+                    <input type="text" class="search-box" placeholder="Search users..." onkeyup="searchUsers(this.value)">
+                </div>
+                <div class="table-container">
+                    <div class="table-header">
+                        <div class="table-title">User List</div>
+                        <div class="table-actions">
+                            <span id="users-total">0 users</span>
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr><th>ID</th><th>Username</th><th>Name</th><th>Email</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                            <tr><td colspan="7" class="loading"><i class="fas fa-spinner"></i> Loading users...</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination" id="users-pagination"></div>
+                </div>
+            </div>
+
+            <div id="subscriptions-tab" class="tab-content">
+                <div class="header">
+                    <h2><i class="fas fa-credit-card"></i> Subscriptions Management</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="exportData('subscriptions')"><i class="fas fa-download"></i> Export</button>
+                        <button class="btn btn-primary" onclick="showTab('subscriptions')"><i class="fas fa-sync-alt"></i> Refresh</button>
+                    </div>
+                </div>
+                <div class="filters">
+                    <select class="filter-select" onchange="filterSubscriptions(this.value)">
+                        <option value="all">All Subscriptions</option>
+                        <option value="active">Active Only</option>
+                        <option value="inactive">Inactive Only</option>
+                        <option value="pending">Pending Only</option>
+                    </select>
+                    <select class="filter-select" onchange="filterByService(this.value)">
+                        <option value="all">All Services</option>
+                        <option value="netflix">Netflix</option>
+                        <option value="spotify">Spotify</option>
+                        <option value="youtube">YouTube Premium</option>
+                    </select>
+                </div>
+                <div class="table-container">
+                    <div class="table-header">
+                        <div class="table-title">Subscription List</div>
+                        <div class="table-actions">
+                            <span id="subscriptions-total">0 subscriptions</span>
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr><th>ID</th><th>User ID</th><th>Service</th><th>Status</th><th>Amount</th><th>Created</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="subscriptions-table-body">
+                            <tr><td colspan="7" class="loading"><i class="fas fa-spinner"></i> Loading subscriptions...</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination" id="subscriptions-pagination"></div>
+                </div>
+            </div>
+
+            <div id="payments-tab" class="tab-content">
+                <h2>Payments Management</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>ID</th><th>User ID</th><th>Amount</th><th>Status</th><th>Method</th><th>Created</th></tr>
+                        </thead>
+                        <tbody id="payments-table-body">
+                            <tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="support-tab" class="tab-content">
+                <h2>Support Management</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>ID</th><th>User ID</th><th>Subject</th><th>Status</th><th>Priority</th><th>Created</th></tr>
+                        </thead>
+                        <tbody id="support-table-body">
+                            <tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        console.log('BirrPay Admin Panel - Enhanced Version Loading...');
+        
+        let currentData = {
+            stats: {
+                totalUsers: 0,
+                activeUsers: 0,
+                paidUsers: 0,
+                totalSubscriptions: 0,
+                activeSubscriptions: 0,
+                pendingSubscriptions: 0,
+                totalPayments: 0,
+                completedPayments: 0,
+                totalRevenue: 0,
+                pendingSupport: 0,
+                totalSupportTickets: 0,
+                conversionRate: 0,
+                avgRevenuePerUser: 0
+            },
+            users: [],
+            subscriptions: [],
+            payments: [],
+            support: []
+        };
+        
+        let charts = {};
+
+        async function loadRealStats() {
+            console.log('Loading enhanced stats...');
+            try {
+                const response = await fetch('/api/admin/stats');
+                const data = await response.json();
+                console.log('Stats received:', data);
+                
+                if (data.success && data.stats) {
+                    currentData.stats = data.stats;
+                    
+                    // Update main dashboard stats
+                    document.getElementById('total-users').textContent = data.stats.totalUsers || 0;
+                    document.getElementById('active-subscriptions').textContent = data.stats.activeSubscriptions || 0;
+                    document.getElementById('total-revenue').textContent = `ETB ${(data.stats.totalRevenue || 0).toLocaleString()}`;
+                    document.getElementById('open-tickets').textContent = data.stats.pendingSupport || 0;
+                    
+                    // Update sidebar counts with correct data
+                    document.getElementById('users-count').textContent = data.stats.totalUsers || 0;
+                    document.getElementById('subscriptions-count').textContent = data.stats.totalSubscriptions || 0;
+                    document.getElementById('payments-count').textContent = data.stats.totalPayments || 0;
+                    document.getElementById('tickets-count').textContent = data.stats.pendingSupport || 0;
+                    
+                    // Update change indicators
+                    updateChangeIndicators(data.stats);
+                    
+                    // Initialize charts
+                    await initCharts();
+                    
+                    showNotification('Dashboard updated with real data!', 'success');
+                    console.log('✅ Enhanced stats updated successfully!');
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                showNotification('Failed to load dashboard data', 'error');
+            }
+        }
+        
+        function updateChangeIndicators(stats) {
+            // Use real data for percentage changes
+            const usersChange = stats.totalUsers || 0;
+            const subsChange = stats.activeSubscriptions || 0;
+            const revenueChange = stats.totalRevenue || 0;
+            
+            document.getElementById('users-change').textContent = `+${usersChange} total users`;
+            document.getElementById('subs-change').textContent = `+${subsChange} active subs`;
+            document.getElementById('revenue-change').textContent = `ETB ${revenueChange} revenue`;
+            document.getElementById('tickets-change').textContent = `${stats.pendingSupport || 0} pending`;
+        }
+        
+        async function initCharts() {
+            try {
+                // Revenue Chart with proper sizing
+                const revenueCtx = document.getElementById('revenueChart');
+                if (revenueCtx && !charts.revenue) {
+                    charts.revenue = new Chart(revenueCtx, {
+                        type: 'line',
+                        data: {
+                            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                            datasets: [{
+                                label: 'Revenue (ETB)',
+                                data: [0, 0, 0, 0, 0, currentData.stats.totalRevenue || 0],
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                fill: true,
+                                tension: 0.4,
+                                pointBackgroundColor: '#3b82f6',
+                                pointBorderColor: '#ffffff',
+                                pointBorderWidth: 2,
+                                pointRadius: 5
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            aspectRatio: 2,
+                            plugins: {
+                                legend: { 
+                                    labels: { color: '#e2e8f0', font: { size: 12 } },
+                                    position: 'top'
+                                }
+                            },
+                            scales: {
+                                x: { 
+                                    ticks: { color: '#94a3b8', font: { size: 11 } }, 
+                                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                                    border: { color: 'rgba(148, 163, 184, 0.2)' }
+                                },
+                                y: { 
+                                    ticks: { color: '#94a3b8', font: { size: 11 } }, 
+                                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                                    border: { color: 'rgba(148, 163, 184, 0.2)' },
+                                    beginAtZero: true
+                                }
+                            },
+                            elements: {
+                                point: { radius: 4, hoverRadius: 6 }
+                            }
+                        }
+                    });
+                }
+                
+                // Users Chart with proper sizing
+                const usersCtx = document.getElementById('usersChart');
+                if (usersCtx && !charts.users) {
+                    charts.users = new Chart(usersCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                            datasets: [{
+                                label: 'New Users',
+                                data: [0, 0, 0, 0, 0, currentData.stats.totalUsers || 0],
+                                backgroundColor: 'rgba(139, 92, 246, 0.8)',
+                                borderColor: '#8b5cf6',
+                                borderWidth: 2,
+                                borderRadius: 4,
+                                borderSkipped: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            aspectRatio: 2,
+                            plugins: {
+                                legend: { 
+                                    labels: { color: '#e2e8f0', font: { size: 12 } },
+                                    position: 'top'
+                                }
+                            },
+                            scales: {
+                                x: { 
+                                    ticks: { color: '#94a3b8', font: { size: 11 } }, 
+                                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                                    border: { color: 'rgba(148, 163, 184, 0.2)' }
+                                },
+                                y: { 
+                                    ticks: { color: '#94a3b8', font: { size: 11 } }, 
+                                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                                    border: { color: 'rgba(148, 163, 184, 0.2)' },
+                                    beginAtZero: true,
+                                    max: Math.max(2, currentData.stats.totalUsers || 0)
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error initializing charts:', error);
+            }
+        }
+
+        function showTab(tabName) {
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            document.querySelector(`[onclick="showTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            if (tabName !== 'dashboard') {
+                loadTabData(tabName);
+            }
+        }
+
+        async function loadTabData(tabName) {
+            console.log(`Loading enhanced ${tabName} data...`);
+            try {
+                const response = await fetch(`/api/admin/${tabName}`);
+                const data = await response.json();
+                console.log(`${tabName} API response:`, data);
+                
+                if (data.success) {
+                    currentData[tabName] = data[tabName] || [];
+                    updateTable(tabName, currentData[tabName]);
+                    updateTabCounts(tabName, currentData[tabName]);
+                    showNotification(`${tabName} data loaded successfully!`, 'success');
+                } else {
+                    throw new Error(`Failed to load ${tabName} data`);
+                }
+            } catch (error) {
+                console.error(`Error loading ${tabName}:`, error);
+                showNotification(`Failed to load ${tabName} data`, 'error');
+                showEmptyState(tabName);
+            }
+        }
+
+        function updateTable(tabName, data) {
+            const tbody = document.getElementById(tabName + '-table-body');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                showEmptyState(tabName);
+                return;
+            }
+            
+            data.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.style.animationDelay = `${index * 0.1}s`;
+                
+                if (tabName === 'users') {
+                    row.innerHTML = `
+                        <td>${item.id || 'N/A'}</td>
+                        <td><strong>${item.username || 'N/A'}</strong></td>
+                        <td>${item.firstName || ''} ${item.lastName || ''}</td>
+                        <td>${item.email || 'N/A'}</td>
+                        <td><span class="status ${item.isActive ? 'active' : 'inactive'}">${item.isActive ? 'Active' : 'Inactive'}</span></td>
+                        <td>${formatDate(item.createdAt)}</td>
+                        <td>
+                            <button class="action-btn edit" onclick="editUser('${item.id}')"><i class="fas fa-edit"></i></button>
+                            <button class="action-btn delete" onclick="deleteUser('${item.id}')"><i class="fas fa-trash"></i></button>
+                        </td>
+                    `;
+                } else if (tabName === 'subscriptions') {
+                    row.innerHTML = `
+                        <td>${item.id || 'N/A'}</td>
+                        <td>${item.userId || 'N/A'}</td>
+                        <td><strong>${item.serviceId || 'N/A'}</strong></td>
+                        <td><span class="status ${item.status === 'active' ? 'active' : item.status === 'pending' ? 'pending' : 'inactive'}">${item.status || 'N/A'}</span></td>
+                        <td><strong>ETB ${(item.amount || 0).toLocaleString()}</strong></td>
+                        <td>${formatDate(item.createdAt)}</td>
+                        <td>
+                            <button class="action-btn edit" onclick="editSubscription('${item.id}')"><i class="fas fa-edit"></i></button>
+                            <button class="action-btn delete" onclick="cancelSubscription('${item.id}')"><i class="fas fa-times"></i></button>
+                        </td>
+                    `;
+                } else if (tabName === 'payments') {
+                    row.innerHTML = `
+                        <td>${item.id || 'N/A'}</td>
+                        <td>${item.userId || 'N/A'}</td>
+                        <td><strong>ETB ${(item.amount || 0).toLocaleString()}</strong></td>
+                        <td><span class="status ${item.status === 'completed' ? 'active' : item.status === 'pending' ? 'pending' : 'inactive'}">${item.status || 'N/A'}</span></td>
+                        <td>${item.method || 'N/A'}</td>
+                        <td>${formatDate(item.createdAt)}</td>
+                        <td>
+                            <button class="action-btn edit" onclick="viewPayment('${item.id}')"><i class="fas fa-eye"></i></button>
+                        </td>
+                    `;
+                } else if (tabName === 'support') {
+                    row.innerHTML = `
+                        <td>${item.id || 'N/A'}</td>
+                        <td>${item.userId || 'N/A'}</td>
+                        <td><strong>${item.subject || 'N/A'}</strong></td>
+                        <td><span class="status ${item.status === 'open' ? 'active' : 'inactive'}">${item.status || 'N/A'}</span></td>
+                        <td>${item.priority || 'Normal'}</td>
+                        <td>${formatDate(item.createdAt)}</td>
+                        <td>
+                            <button class="action-btn edit" onclick="viewTicket('${item.id}')"><i class="fas fa-eye"></i></button>
+                            <button class="action-btn delete" onclick="closeTicket('${item.id}')"><i class="fas fa-check"></i></button>
+                        </td>
+                    `;
+                }
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        function showEmptyState(tabName) {
+            const tbody = document.getElementById(tabName + '-table-body');
+            if (!tbody) return;
+            
+            const colSpan = tabName === 'users' || tabName === 'subscriptions' ? 7 : 7;
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="${colSpan}" class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <div>No ${tabName} found</div>
+                        <small>Data will appear here when available</small>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function updateTabCounts(tabName, data) {
+            const countElement = document.getElementById(`${tabName}-total`);
+            if (countElement) {
+                countElement.textContent = `${data.length} ${tabName}`;
+            }
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            try {
+                return new Date(dateString).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+            } catch {
+                return 'Invalid Date';
+            }
+        }
+
+        // Enhanced filtering and search functions
+        function filterUsers(status) {
+            const filteredData = status === 'all' ? currentData.users : 
+                currentData.users.filter(user => 
+                    status === 'active' ? user.isActive : !user.isActive
+                );
+            updateTable('users', filteredData);
+        }
+
+        function filterSubscriptions(status) {
+            const filteredData = status === 'all' ? currentData.subscriptions : 
+                currentData.subscriptions.filter(sub => sub.status === status);
+            updateTable('subscriptions', filteredData);
+        }
+
+        function filterByService(service) {
+            const filteredData = service === 'all' ? currentData.subscriptions : 
+                currentData.subscriptions.filter(sub => sub.serviceId === service);
+            updateTable('subscriptions', filteredData);
+        }
+
+        function searchUsers(query) {
+            if (!query) {
+                updateTable('users', currentData.users);
+                return;
+            }
+            
+            const filteredData = currentData.users.filter(user =>
+                (user.username || '').toLowerCase().includes(query.toLowerCase()) ||
+                (user.firstName || '').toLowerCase().includes(query.toLowerCase()) ||
+                (user.lastName || '').toLowerCase().includes(query.toLowerCase()) ||
+                (user.email || '').toLowerCase().includes(query.toLowerCase())
+            );
+            updateTable('users', filteredData);
+        }
+
+        // Action functions
+        function editUser(userId) {
+            showNotification(`Edit user ${userId} - Feature coming soon!`, 'info');
+        }
+
+        function deleteUser(userId) {
+            if (confirm('Are you sure you want to delete this user?')) {
+                showNotification(`Delete user ${userId} - Feature coming soon!`, 'info');
+            }
+        }
+
+        function editSubscription(subId) {
+            showNotification(`Edit subscription ${subId} - Feature coming soon!`, 'info');
+        }
+
+        function cancelSubscription(subId) {
+            if (confirm('Are you sure you want to cancel this subscription?')) {
+                showNotification(`Cancel subscription ${subId} - Feature coming soon!`, 'info');
+            }
+        }
+
+        function viewPayment(paymentId) {
+            showNotification(`View payment ${paymentId} - Feature coming soon!`, 'info');
+        }
+
+        function viewTicket(ticketId) {
+            showNotification(`View ticket ${ticketId} - Feature coming soon!`, 'info');
+        }
+
+        function closeTicket(ticketId) {
+            if (confirm('Are you sure you want to close this ticket?')) {
+                showNotification(`Close ticket ${ticketId} - Feature coming soon!`, 'info');
+            }
+        }
+
+        function exportData(type) {
+            showNotification(`Export ${type} data - Feature coming soon!`, 'info');
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, loading stats...');
+            loadRealStats();
+            setInterval(loadRealStats, 30000);
+        });
+    </script>
+</body>
+</html>

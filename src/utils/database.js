@@ -417,14 +417,13 @@ export async function getAdminStats() {
       totalPayments: paymentData.length,
       completedPayments: paymentData.filter(p => p.status === 'completed').length,
       totalRevenue: paymentData
-        .filter(p => p.status === 'completed')
         .reduce((sum, p) => sum + (p.amount || 0), 0),
       pendingSupport: supportData.filter(t => t.status === 'open').length,
       totalSupportTickets: supportData.length,
       conversionRate: userData.length > 0 ? 
         ((userData.filter(u => u.isPaid).length / userData.length) * 100).toFixed(2) : 0,
       avgRevenuePerUser: userData.filter(u => u.isPaid).length > 0 ?
-        (paymentData.filter(p => p.status === 'completed')
+        (paymentData
           .reduce((sum, p) => sum + (p.amount || 0), 0) / 
          userData.filter(u => u.isPaid).length).toFixed(2) : 0
     };
