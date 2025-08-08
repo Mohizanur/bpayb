@@ -18,6 +18,7 @@
     "prod": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning' NODE_ENV=production node -r ./scripts/suppress-debug.cjs src/index.js"
   },
   "dependencies": {
+    "@fastify/cookie": "^9.4.0",
     "@fastify/send": "^4.1.0",
     "@fastify/static": "^6.10.0",
     "cross-env": "^7.0.3",
