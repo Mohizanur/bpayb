@@ -5,14 +5,17 @@ services:
     plan: free
     nodeVersion: 18.20.3
     buildCommand: |
-      npm ci --production=false
-      npm run build
+      npm install --production=false
+      npm dedupe
+      npm cache clean --force
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: NODE_OPTIONS
         value: --no-warnings=ExperimentalWarning --unhandled-rejections=strict
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
     healthCheckPath: /health
     autoDeploy: true
     envVars:
