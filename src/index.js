@@ -42,16 +42,8 @@ console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
 console.log("Bot token length:", process.env.TELEGRAM_BOT_TOKEN?.length || 0);
 console.log("Bot token starts with:", process.env.TELEGRAM_BOT_TOKEN?.substring(0, 10) || "N/A");
 
-
 const fastify = Fastify({
   logger: process.env.NODE_ENV === 'production' ? true : false
-});
-
-// Serve static files from public directory
-await fastify.register(import('@fastify/static'), {
-  root: path.join(process.cwd(), 'public'),
-  prefix: '/',
-  decorateReply: false
 });
 
 // Get current directory for serving static files
@@ -78,8 +70,9 @@ try {
 // Register static file serving
 try {
   await fastify.register(import('@fastify/static'), {
-    root: path.join(__dirname, '..', 'public'),
-    prefix: '/', // optional: default '/'
+    root: path.join(process.cwd(), 'public'),
+    prefix: '/',
+    decorateReply: false
   });
   console.log("✅ Static file serving registered");
 } catch (error) {
