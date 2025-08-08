@@ -89,15 +89,30 @@ try {
     await fastify.register(import('@fastify/static'), {
       root: panelPath,
       prefix: '/panel/',
-      decorateReply: false
+      // Enable sendFile ONLY within this plugin scope
+      decorateReply: true,
+      index: false,
+      setHeaders: (res, pathName) => {
+        // Cache versioned assets aggressively, but not HTML
+        if (pathName.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        } else {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      }
     });
 
     // Handle root panel route
     fastify.get('/panel', async (req, reply) => {
       try {
-        const adminHtmlPath = path.join(panelPath, 'admin-fixed.html');
-        const htmlContent = fs.readFileSync(adminHtmlPath, 'utf8');
-        return reply.type('text/html').send(htmlContent);
+        // Security headers for the admin panel HTML
+        reply
+          .header('Content-Security-Policy', "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https:; font-src 'self' data:")
+          .header('X-Content-Type-Options', 'nosniff')
+          .header('Referrer-Policy', 'no-referrer')
+          .header('Cache-Control', 'no-cache')
+          .type('text/html')
+          .sendFile('admin-fixed.html');
       } catch (error) {
         console.error('Error serving admin panel:', error);
         return reply.status(500).send({ error: 'Internal Server Error', message: error.message });
@@ -106,6 +121,10 @@ try {
   });
   
   console.log("✅ Panel static file serving registered at /panel");
+  // Health endpoints are defined later centrally; no quick routes here to avoid duplication
+} catch (error) {
+  console.error("❌ Failed to register static file serving:", error);
+}
 
 // CRITICAL FIX: Register ALL handlers BEFORE middleware
 console.log("🚀 REGISTERING ALL HANDLERS FIRST...");
