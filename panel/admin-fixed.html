@@ -119,6 +119,7 @@
                 <div class="header">
                     <h2><i class="fas fa-chart-line"></i> Dashboard Overview</h2>
                     <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="configureToken()"><i class="fas fa-key"></i> Set Token</button>
                         <button class="btn btn-secondary" onclick="exportData('csv')"><i class="fas fa-download"></i> Export CSV</button>
                         <button class="btn btn-primary" onclick="loadRealStats()"><i class="fas fa-sync-alt"></i> Refresh</button>
                     </div>
@@ -283,6 +284,65 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        // --- Admin Token Management & Fetch Interceptor ---
+        (function () {
+            const TOKEN_STORAGE_KEY = 'adminToken';
+
+            window.getAdminToken = function () {
+                const urlParam = new URLSearchParams(location.search).get('token');
+                if (urlParam) {
+                    localStorage.setItem(TOKEN_STORAGE_KEY, urlParam);
+                    try { history.replaceState({}, '', location.pathname); } catch (_) {}
+                    return urlParam;
+                }
+                return localStorage.getItem(TOKEN_STORAGE_KEY) || '';
+            };
+
+            window.configureToken = function () {
+                const current = localStorage.getItem(TOKEN_STORAGE_KEY) || '';
+                const entered = prompt('Enter ADMIN_TOKEN', current);
+                if (entered && entered.trim().length > 0) {
+                    localStorage.setItem(TOKEN_STORAGE_KEY, entered.trim());
+                    showNotification('Admin token saved', 'success');
+                } else if (entered !== null) {
+                    showNotification('Token not set', 'error');
+                }
+            };
+
+            function ensureAdminToken() {
+                let token = getAdminToken();
+                if (!token) {
+                    configureToken();
+                    token = getAdminToken();
+                }
+                return token;
+            }
+
+            // Patch fetch to automatically attach Authorization header for /api/admin/*
+            const originalFetch = window.fetch.bind(window);
+            window.fetch = async function (input, init = {}) {
+                try {
+                    let url = typeof input === 'string' ? input : (input && input.url) || '';
+                    // Only attach for relative admin API calls
+                    if (url.startsWith('/api/admin')) {
+                        const token = ensureAdminToken();
+                        const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined) || {});
+                        if (token && !headers.has('Authorization')) {
+                            headers.set('Authorization', 'Bearer ' + token);
+                        }
+                        if (typeof input === 'string') {
+                            return originalFetch(input, { ...init, headers });
+                        } else {
+                            return originalFetch(new Request(input, { headers }), init);
+                        }
+                    }
+                } catch (_) {
+                    // fall through to original fetch
+                }
+                return originalFetch(input, init);
+            };
+        })();
+        // --- End Token & Fetch Interceptor ---
         console.log('BirrPay Admin Panel - Enhanced Version Loading...');
         
         let currentData = {
