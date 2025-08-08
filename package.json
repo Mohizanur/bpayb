@@ -40,11 +40,8 @@
     "telegraf-i18n": "^6.5.0",
     "uuid": "^9.0.1"
   },
-  "resolutions": {
-    "debug": "^4.3.7"
-  },
   "overrides": {
-    "debug": "^4.3.7"
+    "debug": "^4.3.4"
   },
   "engines": {
     "node": ">=18.20.2 <=20.x"
