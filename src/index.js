@@ -47,6 +47,13 @@ const fastify = Fastify({
   logger: process.env.NODE_ENV === 'production' ? true : false
 });
 
+// Serve static files from public directory
+await fastify.register(import('@fastify/static'), {
+  root: path.join(process.cwd(), 'public'),
+  prefix: '/',
+  decorateReply: false
+});
+
 // Get current directory for serving static files
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1056,9 +1063,9 @@ const requireAdmin = (req, reply, done) => {
   done();
 };
 
-// Serve admin panel HTML
+// Serve modern admin panel HTML
 fastify.get('/panel', async (req, reply) => {
-  return reply.sendFile('admin.html', path.join(__dirname, '../panel/'));
+  return reply.sendFile('admin-modern.html', path.join(__dirname, '../panel/'));
 });
 
 // Admin API endpoints

@@ -656,24 +656,53 @@
             background: linear-gradient(135deg, var(--secondary-color) 0%, var(--secondary-dark) 100%);
         }
     </style>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-    <script>
-        // Firebase configuration - replace with your actual config
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-        
-        // Initialize Firebase if not already initialized
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
+    <!-- Firebase SDK v9+ (Modular) -->
+    <script type="module">
+
+    // Import Firebase config
+    const firebaseConfig = {
+        apiKey: "AIzaSyAaWIAdPdrYAwX-avdlNXD6xzWIn-3a6cc",
+        authDomain: "birrpay-20e82.firebaseapp.com",
+        projectId: "birrpay-20e82",
+        storageBucket: "birrpay-20e82.firebasestorage.app",
+        messagingSenderId: "208393179425",
+        appId: "1:208393179425:web:7df8beee8b5e54ae9c2e60",
+        measurementId: "G-LNCF97JVWH"
+    };
+
+    // Initialize the admin panel when the DOM is fully loaded
+    document.addEventListener('DOMContentLoaded', () => {
+        try {
+            // Initialize Firebase
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            const auth = getAuth(app);
+
+            // Make them globally available for the AdminPanel class
+            window.firebase = { app, db, auth };
+            window.db = db;
+            window.auth = auth;
+
+            // Try to enable offline persistence
+            enableIndexedDbPersistence(db).catch((err) => {
+                if (err.code === 'failed-precondition') {
+                    console.warn('Offline persistence can only be enabled in one tab at a time.');
+                } else if (err.code === 'unimplemented') {
+                    console.warn('The current browser does not support offline persistence.');
+                }
+            });
+
+            // Initialize the admin panel
+            window.adminPanel = new AdminPanel();
+            adminPanel.init();
+        } catch (error) {
+            console.error('Error initializing admin panel:', error);
+            // Show error message to user
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = 'Failed to initialize the admin panel. Please check the console for details.';
+            document.body.prepend(errorDiv);
         }
-        const db = firebase.firestore();
     </script>
 </head>
 <body>
@@ -846,10 +875,26 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        // Import Firebase v9+ functions
+        import { 
+            collection, 
+            query, 
+            where, 
+            orderBy, 
+            limit, 
+            getDocs, 
+            doc, 
+            getDoc, 
+            updateDoc, 
+            onSnapshot,
+            Timestamp
+        } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
+        
         class AdminPanel {
             constructor() {
                 this.baseUrl = window.location.origin;
+                this.db = window.db; // Get Firestore instance from window
                 this.data = {
                     users: [],
                     subscriptions: [],
@@ -872,8 +917,11 @@
             
             async init() {
                 try {
-                    // Set up real-time listeners
-                    this.setupRealtimeListeners();
+                    // Initialize Firebase listeners
+                this.initFirebaseListeners();
+                
+                // Make instance available globally for HTML onclick handlers
+                window.adminPanel = this;
                     
                     // Load initial data
                     await Promise.all([
@@ -898,656 +946,255 @@
                 }
             }
             
-            setupRealtimeListeners() {
-                // Users collection listener
-                db.collection('users').onSnapshot((snapshot) => {
-                    this.data.users = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-                    
-                    // Update stats
-                    this.data.stats.totalUsers = this.data.users.length;
-                    this.updateStats();
-                    
-                    // Update UI if on users tab
-                    if (this.currentTab === 'users') {
-                        this.renderUsersTable();
-                    }
-                });
-                
-                // Subscriptions collection listener
-                db.collection('subscriptions')
-                    .where('status', '==', 'active')
-                    .onSnapshot((snapshot) => {
-                        this.data.subscriptions = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data()
-                        }));
-                        
-                        // Update stats
-                        this.data.stats.activeSubscriptions = this.data.subscriptions.length;
-                        this.updateStats();
-                        
-                        // Update UI if on subscriptions tab
-                        if (this.currentTab === 'subscriptions') {
-                            this.renderSubscriptionsTable();
-                        }
-                    });
-                
-                // Payments collection listener
-                db.collection('payments')
-                    .orderBy('timestamp', 'desc')
-                    .limit(100)
-                    .onSnapshot((snapshot) => {
-                        this.data.payments = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data(),
-                            // Format timestamp for display
-                            formattedDate: new Date(doc.data().timestamp?.toDate()).toLocaleDateString()
-                        }));
-                        
-                        // Update stats
-                        this.data.stats.totalRevenue = this.data.payments.reduce((sum, payment) => {
-                            return sum + (parseFloat(payment.amount) || 0);
-                        }, 0);
-                        this.updateStats();
-                        
-                        // Update UI if on payments tab
-                        if (this.currentTab === 'payments') {
-                            this.renderPaymentsTable();
-                        }
-                    });
-                
-                // Support tickets listener
-                db.collection('supportTickets')
-                    .where('status', 'in', ['open', 'pending'])
-                    .orderBy('createdAt', 'desc')
-                    .onSnapshot((snapshot) => {
-                        this.data.support = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data(),
-                            // Format timestamp for display
-                            formattedDate: new Date(doc.data().createdAt?.toDate()).toLocaleString()
-                        }));
-                        
-                        // Update stats
-                        this.data.stats.pendingSupport = this.data.support.length;
-                        this.updateStats();
-                        
-                        // Update UI if on support tab
-                        if (this.currentTab === 'support') {
-                            this.renderSupportTable();
-                        }
-                    });
-            }
-            
-            async loadStats() {
+            async initFirebaseListeners() {
                 try {
-                    // Get user count
-                    const usersSnapshot = await db.collection('users').count().get();
-                    this.data.stats.totalUsers = usersSnapshot.data().count;
+                    // Users collection
+                    const usersQuery = query(
+                        collection(this.db, 'users'),
+                        orderBy('createdAt', 'desc')
+                    );
                     
-                    // Get active subscriptions count
-                    const subsSnapshot = await db.collection('subscriptions')
-                        .where('status', '==', 'active')
-                        .count()
-                        .get();
-                    this.data.stats.activeSubscriptions = subsSnapshot.data().count;
+                    onSnapshot(usersQuery, (snapshot) => {
+                        this.data.users = [];
+                        snapshot.forEach((doc) => {
+                            this.data.users.push({ id: doc.id, ...doc.data() });
+                        });
+                        this.renderUsers();
+                        this.updateStats();
+                    });
+
+                    // Subscriptions collection
+                    const subsQuery = query(
+                        collection(this.db, 'subscriptions'),
+                        orderBy('startDate', 'desc')
+                    );
                     
-                    // Get total revenue
-                    const paymentsSnapshot = await db.collection('payments').get();
-                    this.data.stats.totalRevenue = paymentsSnapshot.docs.reduce((sum, doc) => {
-                        return sum + (parseFloat(doc.data().amount) || 0);
-                    }, 0);
+                    onSnapshot(subsQuery, (snapshot) => {
+                        this.data.subscriptions = [];
+                        snapshot.forEach((doc) => {
+                            this.data.subscriptions.push({ id: doc.id, ...doc.data() });
+                        });
+                        this.renderSubscriptions();
+                        this.updateStats();
+                    });
+
+                    // Payments collection
+                    const paymentsQuery = query(
+                        collection(this.db, 'payments'),
+                        orderBy('timestamp', 'desc')
+                    );
                     
-                    // Get open support tickets
-                    const supportSnapshot = await db.collection('supportTickets')
-                        .where('status', 'in', ['open', 'pending'])
-                        .count()
-                        .get();
-                    this.data.stats.pendingSupport = supportSnapshot.data().count;
+                    onSnapshot(paymentsQuery, (snapshot) => {
+                        this.data.payments = [];
+                        snapshot.forEach((doc) => {
+                            this.data.payments.push({ id: doc.id, ...doc.data() });
+                        });
+                        this.renderPayments();
+                        this.updateStats();
+                    });
+
+                    // Support tickets collection
+                    const supportQuery = query(
+                        collection(this.db, 'supportTickets'),
+                        orderBy('createdAt', 'desc')
+                    );
                     
-                    // Calculate changes (mock data for now)
-                    this.data.stats.usersChange = 12.5; // 12.5% increase
-                    this.data.stats.subscriptionsChange = 8.2; // 8.2% increase
-                    this.data.stats.revenueChange = 15.3; // 15.3% increase
-                    
-                    this.updateStats();
+                    onSnapshot(supportQuery, (snapshot) => {
+                        this.data.supportTickets = [];
+                        snapshot.forEach((doc) => {
+                            this.data.supportTickets.push({ id: doc.id, ...doc.data() });
+                        });
+                        this.renderSupportTickets();
+                        this.updateStats();
+                    });
+
                 } catch (error) {
-                    console.error('Error loading stats:', error);
-                    this.showNotification('Failed to load statistics', 'error');
+                    console.error('Error initializing Firebase listeners:', error);
+                    this.showError('Failed to initialize data. Please refresh the page.');
                 }
             }
             
-            updateStats() {
-                // Update stat cards
-                document.getElementById('total-users').textContent = this.data.stats.totalUsers.toLocaleString();
-                document.getElementById('active-subscriptions').textContent = this.data.stats.activeSubscriptions.toLocaleString();
-                document.getElementById('total-revenue').textContent = `ETB ${this.data.stats.totalRevenue.toLocaleString()}`;
-                document.getElementById('open-tickets').textContent = this.data.stats.pendingSupport;
-                
-                // Update change indicators
-                this.updateChangeIndicator('users', this.data.stats.usersChange);
-                this.updateChangeIndicator('subscriptions', this.data.stats.subscriptionsChange);
-                this.updateChangeIndicator('revenue', this.data.stats.revenueChange);
-                
-                // Update badge counts
-                document.getElementById('users-count').textContent = this.data.stats.totalUsers;
-                document.getElementById('subscriptions-count').textContent = this.data.stats.activeSubscriptions;
-                document.getElementById('payments-count').textContent = this.data.payments?.length || 0;
-                document.getElementById('tickets-count').textContent = this.data.stats.pendingSupport;
-            }
-            
-            updateChangeIndicator(metric, change) {
-                const element = document.getElementById(`${metric}-change`);
-                if (!element) return;
-                
-                const isPositive = change >= 0;
-                const icon = isPositive ? 'fa-arrow-up' : 'fa-arrow-down';
-                const changeClass = isPositive ? 'positive' : 'negative';
-                
-                element.innerHTML = `<i class="fas ${icon}"></i> ${Math.abs(change)}% this week`;
-                element.className = `stat-change ${changeClass}`;
-            }
-            
-            async loadTabData(tabName) {
-                const content = document.getElementById(`${tabName}Content`);
-                if (!content) return;
-                
-                // Show loading state
-                content.innerHTML = `
-                    <div class="loading">
-                        <div class="loading-spinner"></div>
-                        <p>Loading ${tabName}...</p>
-                    </div>
-                `;
-                
-                try {
-                    switch (tabName) {
-                        case 'users':
-                            const usersSnapshot = await db.collection('users')
-                                .orderBy('createdAt', 'desc')
-                                .limit(100)
-                                .get();
-                            this.data.users = usersSnapshot.docs.map(doc => ({
-                                id: doc.id,
-                                ...doc.data(),
-                                formattedDate: doc.data().createdAt?.toDate().toLocaleDateString()
-                            }));
-                            this.renderUsersTable();
-                            break;
-                            
-                        case 'subscriptions':
-                            const subsSnapshot = await db.collection('subscriptions')
-                                .orderBy('startDate', 'desc')
-                                .limit(100)
-                                .get();
-                            this.data.subscriptions = subsSnapshot.docs.map(doc => ({
-                                id: doc.id,
-                                ...doc.data(),
-                                formattedStartDate: doc.data().startDate?.toDate().toLocaleDateString(),
-                                formattedEndDate: doc.data().endDate?.toDate().toLocaleDateString()
-                            }));
-                            this.renderSubscriptionsTable();
-                            break;
-                            
-                        case 'payments':
-                            const paymentsSnapshot = await db.collection('payments')
-                                .orderBy('timestamp', 'desc')
-                                .limit(100)
-                                .get();
-                            this.data.payments = paymentsSnapshot.docs.map(doc => ({
-                                id: doc.id,
-                                ...doc.data(),
-                                formattedDate: doc.data().timestamp?.toDate().toLocaleString(),
-                                amountFormatted: `ETB ${parseFloat(doc.data().amount || 0).toFixed(2)}`
-                            }));
-                            this.renderPaymentsTable();
-                            break;
-                            
-                        case 'support':
-                            const supportSnapshot = await db.collection('supportTickets')
-                                .orderBy('createdAt', 'desc')
-                                .limit(100)
-                                .get();
-                            this.data.support = supportSnapshot.docs.map(doc => ({
-                                id: doc.id,
-                                ...doc.data(),
-                                formattedDate: doc.data().createdAt?.toDate().toLocaleString(),
-                                statusClass: doc.data().status === 'open' ? 'status active' : 
-                                            doc.data().status === 'pending' ? 'status pending' : 'status inactive'
-                            }));
-                            this.renderSupportTable();
-                            break;
-                            
-                        case 'analytics':
-                            await this.renderAnalytics();
-                            break;
-                    }
-                } catch (error) {
-                    console.error(`Error loading ${tabName}:`, error);
-                    content.innerHTML = `
+            async renderUsers() {
+                const container = document.getElementById('usersContent');
+                if (!container) return;
+
+                if (this.data.users.length === 0) {
+                    container.innerHTML = `
                         <div class="empty-state">
-                            <i class="fas fa-exclamation-circle"></i>
-                            <h3>Error Loading Data</h3>
-                            <p>Failed to load ${tabName}. Please try again later.</p>
-                            <button class="btn btn-primary" onclick="adminPanel.loadTabData('${tabName}')">
-                                <i class="fas fa-sync"></i> Retry
-                            </button>
+                            <i class="fas fa-users"></i>
+                            <p>No users found</p>
                         </div>
                     `;
+                    return;
                 }
+
+                let html = `
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Subscriptions</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                this.data.users.forEach(user => {
+                    const statusClass = user.isSuspended ? 'status-suspended' : 'status-active';
+                    const statusText = user.isSuspended ? 'Suspended' : 'Active';
+                    
+                    html += `
+                        <tr>
+                            <td>${user.name || 'N/A'}</td>
+                            <td>${user.email || 'N/A'}</td>
+                            <td>${user.phoneNumber || 'N/A'}</td>
+                            <td>${user.subscriptionCount || 0}</td>
+                            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                            <td class="actions">
+                                <button class="btn-icon" onclick="adminPanel.viewUser('${user.id}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn-icon" onclick="adminPanel.messageUser('${user.id}')">
+                                    <i class="fas fa-envelope"></i>
+                                </button>
+                                ${user.isSuspended ? `
+                                    <button class="btn-icon" onclick="adminPanel.activateUser('${user.id}')">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                ` : `
+                                    <button class="btn-icon text-danger" onclick="adminPanel.suspendUser('${user.id}')">
+                                        <i class="fas fa-ban"></i>
+                                    </button>
+                                `}
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += `
+                        </tbody>
+                    </table>
+                `;
+
+                container.innerHTML = html;
             }
             
-            async fetchUsers() {
-                const res = await fetch(`${this.baseUrl}/api/users`);
-                const result = await res.json();
-                return result.success ? result.users : [];
-            }
-            
-            async fetchSubscriptions() {
-                const res = await fetch(`${this.baseUrl}/api/subscriptions`);
-                const result = await res.json();
-                return result.success ? result.subscriptions : [];
-            }
-            
-            async fetchPayments() {
-                const res = await fetch(`${this.baseUrl}/api/payments`);
-                const result = await res.json();
-                return result.success ? result.payments : [];
-            }
-            
-            async fetchSupport() {
-                const res = await fetch(`${this.baseUrl}/api/admin/support-messages`);
-                const result = await res.json();
-                return result.success ? result.messages : [];
+            renderSupportTickets() {
+                const content = document.getElementById('supportContent');
+                if (!content) return;
+                
+                if (!this.data.supportTickets || this.data.supportTickets.length === 0) {
+                    content.innerHTML = [
+                        '<div class="empty-state">',
+                        '  <i class="fas fa-headset"></i>',
+                        '  <p>No support tickets found</p>',
+                        '</div>'
+                    ].join('');
+                    return;
+                }
+                
+                let html = [
+                    '<table class="data-table">',
+                    '  <thead>',
+                    '    <tr>',
+                    '      <th>Ticket ID</th>',
+                    '      <th>User</th>',
+                    '      <th>Subject</th>',
+                    '      <th>Status</th>',
+                    '      <th>Created</th>',
+                    '      <th>Actions</th>',
+                    '    </tr>',
+                    '  </thead>',
+                    '  <tbody>'
+                ].join('');
+
+                // Add ticket rows
+                this.data.supportTickets.forEach(ticket => {
+                    if (!ticket) return;
+                    
+                    const status = ticket.status || 'open';
+                    const statusClass = status === 'open' ? 'status-active' : 
+                                     status === 'pending' ? 'status-pending' : 'status-closed';
+                    
+                    let createdAt = 'N/A';
+                    if (ticket.createdAt) {
+                        try {
+                            const date = ticket.createdAt.toDate ? ticket.createdAt.toDate() : new Date(ticket.createdAt);
+                            createdAt = date.toLocaleDateString();
+                        } catch (e) {
+                            console.error('Error formatting date:', e);
+                        }
+                    }
+                    
+                    const ticketId = ticket.id ? ticket.id.substring(0, 8) : 'N/A';
+                    const userName = ticket.userName || 'Unknown User';
+                    const subject = ticket.subject || 'No subject';
+                    
+                    html += [
+                        '<tr>',
+                        `  <td>#${ticketId}</td>`,
+                        `  <td>${userName}</td>`,
+                        `  <td>${subject}</td>`,
+                        `  <td><span class="status-badge ${statusClass}">${status}</span></td>`,
+                        `  <td>${createdAt}</td>`,
+                        '  <td class="actions">',
+                        `    <button class="btn-icon" onclick="window.adminPanel.viewTicket('${ticket.id}')">`,
+                        '      <i class="fas fa-eye"></i>',
+                        '    </button>',
+                        `    <button class="btn-icon" onclick="window.adminPanel.replyToTicket('${ticket.id}')">`,
+                        '      <i class="fas fa-reply"></i>',
+                        '    </button>',
+                        status !== 'closed' ? 
+                            `    <button class="btn-icon text-danger" onclick="window.adminPanel.closeTicket('${ticket.id}')">` +
+                            '      <i class="fas fa-times"></i>' +
+                            '    </button>' : '',
+                        '  </td>',
+                        '</tr>'
+                    ].join('');
+                });
+
+                // Close table
+                html += [
+                    '  </tbody>',
+                    '</table>'
+                ].join('');
+
+                content.innerHTML = html;
             }
             
             async fetchAnalyticsData() {
-                try {
-                    const res = await fetch(`${this.baseUrl}/api/admin/analytics`);
-                    const result = await res.json();
-                    
-                    if (result.success) {
-                        return result.analytics;
-                    } else {
-                        // Return fallback data with better structure
-                        const currentDate = new Date();
-                        const months = [];
-                        const revenueData = [];
-                        const userData = [];
-                        
-                        for (let i = 5; i >= 0; i--) {
-                            const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-                            months.push(date.toLocaleDateString('en-US', { month: 'short' }));
-                            
-                            // Generate more realistic fallback data
-                            const baseRevenue = 15000 + (5 - i) * 3000;
-                            const variation = Math.random() * 5000;
-                            revenueData.push(Math.round(baseRevenue + variation));
-                            
-                            const baseUsers = 50 + (5 - i) * 15;
-                            const userVariation = Math.random() * 20;
-                            userData.push(Math.round(baseUsers + userVariation));
-                        }
-                        
-                        return {
-                            revenueLabels: months,
-                            revenueData: revenueData,
-                            userLabels: months,
-                            userData: userData
-                        };
+                // This would normally fetch from your API
+                return {
+                    revenueData: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        values: [1200, 1900, 1500, 2500, 2200, 3000]
+                    },
+                    userGrowth: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        values: [100, 250, 400, 600, 800, 1200]
+                    },
+                    serviceUsage: {
+                        labels: ['Netflix', 'Amazon Prime', 'Disney+', 'Spotify', 'YouTube Premium'],
+                        values: [45, 30, 15, 7, 3]
                     }
-                } catch (error) {
-                    console.error('Error fetching analytics data:', error);
-                    // Return minimal fallback data
-                    return {
-                        revenueLabels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                        revenueData: [12000, 18000, 15000, 22000, 28000, 35000],
-                        userLabels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                        userData: [45, 67, 52, 78, 89, 112]
-                    };
-                }
+                };
             }
-            
-            renderUsersTable() {
-                const content = document.getElementById('usersContent');
-                if (!content) return;
-                
-                if (this.data.users.length === 0) {
-                    content.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-users"></i>
-                            <h3>No Users Found</h3>
-                            <p>There are no users in the system yet.</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                const table = `
-                    <div class="table-toolbar">
-                        <div class="search-box">
-                            <i class="fas fa-search"></i>
-                            <input type="text" id="userSearch" placeholder="Search users..." onkeyup="adminPanel.filterTable('userSearch', 'usersTable')">
-                        </div>
-                        <div class="table-actions">
-                            <button class="btn btn-primary" onclick="adminPanel.exportToCSV('users', 'users')">
-                                <i class="fas fa-download"></i> Export CSV
-                            </button>
-                            <button class="btn btn-secondary" onclick="adminPanel.showAddUserModal()">
-                                <i class="fas fa-plus"></i> Add User
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="table-responsive">
-                        <table class="data-table" id="usersTable">
-                            <thead>
-                                <tr>
-                                    <th>User</th>
-                                    <th>Contact</th>
-                                    <th>Status</th>
-                                    <th>Joined</th>
-                                    <th>Last Active</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${this.data.users.map(user => `
-                                    <tr>
-                                        <td>
-                                            <div class="user-info">
-                                                <div class="user-avatar">
-                                                    ${user.photoURL ? 
-                                                        `<img src="${user.photoURL}" alt="${user.displayName || 'User'}">` : 
-                                                        `<div class="avatar-placeholder">
-                                                            ${(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
-                                                        </div>`
-                                                    }
-                                                </div>
-                                                <div class="user-details">
-                                                    <div class="user-name">${user.displayName || 'Unnamed User'}</div>
-                                                    <div class="user-id">ID: ${user.id.substring(0, 8)}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="contact-info">
-                                                ${user.email ? `<div class="email"><i class="fas fa-envelope"></i> ${user.email}</div>` : ''}
-                                                ${user.phoneNumber ? `<div class="phone"><i class="fas fa-phone"></i> ${user.phoneNumber}</div>` : ''}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span class="status-badge ${user.disabled ? 'inactive' : 'active'}">
-                                                <i class="fas ${user.disabled ? 'fa-user-slash' : 'fa-user-check'}"></i>
-                                                ${user.disabled ? 'Inactive' : 'Active'}
-                                            </span>
-                                            ${user.emailVerified ? 
-                                                '<span class="status-badge success"><i class="fas fa-check-circle"></i> Verified</span>' : 
-                                                '<span class="status-badge warning"><i class="fas fa-exclamation-circle"></i> Unverified</span>'
-                                            }
-                                        </td>
-                                        <td>${user.metadata?.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString() : 'N/A'}</td>
-                                        <td>${user.metadata?.lastSignInTime ? this.formatTimeAgo(new Date(user.metadata.lastSignInTime)) : 'Never'}</td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn btn-icon btn-sm btn-info" onclick="adminPanel.viewUser('${user.id}')" title="View User">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button class="btn btn-icon btn-sm btn-warning" onclick="adminPanel.editUser('${user.id}')" title="Edit User">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                ${!user.disabled ? `
-                                                    <button class="btn btn-icon btn-sm btn-danger" 
-                                                        onclick="adminPanel.toggleUserStatus('${user.id}', true)" 
-                                                        title="Disable User">
-                                                        <i class="fas fa-user-slash"></i>
-                                                    </button>
-                                                ` : `
-                                                    <button class="btn btn-icon btn-sm btn-success" 
-                                                        onclick="adminPanel.toggleUserStatus('${user.id}', false)" 
-                                                        title="Enable User">
-                                                        <i class="fas fa-user-check"></i>
-                                                    </button>
-                                                `}
-                                                <div class="dropdown">
-                                                    <button class="btn btn-icon btn-sm btn-secondary dropdown-toggle" title="More Actions">
-                                                        <i class="fas fa-ellipsis-v"></i>
-                                                    </button>
-                                                    <div class="dropdown-menu">
-                                                        <a class="dropdown-item" href="#" onclick="adminPanel.impersonateUser('${user.id}')">
-                                                            <i class="fas fa-user-secret"></i> Impersonate
-                                                        </a>
-                                                        <a class="dropdown-item" href="#" onclick="adminPanel.sendResetPassword('${user.id}')">
-                                                            <i class="fas fa-key"></i> Reset Password
-                                                        </a>
-                                                        <a class="dropdown-item text-danger" href="#" 
-                                                            onclick="adminPanel.confirmDeleteUser('${user.id}', '${user.displayName || 'this user'}')">
-                                                            <i class="fas fa-trash"></i> Delete
-                                                        </a>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div class="table-footer">
-                        <div class="table-info">
-                            Showing ${Math.min(this.data.users.length, 100)} of ${this.data.stats.totalUsers} users
-                        </div>
-                        <div class="table-pagination">
-                            <button class="btn btn-sm btn-secondary" disabled>
-                                <i class="fas fa-chevron-left"></i> Previous
-                            </button>
-                            <span class="page-info">Page 1</span>
-                            <button class="btn btn-sm btn-secondary">
-                                Next <i class="fas fa-chevron-right"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Add User Modal -->
-                    <div id="addUserModal" class="modal">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h3>Add New User</h3>
-                                <span class="close" onclick="adminPanel.closeModal('addUserModal')">&times;</span>
-                            </div>
-                            <div class="modal-body">
-                                <form id="addUserForm" onsubmit="adminPanel.handleAddUser(event)">
-                                    <div class="form-group">
-                                        <label for="userEmail">Email Address</label>
-                                        <input type="email" id="userEmail" required>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="userPassword">Password</label>
-                                        <input type="password" id="userPassword" required>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="userDisplayName">Display Name</label>
-                                        <input type="text" id="userDisplayName">
-                                    </div>
-                                    <div class="form-actions">
-                                        <button type="button" class="btn btn-secondary" onclick="adminPanel.closeModal('addUserModal')">
-                                            Cancel
-                                        </button>
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="fas fa-user-plus"></i> Create User
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                content.innerHTML = table;
-                this.initializeDataTable('usersTable');
-            }
-            
-            renderSubscriptionsTable() {
-                const content = document.getElementById('subscriptionsContent');
-                if (this.data.subscriptions.length === 0) {
-                    content.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-credit-card"></i>
-                            <h3>No subscriptions found</h3>
-                            <p>No subscriptions have been created yet.</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                const html = `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>User ID</th>
-                                <th>Service</th>
-                                <th>Status</th>
-                                <th>Amount</th>
-                                <th>Start Date</th>
-                                <th>End Date</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${this.data.subscriptions.map(sub => `
-                                <tr>
-                                    <td>${sub.id}</td>
-                                    <td>${sub.userId}</td>
-                                    <td>${sub.service || 'N/A'}</td>
-                                    <td><span class="status ${sub.status || 'pending'}">${sub.status || 'pending'}</span></td>
-                                    <td>ETB ${(sub.amount || 0).toLocaleString()}</td>
-                                    <td>${sub.startDate ? new Date(sub.startDate).toLocaleDateString() : 'N/A'}</td>
-                                    <td>${sub.endDate ? new Date(sub.endDate).toLocaleDateString() : 'N/A'}</td>
-                                    <td>
-                                        <button class="btn btn-secondary" onclick="viewSubscription('${sub.id}')">
-                                            <i class="fas fa-eye"></i> View
-                                        </button>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-                content.innerHTML = html;
-            }
-            
-            renderPaymentsTable() {
-                const content = document.getElementById('paymentsContent');
-                if (this.data.payments.length === 0) {
-                    content.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-money-bill-wave"></i>
-                            <h3>No payments found</h3>
-                            <p>No payments have been processed yet.</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                const html = `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>User ID</th>
-                                <th>Amount</th>
-                                <th>Method</th>
-                                <th>Status</th>
-                                <th>Date</th>
-                                <th>Reference</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${this.data.payments.map(payment => `
-                                <tr>
-                                    <td>${payment.id}</td>
-                                    <td>${payment.userId}</td>
-                                    <td>ETB ${(payment.amount || 0).toLocaleString()}</td>
-                                    <td>${payment.method || 'N/A'}</td>
-                                    <td><span class="status ${payment.status || 'pending'}">${payment.status || 'pending'}</span></td>
-                                    <td>${payment.date ? new Date(payment.date).toLocaleDateString() : 'N/A'}</td>
-                                    <td>${payment.reference || 'N/A'}</td>
-                                    <td>
-                                        <button class="btn btn-secondary" onclick="viewPayment('${payment.id}')">
-                                            <i class="fas fa-eye"></i> View
-                                        </button>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-                content.innerHTML = html;
-            }
-            
-            renderSupportTable() {
-                const content = document.getElementById('supportContent');
-                if (this.data.support.length === 0) {
-                    content.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-headset"></i>
-                            <h3>No support tickets found</h3>
-                            <p>No support tickets have been created yet.</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                const html = `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>User ID</th>
-                                <th>Type</th>
-                                <th>Priority</th>
-                                <th>Status</th>
-                                <th>Created</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${this.data.support.map(ticket => `
-                                <tr>
-                                    <td>${ticket.id}</td>
-                                    <td>${ticket.userId}</td>
-                                    <td>${ticket.type || 'N/A'}</td>
-                                    <td><span class="status ${ticket.priority || 'normal'}">${ticket.priority || 'normal'}</span></td>
-                                    <td><span class="status ${ticket.status || 'open'}">${ticket.status || 'open'}</span></td>
-                                    <td>${ticket.created ? new Date(ticket.created).toLocaleDateString() : 'N/A'}</td>
-                                    <td>
-                                        <button class="btn btn-secondary" onclick="viewTicket('${ticket.id}')">
-                                            <i class="fas fa-eye"></i> View
-                                        </button>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-                content.innerHTML = html;
-            }
-            
+
             async initCharts() {
-                // Fetch real data for charts
-                const analyticsData = await this.fetchAnalyticsData();
-                
-                // Revenue Chart
-                const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-                this.charts.revenue = new Chart(revenueCtx, {
-                    type: 'line',
-                    data: {
+                try {
+                    // Fetch real data for charts
+                    const analyticsData = await this.fetchAnalyticsData();
+                    
+                    // Revenue Chart
+                    const revenueCtx = document.getElementById('revenueChart')?.getContext('2d');
+                    if (revenueCtx && analyticsData.revenueData) {
+                        this.charts.revenue = new Chart(revenueCtx, {
+                        type: 'line',
+                        data: {
                         labels: analyticsData.revenueLabels,
                         datasets: [{
                             label: 'Revenue (ETB)',
@@ -1847,7 +1494,11 @@ Reference: ${payment.reference || 'N/A'}
         }
 
         function viewTicket(id) {
-            const ticket = adminPanel.data.support.find(t => t.id === id);
+            if (!adminPanel || !adminPanel.data || !adminPanel.data.support) {
+                alert('Admin panel not properly initialized');
+                return;
+            }
+            const ticket = adminPanel.data.support.find(t => t && t.id === id);
             if (ticket) {
                 const details = `
 Support Ticket Details:
@@ -1907,8 +1558,29 @@ Created: ${ticket.created ? new Date(ticket.created).toLocaleDateString() : 'N/A
 
         // Initialize Admin Panel
         let adminPanel;
+        
+        // Error handling utility
+        function showError(message) {
+            const errorContainer = document.createElement('div');
+            errorContainer.className = 'error-message';
+            errorContainer.style.cssText = 'position:fixed;top:20px;right:20px;padding:15px;background:#ff4444;color:white;border-radius:4px;z-index:10000;';
+            errorContainer.textContent = message;
+            document.body.appendChild(errorContainer);
+            setTimeout(() => errorContainer.remove(), 5000);
+        }
+
+        // Initialize when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
-            adminPanel = new AdminPanel();
+            try {
+                adminPanel = new AdminPanel();
+                adminPanel.init().catch(function(error) {
+                    console.error('Failed to initialize admin panel:', error);
+                    showError('Failed to initialize. Check console for details.');
+                });
+            } catch (error) {
+                console.error('Error initializing admin panel:', error);
+                showError('Critical error occurred. Please refresh the page.');
+            }
         });
     </script>
 </body>
