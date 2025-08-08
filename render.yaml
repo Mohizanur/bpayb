@@ -14,7 +14,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000
+        value: '3000'
       - key: NODE_OPTIONS
         value: --no-warnings=ExperimentalWarning --unhandled-rejections=strict
       - key: TELEGRAM_BOT_TOKEN
