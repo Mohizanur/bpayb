@@ -12,8 +12,9 @@ import { bot } from "./bot.js";
 import { loadI18n, getUserLang, setUserLang } from "./utils/i18n.js";
 import { loadServices } from "./utils/loadServices.js";
 import { firestore } from "./utils/firestore.js";
-import path from "path";
-import { fileURLToPath } from "url";
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
 import { setupStartHandler } from "./handlers/start.js";
 import setupSubscribeHandler from "./handlers/subscribe.js";
 import supportHandler from "./handlers/support.js";
@@ -69,22 +70,56 @@ try {
 
 // Register static file serving for public directory
 try {
+  // Serve public files
   await fastify.register(import('@fastify/static'), {
     root: path.join(process.cwd(), 'public'),
     prefix: '/',
-    decorateReply: false
+    decorateReply: false,
+    index: false,
+    list: false
   });
   console.log("✅ Public static file serving registered");
   
-  // Register static file serving for panel directory
-  await fastify.register(import('@fastify/static'), {
-    root: path.join(process.cwd(), 'panel'),
-    prefix: '/panel',
-    decorateReply: false
+  // Serve panel files
+  const panelPath = path.join(process.cwd(), 'panel');
+  console.log("Panel files path:", panelPath);
+
+  // Register a custom content type for .js files
+  fastify.addContentTypeParser('application/javascript', { parseAs: 'string' }, (req, body, done) => {
+    done(null, body);
   });
-  console.log("✅ Panel static file serving registered");
+  
+  // Serve panel files with explicit MIME types
+  fastify.get('/panel/*', async (req, reply) => {
+    const filePath = req.url.replace(/^\/panel\/?/, '') || 'admin-modern.html';
+    const fullPath = path.join(panelPath, filePath);
+    
+    // Set content type based on file extension
+    if (filePath.endsWith('.js')) {
+      reply.type('application/javascript');
+    } else if (filePath.endsWith('.css')) {
+      reply.type('text/css');
+    } else if (filePath.endsWith('.html')) {
+      reply.type('text/html');
+    }
+    
+    // If the file doesn't exist or it's a directory, serve the main admin page
+    if (!fs.existsSync(fullPath) || fs.statSync(fullPath).isDirectory()) {
+      return reply.sendFile('admin-modern.html', panelPath);
+    }
+    
+    return reply.sendFile(filePath, panelPath);
+  });
+  
+  // Handle root panel route
+  fastify.get('/panel', async (req, reply) => {
+    return reply.sendFile('admin-modern.html', panelPath);
+  });
+  
+  console.log("✅ Panel static file serving registered at /panel");
 } catch (error) {
   console.error("❌ Error registering static files:", error);
+  throw error; // Rethrow to prevent the server from starting with broken static files
 }
 
 // CRITICAL FIX: Register ALL handlers BEFORE middleware
