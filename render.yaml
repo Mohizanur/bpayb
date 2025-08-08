@@ -3,7 +3,7 @@ services:
     name: birrpay-bot
     env: node
     plan: free
-    nodeVersion: 18.20.2
+    nodeVersion: 18.20.3
     buildCommand: |
       npm ci --production=false
       npm run build
