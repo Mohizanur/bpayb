@@ -3,11 +3,11 @@ services:
     name: birrpay-bot
     env: node
     plan: free
-    nodeVersion: 20.x
+    nodeVersion: 18.20.2
     buildCommand: |
-      npm install --production=false
+      npm ci --production=false
       npm run build
-    startCommand: npm start
+    startCommand: npm run prod
     healthCheckPath: /health
     autoDeploy: true
     envVars:
