@@ -3,9 +3,9 @@ services:
     name: birrpay-bot
     env: node
     plan: free
-    nodeVersion: 18.20.3
+    nodeVersion: 20.11.1
     buildCommand: |
-      npm install --production=false
+      npm install --legacy-peer-deps
       npm dedupe
       npm cache clean --force
     startCommand: npm start
