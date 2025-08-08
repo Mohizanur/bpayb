@@ -107,6 +107,10 @@
                 <i class="fas fa-headset"></i> Support
                 <span class="nav-count" id="tickets-count">0</span>
             </div>
+            <div class="nav-item" onclick="showTab('services')">
+                <i class="fas fa-cogs"></i> Services
+                <span class="nav-count" id="services-count">0</span>
+            </div>
         </div>
 
         <div class="main-content">
@@ -264,6 +268,16 @@
                     </table>
                 </div>
             </div>
+
+            <div id="services-tab" class="tab-content">
+                <div id="services-content">
+                    <div class="empty-state">
+                        <i class="fas fa-cogs fa-3x"></i>
+                        <h3>Loading Services...</h3>
+                        <p>Please wait while we fetch service data.</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -290,7 +304,8 @@
             users: [],
             subscriptions: [],
             payments: [],
-            support: []
+            support: [],
+            services: []
         };
         
         let charts = {};
@@ -459,6 +474,13 @@
 
         async function loadTabData(tabName) {
             console.log(`Loading enhanced ${tabName} data...`);
+            
+            // Special handling for services tab
+            if (tabName === 'services') {
+                loadServices();
+                return;
+            }
+            
             try {
                 const response = await fetch(`/api/admin/${tabName}`);
                 const data = await response.json();
@@ -568,9 +590,15 @@
         }
 
         function updateTabCounts(tabName, data) {
-            const countElement = document.getElementById(`${tabName}-total`);
-            if (countElement) {
-                countElement.textContent = `${data.length} ${tabName}`;
+            const totalElement = document.getElementById(`${tabName}-total`);
+            if (totalElement) {
+                totalElement.textContent = `${data.length} ${tabName}`;
+            }
+
+            // Also update sidebar badge if present (e.g., services-count)
+            const sidebarCount = document.getElementById(`${tabName}-count`);
+            if (sidebarCount) {
+                sidebarCount.textContent = data.length;
             }
         }
 
@@ -675,6 +703,259 @@
             loadRealStats();
             setInterval(loadRealStats, 30000);
         });
+
+        // Services tab functions
+        async function loadServices() {
+            try {
+                const response = await fetch('/api/admin/services');
+                const data = await response.json();
+                
+                if (data.success && data.services) {
+                    currentData.services = data.services;
+                    updateServicesTable(data.services);
+                    updateTabCounts('services', data.services);
+                }
+            } catch (error) {
+                console.error('Error loading services:', error);
+                showNotification('Failed to load services data', 'error');
+            }
+        }
+
+        function updateServicesTable(services) {
+            const container = document.getElementById('services-content');
+            if (!container) return;
+
+            if (!services || services.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-cogs fa-3x"></i>
+                        <h3>No Services Found</h3>
+                        <p>There are currently no services in the system.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="header">
+                    <h2><i class="fas fa-cogs"></i> Service Management</h2>
+                    <div class="header-actions">
+                        <span id="services-total" class="nav-count" style="margin-right: 12px;">${services.length} services</span>
+                        <button class="btn btn-primary" onclick="showAddServiceModal()">
+                            <i class="fas fa-plus"></i> Add Service
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>Price (ETB)</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            services.forEach(service => {
+                html += `
+                    <tr>
+                        <td>${service.name}</td>
+                        <td>${service.price}</td>
+                        <td><span class="status-badge ${service.status}">${service.status}</span></td>
+                        <td>
+                            <button class="btn btn-secondary" onclick="editService('${service.id}')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn btn-secondary" onclick="deleteService('${service.id}')">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function showAddServiceModal() {
+            // Create modal for adding service
+            const modal = document.createElement('div');
+            modal.id = 'service-modal';
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <span class="close" onclick="closeServiceModal()">&times;</span>
+                    <h2>Add New Service</h2>
+                    <form id="service-form">
+                        <div class="form-group">
+                            <label for="service-name">Service Name:</label>
+                            <input type="text" id="service-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="service-price">Price (ETB):</label>
+                            <input type="number" id="service-price" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="service-status">Status:</label>
+                            <select id="service-status">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Service</button>
+                    </form>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Handle form submission
+            document.getElementById('service-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const name = document.getElementById('service-name').value;
+                const price = document.getElementById('service-price').value;
+                const status = document.getElementById('service-status').value;
+                
+                try {
+                    const response = await fetch('/api/admin/services', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ name, price: parseInt(price), status })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        showNotification('Service added successfully!', 'success');
+                        closeServiceModal();
+                        loadServices();
+                    } else {
+                        showNotification('Failed to add service: ' + result.error, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error adding service:', error);
+                    showNotification('Failed to add service', 'error');
+                }
+            });
+        }
+
+        function closeServiceModal() {
+            const modal = document.getElementById('service-modal');
+            if (modal) modal.remove();
+        }
+
+        function editService(serviceId) {
+            // Find service data
+            const service = currentData.services.find(s => s.id === serviceId);
+            if (!service) return;
+
+            // Create modal for editing service
+            const modal = document.createElement('div');
+            modal.id = 'service-modal';
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <span class="close" onclick="closeServiceModal()">&times;</span>
+                    <h2>Edit Service</h2>
+                    <form id="service-form">
+                        <div class="form-group">
+                            <label for="service-name">Service Name:</label>
+                            <input type="text" id="service-name" value="${service.name}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="service-price">Price (ETB):</label>
+                            <input type="number" id="service-price" min="1" value="${service.price}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="service-status">Status:</label>
+                            <select id="service-status">
+                                <option value="active" ${service.status === 'active' ? 'selected' : ''}>Active</option>
+                                <option value="inactive" ${service.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update Service</button>
+                    </form>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Handle form submission
+            document.getElementById('service-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const name = document.getElementById('service-name').value;
+                const price = document.getElementById('service-price').value;
+                const status = document.getElementById('service-status').value;
+                
+                try {
+                    const response = await fetch(`/api/admin/services/${serviceId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ name, price: parseInt(price), status })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        showNotification('Service updated successfully!', 'success');
+                        closeServiceModal();
+                        loadServices();
+                    } else {
+                        showNotification('Failed to update service: ' + result.error, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error updating service:', error);
+                    showNotification('Failed to update service', 'error');
+                }
+            });
+        }
+
+        function deleteService(serviceId) {
+            if (confirm('Are you sure you want to delete this service?')) {
+                fetch(`/api/admin/services/${serviceId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        showNotification('Service deleted successfully!', 'success');
+                        loadServices();
+                    } else {
+                        showNotification('Failed to delete service: ' + result.error, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting service:', error);
+                    showNotification('Failed to delete service', 'error');
+                });
+            }
+        }
+
+        // Add CSS for modal and form
+        const style = document.createElement('style');
+        style.textContent = `
+            .modal { display: block; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+            .modal-content { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); margin: 15% auto; padding: 30px; border: 1px solid #334155; border-radius: 15px; width: 500px; max-width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+            .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+            .close:hover { color: white; }
+            .form-group { margin-bottom: 20px; }
+            .form-group label { display: block; margin-bottom: 8px; font-weight: 600; }
+            .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #334155; border-radius: 8px; background: rgba(15, 23, 42, 0.8); color: #e2e8f0; }
+            .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+            .status-badge.active { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+            .status-badge.inactive { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>

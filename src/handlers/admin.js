@@ -75,7 +75,10 @@ export default function adminHandler(bot) {
         .get();
 
       const usersCount = usersSnapshot.size;
-      const webPanelUrl = `${process.env.WEB_APP_URL || 'https://your-deployed-url.com'}/panel`;
+      // Build admin panel URL dynamically
+      const port = process.env.PORT || 3007;
+      const baseUrl = process.env.ADMIN_PANEL_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
+      const webPanelUrl = baseUrl.endsWith('/panel') ? baseUrl : `${baseUrl}/panel`;
 
       const adminMenu = `🔧 **Admin Panel**\n\n📊 **Quick Stats:**\n• 🔄 Pending Approvals: ${pendingCount}\n• ✅ Active Subscriptions: ${activeCount}\n• 👥 Total Users: ${usersCount}\n\n**Management Options:**`;
 

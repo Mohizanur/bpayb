@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { getServices, createService, updateService, deleteService } from './src/utils/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +25,19 @@ fastify.get('/panel', async (request, reply) => {
   } catch (error) {
     console.error('Error serving admin panel:', error);
     return reply.status(500).send({ error: 'Internal Server Error', message: error.message });
+  }
+});
+
+// Admin command for bot
+fastify.get('/api/admin-panel-url', async (request, reply) => {
+  try {
+    const port = process.env.PORT || 3007;
+    return { 
+      success: [{ text: '🌐 Admin Panel', url: `http://localhost:3007/panel` }]
+    };
+  } catch (error) {
+    console.error('Error getting admin panel URL:', error);
+    return { success: false, error: error.message };
   }
 });
 
@@ -171,195 +185,201 @@ fastify.get('/api/admin/users', async (request, reply) => {
   }
 });
 
-fastify.get('/api/admin/subscriptions', async (request, reply) => {
-  try {
-    // Use your existing database function to get REAL subscriptions
-    const subscriptions = await getAllSubscriptions();
-    
-    if (subscriptions && Array.isArray(subscriptions)) {
-      return {
-        success: true,
-        subscriptions: subscriptions.map(sub => ({
-          id: sub.id,
-          userId: sub.userId,
-          serviceId: sub.serviceId,
-          serviceName: sub.serviceName || sub.service || 'Unknown Service',
-          status: sub.status,
-          amount: sub.amount || sub.price || 0,
-          createdAt: sub.createdAt?.toDate?.()?.toISOString() || sub.createdAt
-        }))
-      };
-    } else {
-      // Mock data fallback
-      return mockSubscriptionsData();
-    }
-  } catch (error) {
-    console.error('Error fetching real subscriptions:', error);
-    return mockSubscriptionsData();
-  }
-});
-
-function mockSubscriptionsData() {
-  return {
-    success: true,
-    subscriptions: [
-      {
-        id: '1',
-        userId: '1',
-        serviceId: 'netflix',
-        status: 'active',
-        amount: 15,
-        createdAt: '2024-01-16T09:00:00Z'
-      },
-      {
-        id: '2',
-        userId: '1',
-        serviceId: 'spotify',
-        status: 'active',
-        amount: 10,
-        createdAt: '2024-01-20T11:30:00Z'
-      },
-      {
-        id: '3',
-        userId: '2',
-        serviceId: 'youtube',
-        status: 'pending',
-        amount: 12,
-        createdAt: '2024-02-01T16:15:00Z'
-      },
-      {
-        id: '4',
-        userId: '1',
-        serviceId: 'disney',
-        status: 'inactive',
-        amount: 8,
-        createdAt: '2024-01-25T08:45:00Z'
-      },
-      {
-        id: '5',
-        userId: '2',
-        serviceId: 'hulu',
-        status: 'active',
-        amount: 13,
-        createdAt: '2024-02-10T13:20:00Z'
-      },
-      {
-        id: '6',
-        userId: '1',
-        serviceId: 'amazon_prime',
-        status: 'inactive',
-        amount: 9,
-        createdAt: '2024-01-30T07:10:00Z'
-      },
-      {
-        id: '7',
-        userId: '2',
-        serviceId: 'hbo_max',
-        status: 'pending',
-        amount: 16,
-        createdAt: '2024-02-15T19:30:00Z'
-      },
-      {
-        id: '8',
-        userId: '1',
-        serviceId: 'apple_tv',
-        status: 'inactive',
-        amount: 7,
-        createdAt: '2024-02-05T12:00:00Z'
-      },
-      {
-        id: '9',
-        userId: '2',
-        serviceId: 'paramount',
-        status: 'active',
-        amount: 11,
-        createdAt: '2024-02-18T15:45:00Z'
-      },
-      {
-        id: '10',
-        userId: '1',
-        serviceId: 'peacock',
-        status: 'inactive',
-        amount: 6,
-        createdAt: '2024-02-12T10:15:00Z'
-      },
-      {
-        id: '11',
-        userId: '2',
-        serviceId: 'discovery',
-        status: 'pending',
-        amount: 14,
-        createdAt: '2024-02-22T17:30:00Z'
-      }
-    ]
-  };
-}
-
-fastify.get('/api/admin/payments', async (request, reply) => {
-  try {
-    // Use your existing database function to get REAL payments
-    const payments = await getAllPayments();
-    
-    if (payments && Array.isArray(payments)) {
-      return {
-        success: true,
-        payments: payments.map(payment => ({
-          id: payment.id,
-          userId: payment.userId,
-          amount: payment.amount || 0,
-          status: payment.status,
-          createdAt: payment.createdAt?.toDate?.()?.toISOString() || payment.createdAt,
-          method: payment.method || 'Unknown'
-        }))
-      };
-    } else {
-      // Mock data fallback
-      return mockPaymentsData();
-    }
-  } catch (error) {
-    console.error('Error fetching real payments:', error);
-    return mockPaymentsData();
-  }
-});
-
-function mockPaymentsData() {
-  return {
-    success: true,
-    payments: [
-      {
-        id: '1',
-        userId: '1',
-        amount: 15,
-        status: 'completed',
-        method: 'telebirr',
-        createdAt: '2024-01-16T09:05:00Z'
-      },
-      {
-        id: '2',
-        userId: '2',
-        amount: 25,
-        status: 'completed',
-        method: 'cbe_birr',
-        createdAt: '2024-02-01T16:20:00Z'
-      }
-    ]
-  };
-}
-
-fastify.get('/api/admin/support', async (request, reply) => {
-  return {
-    success: true,
-    support: []
-  };
-});
-
 // Start server
 const start = async () => {
   try {
-    await fastify.listen({ port: 3006, host: '0.0.0.0' });
-    console.log('🚀 Enhanced BirrPay Admin Server running on http://localhost:3006');
-    console.log('📊 Enhanced Admin Panel available at http://localhost:3006/panel');
-    console.log('✨ Features: Real data matching, advanced filtering, charts, export options');
+    // Admin endpoints
+    fastify.get('/api/admin/subscriptions', async (request, reply) => {
+      try {
+        // Use your existing database function to get REAL subscriptions
+        const subscriptions = await getAllSubscriptions();
+        
+        if (subscriptions && Array.isArray(subscriptions)) {
+          return {
+            success: true,
+            subscriptions: subscriptions.map(sub => ({
+              id: sub.id,
+              userId: sub.userId,
+              serviceId: sub.serviceId,
+              serviceName: sub.serviceName || sub.service || 'Unknown Service',
+              status: sub.status,
+              amount: sub.amount || sub.price || 0,
+              createdAt: sub.createdAt?.toDate?.()?.toISOString() || sub.createdAt
+            }))
+          };
+        } else {
+          // Mock data fallback
+          return mockSubscriptionsData();
+        }
+      } catch (error) {
+        console.error('Error fetching real subscriptions:', error);
+        return mockSubscriptionsData();
+      }
+    });
+    
+    fastify.get('/api/admin/payments', async (request, reply) => {
+      try {
+        // Use your existing database function to get REAL payments
+        const payments = await getAllPayments();
+        
+        if (payments && Array.isArray(payments)) {
+          return {
+            success: true,
+            payments: payments.map(payment => ({
+              id: payment.id,
+              userId: payment.userId,
+              amount: payment.amount || 0,
+              status: payment.status,
+              createdAt: payment.createdAt?.toDate?.()?.toISOString() || payment.createdAt,
+              method: payment.method || 'Unknown'
+            }))
+          };
+        } else {
+          // Mock data fallback
+          return mockPaymentsData();
+        }
+      } catch (error) {
+        console.error('Error fetching real payments:', error);
+        return mockPaymentsData();
+      }
+    });
+    
+    function mockPaymentsData() {
+      return {
+        success: true,
+        payments: [
+          {
+            id: '1',
+            userId: '1',
+            amount: 15,
+            status: 'completed',
+            method: 'telebirr',
+            createdAt: '2024-01-16T09:05:00Z'
+          },
+          {
+            id: '2',
+            userId: '2',
+            amount: 25,
+            status: 'completed',
+            method: 'cbe_birr',
+            createdAt: '2024-02-01T16:20:00Z'
+          }
+        ]
+      };
+    }
+    
+    fastify.get('/api/admin/support', async (request, reply) => {
+      return {
+        success: true,
+        support: []
+      };
+    });
+    
+    // Simple bot implementation for testing admin panel access
+    fastify.get('/api/bot/admin', async (request, reply) => {
+      try {
+        const adminUrl = `http://localhost:3007/panel`;
+        return { 
+          success: true, 
+          message: "Admin panel URL", 
+          url: adminUrl 
+        };
+      } catch (error) {
+        console.error('Error in bot admin command:', error);
+        return { success: false, error: error.message };
+      }
+    });
+    
+    // Service management endpoints
+    fastify.get('/api/admin/services', async (request, reply) => {
+      try {
+        const services = await getServices();
+        return { 
+          success: true, 
+          services: services 
+        };
+      } catch (error) {
+        console.error('Error getting services:', error);
+        return { success: false, error: error.message };
+      }
+    });
+    
+    fastify.post('/api/admin/services', async (request, reply) => {
+      try {
+        const { name, price, status } = request.body;
+        
+        if (!name || !price || !status) {
+          return { success: false, error: 'Missing required fields: name, price, status' };
+        }
+        
+        const serviceData = {
+          name,
+          price: parseInt(price),
+          status,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        const result = await createService(serviceData);
+        if (result.success) {
+          return { success: true, service: result.data };
+        } else {
+          return { success: false, error: result.error };
+        }
+      } catch (error) {
+        console.error('Error creating service:', error);
+        return { success: false, error: error.message };
+      }
+    });
+    
+    fastify.put('/api/admin/services/:id', async (request, reply) => {
+      try {
+        const serviceId = request.params.id;
+        const { name, price, status } = request.body;
+        
+        if (!name && !price && !status) {
+          return { success: false, error: 'No update data provided' };
+        }
+        
+        const updates = {};
+        if (name) updates.name = name;
+        if (price) updates.price = parseInt(price);
+        if (status) updates.status = status;
+        updates.updatedAt = new Date();
+        
+        const result = await updateService(serviceId, updates);
+        if (result.success) {
+          return { success: true, message: 'Service updated successfully' };
+        } else {
+          return { success: false, error: result.error };
+        }
+      } catch (error) {
+        console.error('Error updating service:', error);
+        return { success: false, error: error.message };
+      }
+    });
+    
+    fastify.delete('/api/admin/services/:id', async (request, reply) => {
+      try {
+        const serviceId = request.params.id;
+        
+        const result = await deleteService(serviceId);
+        if (result.success) {
+          return { success: true, message: 'Service deleted successfully' };
+        } else {
+          return { success: false, error: result.error };
+        }
+      } catch (error) {
+        console.error('Error deleting service:', error);
+        return { success: false, error: error.message };
+      }
+    });
+    
+    await fastify.listen({ port: 3007, host: '0.0.0.0' });
+    console.log('dYs? Enhanced BirrPay Admin Server running on http://localhost:3007');
+    console.log('dY"S Enhanced Admin Panel available at http://localhost:3007/panel');
+  
+    console.log('? Features: Real data matching, advanced filtering, charts, export options');
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

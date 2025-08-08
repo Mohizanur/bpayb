@@ -80,50 +80,43 @@ try {
   });
   console.log("✅ Public static file serving registered");
   
-  // Serve panel files
-  const panelPath = path.join(process.cwd(), 'panel');
-  console.log("Panel files path:", panelPath);
+  // Serve panel files - register as a separate plugin context
+  await fastify.register(async function (fastify) {
+    const panelPath = path.join(process.cwd(), 'panel');
+    console.log("Panel files path:", panelPath);
 
-  // Register a custom content type for .js files
-  fastify.addContentTypeParser('application/javascript', { parseAs: 'string' }, (req, body, done) => {
-    done(null, body);
-  });
-  
-  // Serve panel files with explicit MIME types
-  fastify.get('/panel/*', async (req, reply) => {
-    const filePath = req.url.replace(/^\/panel\/?/, '') || 'admin-modern.html';
-    const fullPath = path.join(panelPath, filePath);
-    
-    // Set content type based on file extension
-    if (filePath.endsWith('.js')) {
-      reply.type('application/javascript');
-    } else if (filePath.endsWith('.css')) {
-      reply.type('text/css');
-    } else if (filePath.endsWith('.html')) {
-      reply.type('text/html');
-    }
-    
-    // If the file doesn't exist or it's a directory, serve the main admin page
-    if (!fs.existsSync(fullPath) || fs.statSync(fullPath).isDirectory()) {
-      return reply.sendFile('admin-modern.html', panelPath);
-    }
-    
-    return reply.sendFile(filePath, panelPath);
-  });
-  
-  // Handle root panel route
-  fastify.get('/panel', async (req, reply) => {
-    return reply.sendFile('admin-modern.html', panelPath);
+    // Register static files for panel
+    await fastify.register(import('@fastify/static'), {
+      root: panelPath,
+      prefix: '/panel/',
+      decorateReply: false
+    });
+
+    // Handle root panel route
+    fastify.get('/panel', async (req, reply) => {
+      try {
+        const adminHtmlPath = path.join(panelPath, 'admin-fixed.html');
+        const htmlContent = fs.readFileSync(adminHtmlPath, 'utf8');
+        return reply.type('text/html').send(htmlContent);
+      } catch (error) {
+        console.error('Error serving admin panel:', error);
+        return reply.status(500).send({ error: 'Internal Server Error', message: error.message });
+      }
+    });
   });
   
   console.log("✅ Panel static file serving registered at /panel");
-} catch (error) {
-  console.error("❌ Error registering static files:", error);
-  throw error; // Rethrow to prevent the server from starting with broken static files
-}
 
 // CRITICAL FIX: Register ALL handlers BEFORE middleware
 console.log("🚀 REGISTERING ALL HANDLERS FIRST...");
+
+// Register admin handler early so /admin works and inline buttons are available
+try {
+  adminHandler(bot);
+  console.log("✅ Admin handler registered");
+} catch (e) {
+  console.error("❌ Failed to register admin handler:", e.message);
+}
 
 // Direct command handlers with enhanced debugging
 bot.command("help", async (ctx) => {
@@ -1907,8 +1900,9 @@ async function startServer() {
       // Set up webhook if in production
       if (process.env.NODE_ENV === 'production') {
         // Try to get the Render URL from environment variables
-        const renderUrl = process.env.RENDER_EXTERNAL_URL || 
-                         `https://${process.env.RENDER_SERVICE_NAME || 'bpayb'}.onrender.com`;
+        const renderUrl = process.env.WEB_APP_URL ||
+                          process.env.RENDER_EXTERNAL_URL || 
+                          `https://${process.env.RENDER_SERVICE_NAME || 'bpayb'}.onrender.com`;
         
         console.log(`🌐 Using Render URL: ${renderUrl}`);
         
