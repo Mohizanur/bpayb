@@ -39,6 +39,59 @@ const notifyUser = async (bot, userId, message, options = {}) => {
 };
 
 export default function adminHandler(bot) {
+  // Handle admin panel button click
+  bot.action('admin_panel', async (ctx) => {
+    try {
+      if (!isAuthorizedAdmin(ctx)) {
+        await ctx.answerCbQuery('❌ Unauthorized access');
+        return;
+      }
+
+      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      const webPanelUrl = `${process.env.WEB_APP_URL || 'https://your-deployed-url.com'}/panel`;
+      
+      const adminMessage = `👑 *Admin Panel*\n\n` +
+        `🔹 *Quick Actions*\n` +
+        `• View all users\n` +
+        `• Manage subscriptions\n` +
+        `• Process payments\n\n` +
+        `🔗 [Open Web Admin Panel](${webPanelUrl})`;
+      
+      await ctx.editMessageText(adminMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { 
+                text: '🖥️ Open Web Admin', 
+                url: webPanelUrl 
+              }
+            ],
+            [
+              { text: '👥 Manage Users', callback_data: 'admin_users' },
+              { text: '📊 View Stats', callback_data: 'admin_stats' }
+            ],
+            [
+              { text: '📝 Manage Services', callback_data: 'admin_services' },
+              { text: '💬 Support Tickets', callback_data: 'admin_support' }
+            ],
+            [
+              { 
+                text: lang === 'am' ? '⬅️ ወደ ዋናው ገጽ' : '⬅️ Back to Main', 
+                callback_data: 'back_to_start' 
+              }
+            ]
+          ]
+        }
+      });
+      
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in admin panel handler:', error);
+      await ctx.answerCbQuery('❌ Error loading admin panel');
+    }
+  });
+  
   
   // Handle message replies for admin operations
   bot.on('text', async (ctx, next) => {

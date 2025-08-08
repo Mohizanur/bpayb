@@ -129,6 +129,9 @@ export function setupStartHandler(bot) {
           : `\n\n📊 **Your Account:** ${activeCount} Active Subscriptions`;
       }
 
+      // Check if user is admin
+      const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
+      
       // Create enhanced main menu
       const keyboard = [
         // Primary actions row
@@ -156,6 +159,16 @@ export function setupStartHandler(bot) {
           { text: lang === "am" ? "🌐 ቋንቋ" : "🌐 Language", callback_data: "language_settings" }
         ]
       ];
+      
+      // Add admin menu if user is admin
+      if (isAdmin) {
+        keyboard.push([
+          { 
+            text: "👑 Admin Panel", 
+            callback_data: "admin_panel"
+          }
+        ]);
+      }
 
       const fullMessage = `${welcomeBackTitle}\n\n${subtitle}\n\n${description}${personalizedMessage}\n\n${lang === "am" ? "ከታች አንዱን ይምረጡ:" : "Choose an option below:"}`;
 
