@@ -12,8 +12,7 @@
     "test:coverage": "c8 node --test tests/*.test.js",
     "lint": "eslint src/",
     "format": "prettier --write src/",
-    "build": "echo 'No build step required'",
-    "postinstall": "npm install debug@4.3.4 ms@2.1.3",
+    "build": "npm install --production=false && npm dedupe",
     "serve": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning' node src/index.js",
     "check:services": "node scripts/checkServices.js",
     "prod": "cross-env NODE_ENV=production NODE_OPTIONS='--experimental-require' node -r ./scripts/suppress-debug.cjs src/index.js"
