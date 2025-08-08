@@ -105,14 +105,20 @@ try {
     // Handle root panel route
     fastify.get('/panel', async (req, reply) => {
       try {
-        // Security headers for the admin panel HTML
+        // Log request for debugging in Render
+        console.log('📄 Serving /panel to', req.headers['x-forwarded-for'] || req.ip);
+        // Security headers for the admin panel HTML (relaxed to ensure CDN works in production)
         reply
-          .header('Content-Security-Policy', "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https:; font-src 'self' data:")
+          .header('Content-Security-Policy', "default-src 'self' data: blob: https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; connect-src 'self' https:; font-src 'self' data: https:")
           .header('X-Content-Type-Options', 'nosniff')
           .header('Referrer-Policy', 'no-referrer')
           .header('Cache-Control', 'no-cache')
-          .type('text/html')
-          .sendFile('admin-fixed.html');
+          .type('text/html');
+
+        // Use a direct file read to avoid edge cases with streaming on some hosts
+        const adminHtmlPath = path.join(panelPath, 'admin-fixed.html');
+        const html = fs.readFileSync(adminHtmlPath, 'utf8');
+        return reply.send(html);
       } catch (error) {
         console.error('Error serving admin panel:', error);
         return reply.status(500).send({ error: 'Internal Server Error', message: error.message });
