@@ -288,12 +288,19 @@ bot.command("admin", async (ctx) => {
     }
     
     const lang = ctx.userLang || 'en';
+    // Get the base URL for the admin panel
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const adminPanelUrl = `${baseUrl}/panel`;
+    
     const message = lang === 'am' 
-      ? '👋 እንኳን ወደ የአስተዳዳሪ ፓነል መጡ! ከታች ካሉት አማራጮች ይምረጡ:'
-      : '👋 Welcome to the Admin Panel! Please choose an option below:';
+      ? `👋 እንኳን ወደ የአስተዳዳሪ ፓነል መጡ!\n\n🌐 የድረ-ገጽ አስተዳዳሪ ፓነል: ${adminPanelUrl}\n\nወይም ከታች ካሉት አማራጮች ይምረጡ:`
+      : `👋 Welcome to the Admin Panel!\n\n🌐 Web Admin Panel: ${adminPanelUrl}\n\nOr choose an option below:`;
       
     const keyboard = {
       inline_keyboard: [
+        [
+          { text: '🌐 Open Web Panel', url: adminPanelUrl }
+        ],
         [
           { text: lang === 'am' ? '📊 ስታቲስቲክስ' : '📊 Statistics', callback_data: 'admin_stats' },
           { text: lang === 'am' ? '👥 ተጠቃሚዎች' : '👥 Users', callback_data: 'admin_users' }
