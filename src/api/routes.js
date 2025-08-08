@@ -26,6 +26,7 @@ import {
   formatCurrency 
 } from "../utils/payment.js";
 import { loadServices } from "../utils/loadServices.js";
+import { requireAdmin } from "../middleware/requireAdmin.js";
 
 let usersRouteRegistered = false;
 
@@ -326,7 +327,7 @@ export const adminRoutes = (fastify) => {
   
   // Aliases to support frontend paths expecting /api/admin/*
   // Users
-  fastify.get('/api/admin/users', async (req, reply) => {
+  fastify.get('/api/admin/users', { preHandler: requireAdmin }, async (req, reply) => {
     try {
       const users = await getAllUsers();
       return { success: true, users };
@@ -337,7 +338,7 @@ export const adminRoutes = (fastify) => {
   });
 
   // Subscriptions
-  fastify.get('/api/admin/subscriptions', async (req, reply) => {
+  fastify.get('/api/admin/subscriptions', { preHandler: requireAdmin }, async (req, reply) => {
     try {
       const subscriptions = await getAllSubscriptions();
       return { success: true, subscriptions };
@@ -348,7 +349,7 @@ export const adminRoutes = (fastify) => {
   });
 
   // Payments
-  fastify.get('/api/admin/payments', async (req, reply) => {
+  fastify.get('/api/admin/payments', { preHandler: requireAdmin }, async (req, reply) => {
     try {
       const payments = await getAllPayments();
       return { success: true, payments };
@@ -359,7 +360,7 @@ export const adminRoutes = (fastify) => {
   });
 
   // Services
-  fastify.get('/api/admin/services', async (req, reply) => {
+  fastify.get('/api/admin/services', { preHandler: requireAdmin }, async (req, reply) => {
     try {
       const services = await loadServices();
       return { success: true, services };
@@ -370,7 +371,7 @@ export const adminRoutes = (fastify) => {
   });
 
   // Support (list)
-  fastify.get('/api/admin/support', async (req, reply) => {
+  fastify.get('/api/admin/support', { preHandler: requireAdmin }, async (req, reply) => {
     try {
       const { status } = req.query;
       const messages = await getSupportMessages(status || 'all');
@@ -382,7 +383,7 @@ export const adminRoutes = (fastify) => {
   });
 
   // Get admin stats
-  fastify.get('/api/admin/stats', async (req, reply) => {
+  fastify.get('/api/admin/stats', { preHandler: requireAdmin }, async (req, reply) => {
     try {
       const stats = await getAdminStats();
       
@@ -408,7 +409,7 @@ export const adminRoutes = (fastify) => {
   });
 
   // Get pending subscriptions
-  fastify.get('/api/admin/subscriptions/pending', async (req, reply) => {
+  fastify.get('/api/admin/subscriptions/pending', { preHandler: requireAdmin }, async (req, reply) => {
     try {
       const subscriptions = await getPendingSubscriptions();
       return { success: true, subscriptions };
@@ -419,7 +420,7 @@ export const adminRoutes = (fastify) => {
   });
 
   // Approve subscription
-  fastify.post('/api/admin/subscriptions/:id/approve', async (req, reply) => {
+  fastify.post('/api/admin/subscriptions/:id/approve', { preHandler: requireAdmin }, async (req, reply) => {
     try {
       const { id } = req.params;
       const { adminId } = req.body;
@@ -438,7 +439,7 @@ export const adminRoutes = (fastify) => {
   });
 
   // Reject subscription
-  fastify.post('/api/admin/subscriptions/:id/reject', async (req, reply) => {
+  fastify.post('/api/admin/subscriptions/:id/reject', { preHandler: requireAdmin }, async (req, reply) => {
     try {
       const { id } = req.params;
       const { adminId, reason } = req.body;
@@ -457,7 +458,7 @@ export const adminRoutes = (fastify) => {
   });
 
   // Get support messages
-  fastify.get('/api/admin/support-messages', async (req, reply) => {
+  fastify.get('/api/admin/support-messages', { preHandler: requireAdmin }, async (req, reply) => {
     try {
       const { status } = req.query;
       const messages = await getSupportMessages(status);
@@ -469,7 +470,7 @@ export const adminRoutes = (fastify) => {
   });
 
   // Get detailed analytics
-  fastify.get('/api/admin/analytics', async (req, reply) => {
+  fastify.get('/api/admin/analytics', { preHandler: requireAdmin }, async (req, reply) => {
     try {
       const { period = '30d' } = req.query;
       

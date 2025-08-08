@@ -37,6 +37,7 @@ import {
     supportRoutes, 
     utilityRoutes 
 } from "./api/routes.js";
+import { requireAdmin } from './middleware/requireAdmin.js';
 
 console.log("Starting bot initialization...");
 console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
@@ -1063,15 +1064,7 @@ fastify.get('/', async (req, reply) => {
   };
 });
 
-// Admin panel authentication middleware
-const requireAdmin = (req, reply, done) => {
-  const adminId = req.query.admin || req.body.admin;
-  if (adminId !== process.env.ADMIN_TELEGRAM_ID) {
-    reply.status(403).send({ error: "Forbidden: Invalid admin credentials" });
-    return;
-  }
-  done();
-};
+
 
 // Panel files are now served by static file middleware
 
@@ -1256,39 +1249,7 @@ fastify.post('/api/support/handle', { preHandler: requireAdmin }, async (req, re
 });
 
 // Enhanced API endpoints for comprehensive admin panel
-fastify.get('/api/admin/users', { preHandler: requireAdmin }, async (req, reply) => {
-  try {
-    const usersSnapshot = await firestore.collection('users').get();
-    const users = [];
-    
-    for (const doc of usersSnapshot.docs) {
-      const userData = doc.data();
-      
-      // Get user's subscription count and total spent
-      const subsSnapshot = await firestore.collection('subscriptions')
-        .where('telegramId', '==', userData.telegramId)
-        .get();
-      
-      const activeSubscriptions = subsSnapshot.docs.filter(sub => sub.data().status === 'active').length;
-      const totalSpent = subsSnapshot.docs.reduce((sum, sub) => {
-        const subData = sub.data();
-        return sum + (subData.amount || 0);
-      }, 0);
-      
-      users.push({
-        id: doc.id,
-        ...userData,
-        activeSubscriptions,
-        totalSpent,
-        createdAt: userData.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
-      });
-    }
-    
-    return users.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  } catch (error) {
-    reply.status(500).send({ error: error.message });
-  }
-});
+// Note: '/api/admin/users' is defined in 'src/api/routes.js' to centralize admin alias routes.
 
 fastify.get('/api/users/search', { preHandler: requireAdmin }, async (req, reply) => {
   try {
