@@ -7,7 +7,12 @@ services:
     buildCommand: |
       npm ci --production=false
       npm run build
-    startCommand: npm run prod
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_OPTIONS
+        value: --no-warnings=ExperimentalWarning --unhandled-rejections=strict
     healthCheckPath: /health
     autoDeploy: true
     envVars:
