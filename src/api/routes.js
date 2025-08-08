@@ -324,6 +324,63 @@ export const adminRoutes = (fastify) => {
   }
   adminRouteRegistered = true;
   
+  // Aliases to support frontend paths expecting /api/admin/*
+  // Users
+  fastify.get('/api/admin/users', async (req, reply) => {
+    try {
+      const users = await getAllUsers();
+      return { success: true, users };
+    } catch (error) {
+      console.error('Error (alias) getting admin users:', error);
+      return reply.status(500).send({ error: error.message });
+    }
+  });
+
+  // Subscriptions
+  fastify.get('/api/admin/subscriptions', async (req, reply) => {
+    try {
+      const subscriptions = await getAllSubscriptions();
+      return { success: true, subscriptions };
+    } catch (error) {
+      console.error('Error (alias) getting admin subscriptions:', error);
+      return reply.status(500).send({ error: error.message });
+    }
+  });
+
+  // Payments
+  fastify.get('/api/admin/payments', async (req, reply) => {
+    try {
+      const payments = await getAllPayments();
+      return { success: true, payments };
+    } catch (error) {
+      console.error('Error (alias) getting admin payments:', error);
+      return reply.status(500).send({ error: error.message });
+    }
+  });
+
+  // Services
+  fastify.get('/api/admin/services', async (req, reply) => {
+    try {
+      const services = await loadServices();
+      return { success: true, services };
+    } catch (error) {
+      console.error('Error (alias) getting admin services:', error);
+      return reply.status(500).send({ error: error.message });
+    }
+  });
+
+  // Support (list)
+  fastify.get('/api/admin/support', async (req, reply) => {
+    try {
+      const { status } = req.query;
+      const messages = await getSupportMessages(status || 'all');
+      return { success: true, messages };
+    } catch (error) {
+      console.error('Error (alias) getting admin support:', error);
+      return reply.status(500).send({ error: error.message });
+    }
+  });
+
   // Get admin stats
   fastify.get('/api/admin/stats', async (req, reply) => {
     try {
