@@ -3,9 +3,9 @@ services:
     name: birrpay-bot
     env: node
     plan: free
-    nodeVersion: 18.20.2
+    nodeVersion: 20.x
     buildCommand: |
-      npm install
+      npm install --production=false
       npm run build
     startCommand: npm start
     healthCheckPath: /health

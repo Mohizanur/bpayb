@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "prestart": "node scripts/verify-env.js",
-    "start": "cross-env NODE_ENV=production NODE_OPTIONS='--no-warnings=ExperimentalWarning --unhandled-rejections=strict' node -r debug/src/node src/index.js",
+    "start": "cross-env NODE_ENV=production NODE_OPTIONS='--no-warnings=ExperimentalWarning --unhandled-rejections=strict' node src/index.js",
     "dev": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning' node --watch src/index.js",
     "test": "node --test tests/*.test.js",
     "test:watch": "node --test --watch tests/*.test.js",
@@ -13,9 +13,9 @@
     "lint": "eslint src/",
     "format": "prettier --write src/",
     "build": "npm install --production=false && npm dedupe",
-    "serve": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning' node src/index.js",
+    "serve": "cross-env NODE_ENV=development NODE_OPTIONS='--no-warnings=ExperimentalWarning' node src/index.js",
     "check:services": "node scripts/checkServices.js",
-    "prod": "cross-env NODE_ENV=production NODE_OPTIONS='--experimental-require' node -r ./scripts/suppress-debug.cjs src/index.js"
+    "prod": "cross-env NODE_ENV=production NODE_OPTIONS='--no-warnings=ExperimentalWarning' node src/index.js"
   },
   "dependencies": {
     "@fastify/send": "^1.0.0",
@@ -33,6 +33,9 @@
     "telegraf": "^4.16.3",
     "telegraf-i18n": "^6.5.0",
     "uuid": "^10.0.0"
+  },
+  "resolutions": {
+    "debug": "4.3.4"
   },
   "engines": {
     "node": ">=18.20.2 <=20.x"
