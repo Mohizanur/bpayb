@@ -284,20 +284,20 @@ export const verifyPayment = async (paymentId, adminId, verificationData) => {
   }
 };
 
-// Calculate subscription amount based on duration
+// Calculate subscription amount based on service plans
 /**
- * Calculate subscription amount based on duration
- * @param {number} basePrice - Base price per month
- * @param {string} duration - Duration string (e.g., '1_month', '3_months')
- * @returns {number} Calculated amount
+ * Calculate subscription amount based on service and duration
+ * @param {Object} service - Service object with plans
+ * @param {number} duration - Duration in months (1, 3, 6, 12)
+ * @returns {Object} Plan details and calculated amount
  */
-export function calculateAmount(basePrice, duration) {
-  const durationMultipliers = {
-    '1_month': 1,
-    '3_months': 2.7, // 10% discount
-    '6_months': 5.1, // 15% discount
-    '12_months': 9.6  // 20% discount
-  };
+export function calculateAmount(service, duration) {
+  // Find the plan that matches the duration
+  const plan = service.plans.find(p => p.duration === duration);
   
-  return Math.round(basePrice * durationMultipliers[duration]);
+  if (!plan) {
+    throw new Error(`No plan found for duration ${duration} months`);
+  }
+  
+  return plan;
 };

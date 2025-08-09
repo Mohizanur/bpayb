@@ -18,7 +18,11 @@ import {
   approveSubscription,
   rejectSubscription,
   createSupportMessage,
-  getSupportMessages
+  getSupportMessages,
+  getServices,
+  createService,
+  updateService,
+  deleteService
 } from "../utils/database.js";
 import { 
   PAYMENT_METHODS, 
@@ -38,16 +42,7 @@ export const userRoutes = (fastify) => {
   }
   usersRouteRegistered = true;
   
-  // Get all users (Admin)
-  fastify.get('/api/users', async (req, reply) => {
-    try {
-      const users = await getAllUsers();
-      return { success: true, users };
-    } catch (error) {
-      console.error('Error getting users:', error);
-      return reply.status(500).send({ error: error.message });
-    }
-  });
+  // Note: /api/users endpoint is handled in index.js for admin panel export functionality
 
   // Get user profile
   fastify.get('/api/user/:id', async (req, reply) => {
@@ -125,6 +120,8 @@ export const servicesRoutes = (fastify) => {
       return reply.status(500).send({ error: error.message });
     }
   });
+  
+  // Service management routes moved to index.js to avoid duplication
 };
 
 // Subscription API
@@ -137,16 +134,7 @@ export const subscriptionRoutes = (fastify) => {
   }
   subscriptionRouteRegistered = true;
   
-  // Get all subscriptions (Admin)
-  fastify.get('/api/subscriptions', async (req, reply) => {
-    try {
-      const subscriptions = await getAllSubscriptions();
-      return { success: true, subscriptions };
-    } catch (error) {
-      console.error('Error getting subscriptions:', error);
-      return reply.status(500).send({ error: error.message });
-    }
-  });
+  // Note: /api/subscriptions endpoint is handled in index.js for admin panel export functionality
 
   // Get subscription by ID
   fastify.get('/api/subscription/:id', async (req, reply) => {
@@ -223,16 +211,7 @@ export const paymentRoutes = (fastify) => {
   }
   paymentRouteRegistered = true;
   
-  // Get all payments (Admin)
-  fastify.get('/api/payments', async (req, reply) => {
-    try {
-      const payments = await getAllPayments();
-      return { success: true, payments };
-    } catch (error) {
-      console.error('Error getting payments:', error);
-      return reply.status(500).send({ error: error.message });
-    }
-  });
+  // Note: /api/payments endpoint is handled in index.js for admin panel export functionality
 
   // Get payment by ID
   fastify.get('/api/payment/:id', async (req, reply) => {
@@ -359,16 +338,7 @@ export const adminRoutes = (fastify) => {
     }
   });
 
-  // Services
-  fastify.get('/api/admin/services', { preHandler: requireAdmin }, async (req, reply) => {
-    try {
-      const services = await loadServices();
-      return { success: true, services };
-    } catch (error) {
-      console.error('Error (alias) getting admin services:', error);
-      return reply.status(500).send({ error: error.message });
-    }
-  });
+  // Services route moved to index.js to avoid duplication
 
   // Support (list)
   fastify.get('/api/admin/support', { preHandler: requireAdmin }, async (req, reply) => {

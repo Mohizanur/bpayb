@@ -11,7 +11,35 @@ import Fastify from "fastify";
 import { bot } from "./bot.js";
 import { loadI18n, getUserLang, setUserLang } from "./utils/i18n.js";
 import { loadServices } from "./utils/loadServices.js";
-import { firestore } from "./utils/firestore.js";
+// Import firestore conditionally for development
+let firestore = null;
+try {
+  const firestoreModule = await import("./utils/firestore.js");
+  firestore = firestoreModule.firestore;
+} catch (error) {
+  console.warn("⚠️ Firebase not available, running in development mode:", error.message);
+  // Create mock firestore for development
+  firestore = {
+    collection: () => ({
+      get: () => Promise.resolve({ docs: [] }),
+      doc: () => ({
+        get: () => Promise.resolve({ exists: false }),
+        set: () => Promise.resolve(),
+        update: () => Promise.resolve(),
+        delete: () => Promise.resolve()
+      }),
+      where: () => ({
+        get: () => Promise.resolve({ docs: [] }),
+        limit: () => ({
+          get: () => Promise.resolve({ docs: [] })
+        })
+      }),
+      limit: () => ({
+        get: () => Promise.resolve({ docs: [] })
+      })
+    })
+  };
+}
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -70,7 +98,8 @@ try {
 }
 
 // Register cookie plugin for auth cookie
-await fastify.register(import('@fastify/cookie'));
+const fastifyCookie = (await import('@fastify/cookie')).default;
+await fastify.register(fastifyCookie);
 
 // Register static file serving for public directory
 try {
@@ -84,17 +113,59 @@ try {
   });
   console.log("✅ Public static file serving registered");
   
-  // Serve panel files - register as a separate plugin context
-  await fastify.register(async function (fastify) {
-    const panelPath = path.join(process.cwd(), 'panel');
-    console.log("Panel files path:", panelPath);
+  // Register panel route directly on main fastify instance
+  const panelPath = path.join(process.cwd(), 'panel');
+  console.log("Panel files path:", panelPath);
 
-    // Register static files for panel
+  // Handle root panel route
+  fastify.get('/panel', async (req, reply) => {
+    try {
+      // Log request for debugging
+      console.log('📄 Serving /panel to', req.headers['x-forwarded-for'] || req.ip);
+      
+      // Auto-set admin token cookie if configured
+      try {
+        const token = process.env.ADMIN_TOKEN;
+        if (token) {
+          reply.setCookie('admin_token', token, {
+            path: '/',
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: req.protocol === 'https' || (req.headers['x-forwarded-proto'] || '').includes('https'),
+            maxAge: 60 * 60 * 24 * 7 // 7 days
+          });
+        }
+      } catch (cookieErr) {
+        console.warn('⚠️ Could not set admin_token cookie:', cookieErr?.message);
+      }
+      
+      // Security headers for the admin panel HTML
+      reply
+        .header('Content-Security-Policy', "default-src 'self' data: blob: https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; connect-src 'self' https:; font-src 'self' data: https:")
+        .header('X-Content-Type-Options', 'nosniff')
+        .header('Referrer-Policy', 'no-referrer')
+        .header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        .header('Pragma', 'no-cache')
+        .header('Expires', '0')
+        .type('text/html');
+
+      // Use a direct file read to serve the admin panel
+      const adminHtmlPath = path.join(panelPath, 'admin-fixed.html');
+      const html = fs.readFileSync(adminHtmlPath, 'utf8');
+      return reply.send(html);
+    } catch (error) {
+      console.error('Error serving admin panel:', error);
+      return reply.status(500).send({ error: 'Internal Server Error', message: error.message });
+    }
+  });
+
+  // Serve panel static files - register as a separate plugin context
+  await fastify.register(async function (fastify) {
+    // Register static files for panel assets
     await fastify.register(import('@fastify/static'), {
       root: panelPath,
       prefix: '/panel/',
-      // Enable sendFile ONLY within this plugin scope
-      decorateReply: true,
+      decorateReply: false,
       index: false,
       setHeaders: (res, pathName) => {
         // Cache versioned assets aggressively, but not HTML
@@ -103,44 +174,6 @@ try {
         } else {
           res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         }
-      }
-    });
-
-    // Handle root panel route
-    fastify.get('/panel', async (req, reply) => {
-      try {
-        // Log request for debugging in Render
-        console.log('📄 Serving /panel to', req.headers['x-forwarded-for'] || req.ip);
-        // Auto-set admin token cookie if configured
-        try {
-          const token = process.env.ADMIN_TOKEN;
-          if (token) {
-            reply.setCookie('admin_token', token, {
-              path: '/',
-              httpOnly: true,
-              sameSite: 'lax',
-              secure: req.protocol === 'https' || (req.headers['x-forwarded-proto'] || '').includes('https'),
-              maxAge: 60 * 60 * 24 * 7 // 7 days
-            });
-          }
-        } catch (cookieErr) {
-          console.warn('⚠️ Could not set admin_token cookie:', cookieErr?.message);
-        }
-        // Security headers for the admin panel HTML (relaxed to ensure CDN works in production)
-        reply
-          .header('Content-Security-Policy', "default-src 'self' data: blob: https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; connect-src 'self' https:; font-src 'self' data: https:")
-          .header('X-Content-Type-Options', 'nosniff')
-          .header('Referrer-Policy', 'no-referrer')
-          .header('Cache-Control', 'no-cache')
-          .type('text/html');
-
-        // Use a direct file read to avoid edge cases with streaming on some hosts
-        const adminHtmlPath = path.join(panelPath, 'admin-fixed.html');
-        const html = fs.readFileSync(adminHtmlPath, 'utf8');
-        return reply.send(html);
-      } catch (error) {
-        console.error('Error serving admin panel:', error);
-        return reply.status(500).send({ error: 'Internal Server Error', message: error.message });
       }
     });
   });
@@ -1159,6 +1192,138 @@ fastify.get('/api/active', { preHandler: requireAdmin }, async (req, reply) => {
   }
 });
 
+// Users API endpoint for export functionality
+fastify.get('/api/users', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const usersSnapshot = await firestore.collection('users').get();
+    const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
+    
+    const users = [];
+    for (const doc of usersSnapshot.docs) {
+      const userData = doc.data();
+      
+      // Count user's subscriptions and calculate total spent
+      const userSubs = subscriptionsSnapshot.docs.filter(subDoc => 
+        subDoc.data().telegramId === userData.telegramId
+      );
+      
+      const totalSpent = userSubs.reduce((sum, subDoc) => {
+        const subData = subDoc.data();
+        return sum + (subData.price || 0);
+      }, 0);
+      
+      users.push({
+        id: doc.id,
+        name: userData.name || userData.firstName || 'N/A',
+        username: userData.username || 'N/A',
+        email: userData.email || 'N/A',
+        phone: userData.phone || 'N/A',
+        telegramId: userData.telegramId,
+        status: userData.status || 'active',
+        subscriptionCount: userSubs.length,
+        totalSpent: totalSpent,
+        createdAt: userData.createdAt?.toDate ? userData.createdAt.toDate().toISOString() : 
+                  userData.createdAt?._seconds ? new Date(userData.createdAt._seconds * 1000).toISOString() :
+                  userData.joinedAt?.toDate ? userData.joinedAt.toDate().toISOString() :
+                  userData.joinedAt?._seconds ? new Date(userData.joinedAt._seconds * 1000).toISOString() :
+                  new Date().toISOString()
+      });
+    }
+    
+    return users;
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    reply.status(500).send({ error: error.message });
+  }
+});
+
+// Subscriptions API endpoint for export functionality
+fastify.get('/api/subscriptions', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const subsSnapshot = await firestore.collection('subscriptions').get();
+    const usersSnapshot = await firestore.collection('users').get();
+    const services = await loadServices();
+    
+    const subscriptions = [];
+    for (const doc of subsSnapshot.docs) {
+      const subData = doc.data();
+      
+      // Find user data
+      const user = usersSnapshot.docs.find(userDoc => 
+        userDoc.data().telegramId === subData.telegramId
+      );
+      const userData = user?.data() || {};
+      
+      // Find service data
+      const service = services.find(s => s.serviceID === subData.serviceID);
+      
+      subscriptions.push({
+        id: doc.id,
+        userName: userData.name || userData.firstName || 'N/A',
+        serviceName: service?.name || subData.serviceID || 'Unknown Service',
+        plan: subData.plan || '1 month',
+        price: subData.price || service?.price || 0,
+        status: subData.status || 'active',
+        startDate: subData.startDate?.toDate ? subData.startDate.toDate().toISOString() :
+                  subData.startDate?._seconds ? new Date(subData.startDate._seconds * 1000).toISOString() :
+                  subData.createdAt?.toDate ? subData.createdAt.toDate().toISOString() :
+                  subData.createdAt?._seconds ? new Date(subData.createdAt._seconds * 1000).toISOString() :
+                  new Date().toISOString(),
+        endDate: subData.endDate?.toDate ? subData.endDate.toDate().toISOString() :
+                subData.endDate?._seconds ? new Date(subData.endDate._seconds * 1000).toISOString() :
+                new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        autoRenew: subData.autoRenew || false
+      });
+    }
+    
+    return subscriptions;
+  } catch (error) {
+    console.error('Error fetching subscriptions:', error);
+    reply.status(500).send({ error: error.message });
+  }
+});
+
+// Payments API endpoint for export functionality
+fastify.get('/api/payments', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const paymentsSnapshot = await firestore.collection('payments').get();
+    const usersSnapshot = await firestore.collection('users').get();
+    const services = await loadServices();
+    
+    const payments = [];
+    for (const doc of paymentsSnapshot.docs) {
+      const paymentData = doc.data();
+      
+      // Find user data
+      const user = usersSnapshot.docs.find(userDoc => 
+        userDoc.data().telegramId === paymentData.telegramId
+      );
+      const userData = user?.data() || {};
+      
+      // Find service data
+      const service = services.find(s => s.serviceID === paymentData.serviceID);
+      
+      payments.push({
+        id: doc.id,
+        userName: userData.name || userData.firstName || 'N/A',
+        amount: paymentData.amount || 0,
+        serviceName: service?.name || paymentData.serviceID || 'Unknown Service',
+        status: paymentData.status || 'completed',
+        method: paymentData.method || 'Telegram',
+        createdAt: paymentData.createdAt?.toDate ? paymentData.createdAt.toDate().toISOString() :
+                  paymentData.createdAt?._seconds ? new Date(paymentData.createdAt._seconds * 1000).toISOString() :
+                  new Date().toISOString(),
+        transactionId: paymentData.transactionId || doc.id
+      });
+    }
+    
+    return payments;
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    reply.status(500).send({ error: error.message });
+  }
+});
+
 fastify.get('/api/support', { preHandler: requireAdmin }, async (req, reply) => {
   try {
     const messages = await firestore
@@ -1179,6 +1344,186 @@ fastify.get('/api/support', { preHandler: requireAdmin }, async (req, reply) => 
     return result;
   } catch (error) {
     reply.status(500).send({ error: error.message });
+  }
+});
+
+// Admin Login API Endpoint
+fastify.post('/api/admin/login', async (req, reply) => {
+  try {
+    const { username, password } = req.body;
+    
+    // Simple admin credentials (you can enhance this later)
+    const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    
+    if (username === adminUsername && password === adminPassword) {
+      // Generate JWT token
+      const jwt = await import('jsonwebtoken');
+      const token = jwt.default.sign(
+        { 
+          role: 'admin', 
+          username: adminUsername,
+          loginTime: new Date().toISOString()
+        },
+        process.env.JWT_SECRET || 'birrpay_default_secret',
+        { expiresIn: '24h' }
+      );
+      
+      return { success: true, token, message: 'Login successful' };
+    } else {
+      return reply.status(401).send({ success: false, error: 'Invalid credentials' });
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    return reply.status(500).send({ success: false, error: 'Login failed' });
+  }
+});
+
+// Service Management API Endpoints
+fastify.get('/api/admin/services', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    // Get services from Firestore
+    const servicesSnapshot = await firestore.collection('services').get();
+    const services = [];
+    
+    servicesSnapshot.forEach(doc => {
+      const data = doc.data();
+      services.push({
+        id: doc.id,
+        serviceID: doc.id,
+        ...data
+      });
+    });
+    
+    // If no services exist, populate with initial data
+    if (services.length === 0) {
+      console.log('No services found, populating initial services...');
+      const initialServices = [
+        {
+          serviceID: 'netflix',
+          name: 'Netflix',
+          description: 'Streaming service for movies and TV shows',
+          status: 'active',
+          plans: [
+            { duration: 1, price: 350, billingCycle: 'monthly' },
+            { duration: 3, price: 1000, billingCycle: 'monthly' },
+            { duration: 12, price: 3800, billingCycle: 'yearly' }
+          ]
+        },
+        {
+          serviceID: 'spotify',
+          name: 'Spotify Premium',
+          description: 'Music streaming service',
+          status: 'active',
+          plans: [
+            { duration: 1, price: 200, billingCycle: 'monthly' },
+            { duration: 6, price: 1100, billingCycle: 'monthly' }
+          ]
+        },
+        {
+          serviceID: 'youtube',
+          name: 'YouTube Premium',
+          description: 'Ad-free YouTube with music',
+          status: 'active',
+          plans: [
+            { duration: 1, price: 250, billingCycle: 'monthly' }
+          ]
+        }
+      ];
+      
+      // Add services to Firestore
+      for (const service of initialServices) {
+        await firestore.collection('services').doc(service.serviceID).set(service);
+        services.push({
+          id: service.serviceID,
+          ...service
+        });
+      }
+    }
+    
+    return { success: true, services };
+  } catch (error) {
+    console.error('Error getting admin services:', error);
+    return reply.status(500).send({ error: error.message });
+  }
+});
+
+fastify.post('/api/admin/services', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const serviceData = req.body;
+    
+    // Validate required fields
+    if (!serviceData.name || !serviceData.plans || !Array.isArray(serviceData.plans)) {
+      return reply.status(400).send({ error: 'Missing required fields: name and plans' });
+    }
+    
+    // Generate serviceID from name if not provided
+    const serviceID = serviceData.serviceID || serviceData.name.toLowerCase().replace(/\s+/g, '-');
+    
+    const newService = {
+      serviceID,
+      name: serviceData.name,
+      description: serviceData.description || '',
+      status: serviceData.status || 'active',
+      plans: serviceData.plans,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    // Add to Firestore
+    await firestore.collection('services').doc(serviceID).set(newService);
+    
+    return { success: true, message: 'Service created successfully', service: { id: serviceID, ...newService } };
+  } catch (error) {
+    console.error('Error creating service:', error);
+    return reply.status(500).send({ error: error.message });
+  }
+});
+
+fastify.put('/api/admin/services/:id', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const { id } = req.params;
+    const serviceData = req.body;
+    
+    // Check if service exists
+    const serviceDoc = await firestore.collection('services').doc(id).get();
+    if (!serviceDoc.exists) {
+      return reply.status(404).send({ error: 'Service not found' });
+    }
+    
+    const updatedService = {
+      ...serviceDoc.data(),
+      ...serviceData,
+      updatedAt: new Date()
+    };
+    
+    // Update in Firestore
+    await firestore.collection('services').doc(id).update(updatedService);
+    
+    return { success: true, message: 'Service updated successfully', service: { id, ...updatedService } };
+  } catch (error) {
+    console.error('Error updating service:', error);
+    return reply.status(500).send({ error: error.message });
+  }
+});
+
+fastify.delete('/api/admin/services/:id', { preHandler: requireAdmin }, async (req, reply) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if service exists
+    const serviceDoc = await firestore.collection('services').doc(id).get();
+    if (!serviceDoc.exists) {
+      return reply.status(404).send({ error: 'Service not found' });
+    }
+    
+    // Delete from Firestore
+    await firestore.collection('services').doc(id).delete();
+    
+    return { success: true, message: 'Service deleted successfully' };
+  } catch (error) {
+    console.error('Error deleting service:', error);
+    return reply.status(500).send({ error: error.message });
   }
 });
 

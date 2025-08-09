@@ -49,36 +49,33 @@ function setupSubscribeHandler(bot) {
         ? `✅ *${service.name}* የተመረጠ\n\nእባክዎ የምትፈልጉትን የደንበኝነት ምዝገባ ዓይነት ይምረጥ:`
         : `✅ *${service.name}* selected\n\nPlease choose your subscription duration:`;
       
-      // Calculate prices based on service price (assuming monthly price is stored)
-      const monthlyPrice = service.price || 0;
-      const prices = {
-        '1m': monthlyPrice,
-        '3m': Math.round(monthlyPrice * 3 * 0.9),  // 10% discount for 3 months
-        '6m': Math.round(monthlyPrice * 6 * 0.85), // 15% discount for 6 months
-        '12m': Math.round(monthlyPrice * 12 * 0.8) // 20% discount for 12 months
-      };
+      // Get plans from the new service structure
+      const plans = service.plans || [];
+      
+      // Create inline keyboard with available plans
+      const planButtons = plans.map(plan => ({
+        text: lang === 'am' ? 
+          `${plan.duration} ${plan.duration === 1 ? 'ወር' : plan.duration < 12 ? 'ወራት' : 'አመት'}` : 
+          `${plan.duration} ${plan.duration === 1 ? 'Month' : plan.duration < 12 ? 'Months' : 'Year'}${plan.duration >= 12 && plan.duration % 12 === 0 ? 's' : ''}`,
+        callback_data: `subscribe_${serviceId}_${plan.duration}m_${plan.price}`
+      }));
+      
+      // Group buttons in rows of 2
+      const keyboardRows = [];
+      for (let i = 0; i < planButtons.length; i += 2) {
+        keyboardRows.push(planButtons.slice(i, i + 2));
+      }
+      
+      // Add back button
+      keyboardRows.push([
+        { text: lang === 'am' ? '🔙 ወደ ኋላ' : '🔙 Back', 
+          callback_data: 'back_to_services' }
+      ]);
 
       await ctx.editMessageText(message, {
         parse_mode: 'Markdown',
         reply_markup: {
-          inline_keyboard: [
-            [
-              { text: lang === 'am' ? '1 ወር' : '1 Month', 
-                callback_data: `subscribe_${serviceId}_1m_${prices['1m']}` },
-              { text: lang === 'am' ? '3 ወራት' : '3 Months', 
-                callback_data: `subscribe_${serviceId}_3m_${prices['3m']}` }
-            ],
-            [
-              { text: lang === 'am' ? '6 ወራት' : '6 Months', 
-                callback_data: `subscribe_${serviceId}_6m_${prices['6m']}` },
-              { text: lang === 'am' ? '12 ወራት' : '12 Months', 
-                callback_data: `subscribe_${serviceId}_12m_${prices['12m']}` }
-            ],
-            [
-              { text: lang === 'am' ? '🔙 ወደ ኋላ' : '🔙 Back', 
-                callback_data: 'back_to_services' }
-            ]
-          ]
+          inline_keyboard: keyboardRows
         }
       });
       
@@ -159,33 +156,66 @@ function setupSubscribeHandler(bot) {
 
       const months = parseInt(duration, 10);
       
+      // Find the matching plan
+      const plan = service.plans?.find(p => p.duration === months);
+      
       // Payment instructions
       const paymentMessage = lang === 'am'
-        ? `💳 *የክፍያ መመሪያ*\n\n` +
-          `አገልግሎት: ${service.name}\n` +
-          `ቆይታ: ${months} ${months === 1 ? 'ወር' : 'ወራት'}\n` +
-          `ጠቅላላ ዋጋ: *${price.toLocaleString()} ብር*\n\n` +
-          `ክፍያ ለማድረግ ወደሚከተሉት አካውንቶች ገንዘብ ያስተላልፉ፡\n` +
-          `\n📱 *TeleBirr*: 0912345678\n` +
-          `🏦 *CBE Birr*: 1000000000000\n` +
-          `🏛 *Bank Transfer*:\n` +
-          `   - Bank: Commercial Bank of Ethiopia\n` +
-          `   - Account: 1000000000000\n` +
-          `   - Name: Your Business Name\n\n` +
-          `ክፍያ ካደረጉ በኋላ የክፍያ ማረጋገጫ ስክሪንሾት ወይም ሪሲት ይላኩ።\n` +
+        ? `💳 *የክፍያ መመሪያ*
+
+` +
+          `አገልግሎት: ${service.name}
+` +
+          `ቆይታ: ${plan?.billingCycle || `${months} ${months === 1 ? 'ወር' : 'ወራት'}`}
+` +
+          `ጠቅላላ ዋጋ: *${price.toLocaleString()} ብር*
+
+` +
+          `ክፍያ ለማድረግ ወደሚከተሉት አካውንቶች ገንዘብ ያስተላልፉ፡
+` +
+          `📱 *TeleBirr*: 0912345678
+` +
+          `🏦 *CBE Birr*: 1000000000000
+` +
+          `🏛 *Bank Transfer*:
+` +
+          `   - Bank: Commercial Bank of Ethiopia
+` +
+          `   - Account: 1000000000000
+` +
+          `   - Name: Your Business Name
+
+` +
+          `ክፍያ ካደረጉ በኋላ የክፍያ ማረጋገጫ ስክሪንሾት ወይም ሪሲት ይላኩ።
+` +
           `አስተናጋጁ ክፍያዎን ከፀደቀ በኋላ አገልግሎቱ ይጀምራል።`
-        : `💳 *Payment Instructions*\n\n` +
-          `Service: ${service.name}\n` +
-          `Duration: ${months} ${months === 1 ? 'Month' : 'Months'}\n` +
-          `Total Amount: *${price.toLocaleString()} ETB*\n\n` +
-          `Please make payment to any of the following accounts:\n` +
-          `\n📱 *TeleBirr*: 0912345678\n` +
-          `🏦 *CBE Birr*: 1000000000000\n` +
-          `🏛 *Bank Transfer*:\n` +
-          `   - Bank: Commercial Bank of Ethiopia\n` +
-          `   - Account: 1000000000000\n` +
-          `   - Name: Your Business Name\n\n` +
-          `After making the payment, please upload your payment proof (screenshot or receipt).\n` +
+        : `💳 *Payment Instructions*
+
+` +
+          `Service: ${service.name}
+` +
+          `Duration: ${plan?.billingCycle || `${months} ${months === 1 ? 'Month' : 'Months'}`}
+` +
+          `Total Amount: *${price.toLocaleString()} ETB*
+
+` +
+          `Please make payment to any of the following accounts:
+` +
+          `📱 *TeleBirr*: 0912345678
+` +
+          `🏦 *CBE Birr*: 1000000000000
+` +
+          `🏛 *Bank Transfer*:
+` +
+          `   - Bank: Commercial Bank of Ethiopia
+` +
+          `   - Account: 1000000000000
+` +
+          `   - Name: Your Business Name
+
+` +
+          `After making the payment, please upload your payment proof (screenshot or receipt).
+` +
           `Your subscription will start once the admin verifies your payment.`;
 
       // Save pending payment to database (without starting subscription yet)

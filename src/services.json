@@ -2,8 +2,12 @@
   {
     "serviceID": "netflix",
     "name": "Netflix",
-    "price": 350,
-    "billingCycle": "Monthly",
+    "plans": [
+      { "duration": 1, "price": 350, "billingCycle": "Monthly" },
+      { "duration": 3, "price": 1000, "billingCycle": "3 Months" },
+      { "duration": 6, "price": 1900, "billingCycle": "6 Months" },
+      { "duration": 12, "price": 3600, "billingCycle": "12 Months" }
+    ],
     "logoUrl": "/public/logos/netflix.svg",
     "approvalRequiredFlag": true,
     "description": "Stream movies, TV shows and more"
@@ -11,8 +15,12 @@
   {
     "serviceID": "prime",
     "name": "Amazon Prime",
-    "price": 300,
-    "billingCycle": "Monthly",
+    "plans": [
+      { "duration": 1, "price": 300, "billingCycle": "Monthly" },
+      { "duration": 3, "price": 850, "billingCycle": "3 Months" },
+      { "duration": 6, "price": 1600, "billingCycle": "6 Months" },
+      { "duration": 12, "price": 3000, "billingCycle": "12 Months" }
+    ],
     "logoUrl": "/public/logos/prime.svg",
     "approvalRequiredFlag": true,
     "description": "Prime Video, Music and Shopping benefits"
@@ -20,8 +28,12 @@
   {
     "serviceID": "spotify",
     "name": "Spotify Premium",
-    "price": 250,
-    "billingCycle": "Monthly",
+    "plans": [
+      { "duration": 1, "price": 250, "billingCycle": "Monthly" },
+      { "duration": 3, "price": 700, "billingCycle": "3 Months" },
+      { "duration": 6, "price": 1350, "billingCycle": "6 Months" },
+      { "duration": 12, "price": 2500, "billingCycle": "12 Months" }
+    ],
     "logoUrl": "/public/logos/spotify.svg",
     "approvalRequiredFlag": true,
     "description": "Music streaming without ads"
@@ -29,8 +41,12 @@
   {
     "serviceID": "disney",
     "name": "Disney+",
-    "price": 280,
-    "billingCycle": "Monthly",
+    "plans": [
+      { "duration": 1, "price": 280, "billingCycle": "Monthly" },
+      { "duration": 3, "price": 800, "billingCycle": "3 Months" },
+      { "duration": 6, "price": 1500, "billingCycle": "6 Months" },
+      { "duration": 12, "price": 2800, "billingCycle": "12 Months" }
+    ],
     "logoUrl": "/public/logos/disney.svg",
     "approvalRequiredFlag": true,
     "description": "Disney, Marvel, Star Wars content"
@@ -38,8 +54,12 @@
   {
     "serviceID": "hulu",
     "name": "Hulu",
-    "price": 320,
-    "billingCycle": "Monthly",
+    "plans": [
+      { "duration": 1, "price": 320, "billingCycle": "Monthly" },
+      { "duration": 3, "price": 900, "billingCycle": "3 Months" },
+      { "duration": 6, "price": 1700, "billingCycle": "6 Months" },
+      { "duration": 12, "price": 3200, "billingCycle": "12 Months" }
+    ],
     "logoUrl": "/public/logos/hulu.svg",
     "approvalRequiredFlag": true,
     "description": "TV shows and movies streaming"
@@ -47,8 +67,12 @@
   {
     "serviceID": "youtube",
     "name": "YouTube Premium",
-    "price": 200,
-    "billingCycle": "Monthly",
+    "plans": [
+      { "duration": 1, "price": 200, "billingCycle": "Monthly" },
+      { "duration": 3, "price": 550, "billingCycle": "3 Months" },
+      { "duration": 6, "price": 1050, "billingCycle": "6 Months" },
+      { "duration": 12, "price": 2000, "billingCycle": "12 Months" }
+    ],
     "logoUrl": "/public/logos/youtube.svg",
     "approvalRequiredFlag": true,
     "description": "Ad-free YouTube with offline downloads"
@@ -56,8 +80,12 @@
   {
     "serviceID": "apple",
     "name": "Apple TV+",
-    "price": 180,
-    "billingCycle": "Monthly",
+    "plans": [
+      { "duration": 1, "price": 180, "billingCycle": "Monthly" },
+      { "duration": 3, "price": 500, "billingCycle": "3 Months" },
+      { "duration": 6, "price": 950, "billingCycle": "6 Months" },
+      { "duration": 12, "price": 1800, "billingCycle": "12 Months" }
+    ],
     "logoUrl": "/public/logos/apple.svg",
     "approvalRequiredFlag": true,
     "description": "Original shows and movies"
@@ -65,8 +93,12 @@
   {
     "serviceID": "hbo",
     "name": "HBO Max",
-    "price": 400,
-    "billingCycle": "Monthly",
+    "plans": [
+      { "duration": 1, "price": 400, "billingCycle": "Monthly" },
+      { "duration": 3, "price": 1100, "billingCycle": "3 Months" },
+      { "duration": 6, "price": 2100, "billingCycle": "6 Months" },
+      { "duration": 12, "price": 4000, "billingCycle": "12 Months" }
+    ],
     "logoUrl": "/public/logos/hbo.svg",
     "approvalRequiredFlag": true,
     "description": "Premium movies and series"
@@ -74,8 +106,12 @@
   {
     "serviceID": "paramount",
     "name": "Paramount+",
-    "price": 220,
-    "billingCycle": "Monthly",
+    "plans": [
+      { "duration": 1, "price": 220, "billingCycle": "Monthly" },
+      { "duration": 3, "price": 600, "billingCycle": "3 Months" },
+      { "duration": 6, "price": 1200, "billingCycle": "6 Months" },
+      { "duration": 12, "price": 2200, "billingCycle": "12 Months" }
+    ],
     "logoUrl": "/public/logos/paramount.svg",
     "approvalRequiredFlag": true,
     "description": "CBS, Paramount movies and shows"
@@ -83,8 +119,12 @@
   {
     "serviceID": "peacock",
     "name": "Peacock Premium",
-    "price": 190,
-    "billingCycle": "Monthly",
+    "plans": [
+      { "duration": 1, "price": 190, "billingCycle": "Monthly" },
+      { "duration": 3, "price": 520, "billingCycle": "3 Months" },
+      { "duration": 6, "price": 980, "billingCycle": "6 Months" },
+      { "duration": 12, "price": 1800, "billingCycle": "12 Months" }
+    ],
     "logoUrl": "/public/logos/peacock.svg",
     "approvalRequiredFlag": true,
     "description": "NBC content and originals"

@@ -37,10 +37,14 @@ export async function loadServices() {
     
     const services = [];
     snapshot.forEach(doc => {
+      const serviceData = doc.data();
       services.push({
         id: doc.id,
         serviceID: doc.id, // Ensure serviceID is set for backward compatibility
-        ...doc.data()
+        ...serviceData,
+        // Ensure backward compatibility with old service structure
+        price: serviceData.price || (serviceData.plans && serviceData.plans[0] ? serviceData.plans[0].price : 0),
+        billingCycle: serviceData.billingCycle || (serviceData.plans && serviceData.plans[0] ? serviceData.plans[0].billingCycle : 'Monthly')
       });
     });
     

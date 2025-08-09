@@ -93,7 +93,40 @@ export async function getUserSubscriptions(userId) {
 export async function getAllSubscriptions() {
   try {
     const result = await firestoreManager.getAllDocuments('subscriptions');
-    return result.success ? result.data : [];
+    if (!result.success) {
+      return [];
+    }
+
+    // Enhance subscriptions with user information
+    const subscriptionsWithUsers = await Promise.all(
+      result.data.map(async (subscription) => {
+        try {
+          // Get user information for this subscription
+          if (subscription.userId) {
+            const userResult = await firestoreManager.getDocument('users', subscription.userId);
+            if (userResult.success && userResult.data) {
+              const user = userResult.data;
+              return {
+                ...subscription,
+                userName: user.username || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+                userFirstName: user.firstName,
+                userLastName: user.lastName,
+                userEmail: user.email,
+                userPhone: user.phoneNumber
+              };
+            }
+          }
+          
+          // If no user found, return subscription as-is
+          return subscription;
+        } catch (userError) {
+          console.error('Error fetching user for subscription:', subscription.id, userError);
+          return subscription;
+        }
+      })
+    );
+
+    return subscriptionsWithUsers;
   } catch (error) {
     console.error('Error getting all subscriptions:', error);
     return [];
@@ -204,7 +237,40 @@ export async function getPayment(paymentId) {
 export async function getAllPayments() {
   try {
     const result = await firestoreManager.getAllDocuments('payments');
-    return result.success ? result.data : [];
+    if (!result.success) {
+      return [];
+    }
+
+    // Enhance payments with user information
+    const paymentsWithUsers = await Promise.all(
+      result.data.map(async (payment) => {
+        try {
+          // Get user information for this payment
+          if (payment.userId) {
+            const userResult = await firestoreManager.getDocument('users', payment.userId);
+            if (userResult.success && userResult.data) {
+              const user = userResult.data;
+              return {
+                ...payment,
+                userName: user.username || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+                userFirstName: user.firstName,
+                userLastName: user.lastName,
+                userEmail: user.email,
+                userPhone: user.phoneNumber
+              };
+            }
+          }
+          
+          // If no user found, return payment as-is
+          return payment;
+        } catch (userError) {
+          console.error('Error fetching user for payment:', payment.id, userError);
+          return payment;
+        }
+      })
+    );
+
+    return paymentsWithUsers;
   } catch (error) {
     console.error('Error getting all payments:', error);
     return [];
@@ -358,7 +424,40 @@ export async function createSupportMessage(messageData) {
 export async function getSupportMessages() {
   try {
     const result = await firestoreManager.getAllDocuments('support_tickets');
-    return result.success ? result.data : [];
+    if (!result.success) {
+      return [];
+    }
+
+    // Enhance support tickets with user information
+    const supportWithUsers = await Promise.all(
+      result.data.map(async (ticket) => {
+        try {
+          // Get user information for this support ticket
+          if (ticket.userId) {
+            const userResult = await firestoreManager.getDocument('users', ticket.userId);
+            if (userResult.success && userResult.data) {
+              const user = userResult.data;
+              return {
+                ...ticket,
+                userName: user.username || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+                userFirstName: user.firstName,
+                userLastName: user.lastName,
+                userEmail: user.email,
+                userPhone: user.phoneNumber
+              };
+            }
+          }
+          
+          // If no user found, return ticket as-is
+          return ticket;
+        } catch (userError) {
+          console.error('Error fetching user for support ticket:', ticket.id, userError);
+          return ticket;
+        }
+      })
+    );
+
+    return supportWithUsers;
   } catch (error) {
     console.error('Error getting support messages:', error);
     return [];
@@ -479,6 +578,18 @@ export async function getServices() {
 
 export async function createService(serviceData) {
   try {
+    // Validate service data structure
+    if (!serviceData.serviceID || !serviceData.name || !serviceData.plans) {
+      return { success: false, error: 'Missing required service fields' };
+    }
+    
+    // Validate plans structure
+    for (const plan of serviceData.plans) {
+      if (!plan.duration || !plan.price || !plan.billingCycle) {
+        return { success: false, error: 'Invalid plan structure' };
+      }
+    }
+    
     const result = await firestoreManager.createDocument('services', {
       ...serviceData,
       status: 'active',
@@ -495,7 +606,19 @@ export async function createService(serviceData) {
 
 export async function updateService(serviceId, updates) {
   try {
-    const result = await firestoreManager.updateDocument('services', serviceId, updates);
+    // Validate plans structure if updating plans
+    if (updates.plans) {
+      for (const plan of updates.plans) {
+        if (!plan.duration || !plan.price || !plan.billingCycle) {
+          return { success: false, error: 'Invalid plan structure' };
+        }
+      }
+    }
+    
+    const result = await firestoreManager.updateDocument('services', serviceId, {
+      ...updates,
+      updatedAt: new Date()
+    });
     return result;
   } catch (error) {
     console.error('Error updating service:', error);
