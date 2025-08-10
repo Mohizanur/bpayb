@@ -1,8 +1,24 @@
-import { logger } from '../utils/logger.js';
-import nodeFetch from 'node-fetch';
+// Fallback logger if the logger module is not available
+const fallbackLogger = {
+  info: (...args) => console.log('[INFO]', ...args),
+  error: (...args) => console.error('[ERROR]', ...args),
+  warn: (...args) => console.warn('[WARN]', ...args),
+  debug: (...args) => process.env.NODE_ENV === 'development' && console.debug('[DEBUG]', ...args)
+};
 
-// Use node-fetch in Node.js, or window.fetch in the browser
-const fetch = typeof window === 'undefined' ? nodeFetch : window.fetch.bind(window);
+// Try to import the logger, use fallback if not available
+let logger;
+try {
+  const loggerModule = await import('./logger.js');
+  logger = loggerModule.logger || fallbackLogger;
+} catch (e) {
+  logger = fallbackLogger;
+  logger.warn('Using fallback logger. Could not import logger.js:', e.message);
+}
+
+// Import fetch
+import nodeFetch from 'node-fetch';
+const fetch = nodeFetch.default || nodeFetch;
 
 const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes (less than 15min timeout)
 const PING_URL = process.env.SELF_PING_URL || 'http://localhost:3000';
