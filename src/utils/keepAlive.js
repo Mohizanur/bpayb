@@ -21,7 +21,8 @@ import nodeFetch from 'node-fetch';
 const fetch = nodeFetch.default || nodeFetch;
 
 const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes (less than 15min timeout)
-const PING_URL = process.env.SELF_PING_URL || 'http://localhost:3000';
+const DEFAULT_PORT = process.env.PORT || 10000;
+const PING_URL = process.env.SELF_PING_URL || `http://localhost:${DEFAULT_PORT}`;
 
 class KeepAlive {
   constructor() {
