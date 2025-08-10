@@ -2320,77 +2320,87 @@ async function startServer() {
 import { keepAlive } from './utils/keepAlive.js';
 
 // Start the application with keep-alive
-startServer().then((server) => {
-  // Set up webhook if in production
-  if (process.env.NODE_ENV === 'production') {
-    // Try to get the Render URL from environment variables
-    const renderUrl = process.env.WEB_APP_URL ||
-                      process.env.RENDER_EXTERNAL_URL || 
-                      `https://${process.env.RENDER_SERVICE_NAME || 'bpayb'}.onrender.com`;
+async function startApp() {
+  try {
+    const server = await startServer();
     
-    console.log(`🌐 Using Render URL: ${renderUrl}`);
-    
-    try {
-      const webhookSuccess = await setupWebhook(renderUrl);
+    // Set up webhook if in production
+    if (process.env.NODE_ENV === 'production') {
+      // Try to get the Render URL from environment variables
+      const renderUrl = process.env.WEB_APP_URL ||
+                        process.env.RENDER_EXTERNAL_URL || 
+                        `https://${process.env.RENDER_SERVICE_NAME || 'bpayb'}.onrender.com`;
       
-      if (!webhookSuccess) {
-        console.log('📱 Telegram Bot: Falling back to polling mode');
+      console.log(`🌐 Using Render URL: ${renderUrl}`);
+      
+      try {
+        const webhookSuccess = await setupWebhook(renderUrl);
+        
+        if (!webhookSuccess) {
+          console.log('📱 Telegram Bot: Falling back to polling mode');
+          await bot.launch();
+        }
+      } catch (error) {
+        console.error('❌ Error setting up webhook:', error.message);
+        console.log('📱 Telegram Bot: Falling back to polling mode due to error');
         await bot.launch();
       }
-    } catch (error) {
-      console.error('❌ Error setting up webhook:', error.message);
-      console.log('📱 Telegram Bot: Falling back to polling mode due to error');
+    } else {
+      console.log('🔧 Development mode: Using polling');
       await bot.launch();
     }
-  } else {
-    console.log('🔧 Development mode: Using polling');
-    await bot.launch();
-  }
 
-  console.log(`📱 Telegram Bot: ${process.env.NODE_ENV === 'production' ? 'Webhook' : 'Polling'} mode`);
-  console.log(`🔧 Admin Panel: http://localhost:${server.address().port}/panel`);
-  console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID || 'Not set'}`);
-  
-  // Set up bot commands
-  try {
-    await bot.telegram.setMyCommands([
-      { command: 'start', description: 'Start the bot' },
-      { command: 'help', description: 'Show help information' },
-      { command: 'subscribe', description: 'Subscribe to a service' },
-      { command: 'mysubscriptions', description: 'View your subscriptions' },
-      { command: 'support', description: 'Get help and support' },
-      { command: 'lang', description: 'Change language' },
-      { command: 'faq', description: 'Frequently asked questions' },
-      { command: 'admin', description: 'Admin panel (admin only)' }
-    ]);
-    console.log('✅ Bot commands set up successfully');
-  } catch (error) {
-    console.error('❌ Failed to set up bot commands:', error.message);
-  }
-  
-  // Start keep-alive service in production
-  if (process.env.NODE_ENV === 'production') {
-    // Set SELF_PING_URL if not set (for local development)
-    if (!process.env.SELF_PING_URL) {
-      const port = process.env.PORT || 3000;
-      process.env.SELF_PING_URL = `http://localhost:${port}`;
+    console.log(`📱 Telegram Bot: ${process.env.NODE_ENV === 'production' ? 'Webhook' : 'Polling'} mode`);
+    console.log(`🔧 Admin Panel: http://localhost:${server.address().port}/panel`);
+    console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID || 'Not set'}`);
+    
+    // Set up bot commands
+    try {
+      await bot.telegram.setMyCommands([
+        { command: 'start', description: 'Start the bot' },
+        { command: 'help', description: 'Show help information' },
+        { command: 'subscribe', description: 'Subscribe to a service' },
+        { command: 'mysubscriptions', description: 'View your subscriptions' },
+        { command: 'support', description: 'Get help and support' },
+        { command: 'lang', description: 'Change language' },
+        { command: 'faq', description: 'Frequently asked questions' },
+        { command: 'admin', description: 'Admin panel (admin only)' }
+      ]);
+      console.log('✅ Bot commands set up successfully');
+    } catch (error) {
+      console.error('❌ Failed to set up bot commands:', error.message);
     }
     
-    // Start keep-alive service
-    keepAlive.start();
-    
-    // Handle process termination
-    const shutdown = async () => {
-      console.log('Shutting down gracefully...');
-      await server.close();
-      keepAlive.stop();
-      process.exit(0);
-    };
-    
-    process.on('SIGTERM', shutdown);
-    process.on('SIGINT', shutdown);
+    // Start keep-alive service in production
+    if (process.env.NODE_ENV === 'production') {
+      // Set SELF_PING_URL if not set (for local development)
+      if (!process.env.SELF_PING_URL) {
+        const port = process.env.PORT || 3000;
+        process.env.SELF_PING_URL = `http://localhost:${port}`;
+      }
+      
+      // Start keep-alive service
+      keepAlive.start();
+      
+      // Handle process termination
+      const shutdown = async () => {
+        console.log('Shutting down gracefully...');
+        await server.close();
+        keepAlive.stop();
+        process.exit(0);
+      };
+      
+      process.on('SIGTERM', shutdown);
+      process.on('SIGINT', shutdown);
+    }
+  } catch (error) {
+    console.error('❌ Failed to start application:', error);
+    process.exit(1);
   }
-});
+}
+
+// Start the application
+startApp();
 
 // No need to export anything in the main application file
 export {};
