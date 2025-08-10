@@ -21,8 +21,11 @@ import nodeFetch from 'node-fetch';
 const fetch = nodeFetch.default || nodeFetch;
 
 const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes (less than 15min timeout)
-const DEFAULT_PORT = process.env.PORT || 10000;
-const PING_URL = process.env.SELF_PING_URL || `http://localhost:${DEFAULT_PORT}`;
+// Use public URL in production, localhost in development
+const PING_URL = process.env.SELF_PING_URL || 
+  (process.env.NODE_ENV === 'production' 
+    ? (process.env.WEB_APP_URL || process.env.RENDER_EXTERNAL_URL || `https://${process.env.RENDER_SERVICE_NAME || 'bpayb'}.onrender.com`)
+    : `http://localhost:${process.env.PORT || 10000}`);
 
 class KeepAlive {
   constructor() {
