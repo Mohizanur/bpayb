@@ -2243,8 +2243,13 @@ async function startServer() {
   for (let attempt = 1; attempt <= maxPortAttempts; attempt++) {
     try {
       // Start the server
-      await fastify.listen({ port: currentPort, host: '0.0.0.0' });
-      console.log(`🚀 BirrPay Bot & Admin Panel running on port ${currentPort}`);
+      await new Promise((resolve, reject) => {
+        fastify.listen({ port: currentPort, host: '0.0.0.0' }, (err, address) => {
+          if (err) return reject(err);
+          console.log(`🚀 BirrPay Bot & Admin Panel running on port ${currentPort}`);
+          resolve(address);
+        });
+      });
       
       // Set up webhook if in production
       if (process.env.NODE_ENV === 'production') {
@@ -2293,7 +2298,7 @@ async function startServer() {
         console.error('❌ Failed to set up bot commands:', error.message);
       }
       
-      return; // Successfully started the server
+      return fastify.server; // Return the server instance
     } catch (err) {
       if (err.code === 'EADDRINUSE') {
         console.warn(`⚠️ Port ${currentPort} is in use, trying port ${currentPort + 1}...`);
@@ -2311,8 +2316,81 @@ async function startServer() {
   }
 };
 
-// Start the application
-startServer();
+// Import keep-alive functionality
+import { keepAlive } from './utils/keepAlive.js';
+
+// Start the application with keep-alive
+startServer().then((server) => {
+  // Set up webhook if in production
+  if (process.env.NODE_ENV === 'production') {
+    // Try to get the Render URL from environment variables
+    const renderUrl = process.env.WEB_APP_URL ||
+                      process.env.RENDER_EXTERNAL_URL || 
+                      `https://${process.env.RENDER_SERVICE_NAME || 'bpayb'}.onrender.com`;
+    
+    console.log(`🌐 Using Render URL: ${renderUrl}`);
+    
+    try {
+      const webhookSuccess = await setupWebhook(renderUrl);
+      
+      if (!webhookSuccess) {
+        console.log('📱 Telegram Bot: Falling back to polling mode');
+        await bot.launch();
+      }
+    } catch (error) {
+      console.error('❌ Error setting up webhook:', error.message);
+      console.log('📱 Telegram Bot: Falling back to polling mode due to error');
+      await bot.launch();
+    }
+  } else {
+    console.log('🔧 Development mode: Using polling');
+    await bot.launch();
+  }
+
+  console.log(`📱 Telegram Bot: ${process.env.NODE_ENV === 'production' ? 'Webhook' : 'Polling'} mode`);
+  console.log(`🔧 Admin Panel: http://localhost:${server.address().port}/panel`);
+  console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID || 'Not set'}`);
+  
+  // Set up bot commands
+  try {
+    await bot.telegram.setMyCommands([
+      { command: 'start', description: 'Start the bot' },
+      { command: 'help', description: 'Show help information' },
+      { command: 'subscribe', description: 'Subscribe to a service' },
+      { command: 'mysubscriptions', description: 'View your subscriptions' },
+      { command: 'support', description: 'Get help and support' },
+      { command: 'lang', description: 'Change language' },
+      { command: 'faq', description: 'Frequently asked questions' },
+      { command: 'admin', description: 'Admin panel (admin only)' }
+    ]);
+    console.log('✅ Bot commands set up successfully');
+  } catch (error) {
+    console.error('❌ Failed to set up bot commands:', error.message);
+  }
+  
+  // Start keep-alive service in production
+  if (process.env.NODE_ENV === 'production') {
+    // Set SELF_PING_URL if not set (for local development)
+    if (!process.env.SELF_PING_URL) {
+      const port = process.env.PORT || 3000;
+      process.env.SELF_PING_URL = `http://localhost:${port}`;
+    }
+    
+    // Start keep-alive service
+    keepAlive.start();
+    
+    // Handle process termination
+    const shutdown = async () => {
+      console.log('Shutting down gracefully...');
+      await server.close();
+      keepAlive.stop();
+      process.exit(0);
+    };
+    
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
+  }
+});
 
 // No need to export anything in the main application file
-// The server is already started and running
+export {};
