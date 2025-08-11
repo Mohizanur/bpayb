@@ -36,28 +36,56 @@ function setupSubscribeHandler(bot) {
       const serviceId = ctx.match[1];
       const lang = ctx.userLang || 'en';
       
+      // Show loading message
+      await ctx.answerCbQuery();
+      
       // Get the service details from the context or database
-      const service = ctx.services?.find(s => s.id === serviceId);
+      let service;
+      
+      // First try to get from context
+      if (ctx.services) {
+        service = ctx.services.find(s => s.id === serviceId || s.serviceID === serviceId);
+      }
+      
+      // If not found in context, try to fetch from Firestore
+      if (!service) {
+        try {
+          const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+          if (serviceDoc.exists) {
+            service = { id: serviceDoc.id, ...serviceDoc.data() };
+          }
+        } catch (error) {
+          console.error('Error fetching service from Firestore:', error);
+        }
+      }
       
       if (!service) {
         await ctx.answerCbQuery(lang === 'am' ? 'አገልግሎት አልተገኘም' : 'Service not found');
         return;
       }
       
-      // Show service details and subscription options with 1, 3, 6, 12 month choices
-      const message = lang === 'am' 
-        ? `✅ *${service.name}* የተመረጠ\n\nእባክዎ የምትፈልጉትን የደንበኝነት ምዝገባ ዓይነት ይምረጥ:`
-        : `✅ *${service.name}* selected\n\nPlease choose your subscription duration:`;
+      // Ensure plans array exists and has valid plans
+      if (!service.plans || !Array.isArray(service.plans) || service.plans.length === 0) {
+        // If no plans, create default plans
+        service.plans = [
+          { duration: 1, price: service.price || 100, billingCycle: 'monthly' },
+          { duration: 3, price: Math.round((service.price || 100) * 2.7), billingCycle: 'quarterly' },
+          { duration: 6, price: Math.round((service.price || 100) * 5), billingCycle: 'semi-annually' },
+          { duration: 12, price: Math.round((service.price || 100) * 9), billingCycle: 'annually' }
+        ];
+      }
       
-      // Get plans from the new service structure
-      const plans = service.plans || [];
+      // Show service details and subscription options
+      const message = lang === 'am' 
+        ? `✅ *${service.name}* የተመረጠ\n\n${service.description || ''}\n\nእባክዎ የምትፈልጉትን የደንበኝነት ምዝገባ ዓይነት ይምረጥ:`
+        : `✅ *${service.name}* selected\n\n${service.description || ''}\n\nPlease choose your subscription duration:`;
       
       // Create inline keyboard with available plans
-      const planButtons = plans.map(plan => ({
+      const planButtons = service.plans.map(plan => ({
         text: lang === 'am' ? 
-          `${plan.duration} ${plan.duration === 1 ? 'ወር' : plan.duration < 12 ? 'ወራት' : 'አመት'}` : 
-          `${plan.duration} ${plan.duration === 1 ? 'Month' : plan.duration < 12 ? 'Months' : 'Year'}${plan.duration >= 12 && plan.duration % 12 === 0 ? 's' : ''}`,
-        callback_data: `subscribe_${serviceId}_${plan.duration}m_${plan.price}`
+          `${plan.duration} ${plan.duration === 1 ? 'ወር' : plan.duration < 12 ? 'ወራት' : 'አመት'} - ${plan.price} ብር` : 
+          `${plan.duration} ${plan.duration === 1 ? 'Month' : plan.duration < 12 ? 'Months' : 'Year'}${plan.duration >= 12 && plan.duration % 12 === 0 ? 's' : ''} - ${plan.price} ETB`,
+        callback_data: `subscribe_${service.id || service.serviceID}_${plan.duration}m_${plan.price}`
       }));
       
       // Group buttons in rows of 2
@@ -68,16 +96,30 @@ function setupSubscribeHandler(bot) {
       
       // Add back button
       keyboardRows.push([
-        { text: lang === 'am' ? '🔙 ወደ ኋላ' : '🔙 Back', 
-          callback_data: 'back_to_services' }
+        { 
+          text: lang === 'am' ? '🔙 ወደ ኋላ' : '🔙 Back', 
+          callback_data: 'back_to_services' 
+        }
       ]);
 
-      await ctx.editMessageText(message, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: keyboardRows
-        }
-      });
+      // Edit the message with service details and plans
+      try {
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: keyboardRows
+          }
+        });
+      } catch (error) {
+        console.error('Error editing message:', error);
+        // If message editing fails, send a new message
+        await ctx.reply(message, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: keyboardRows
+          }
+        });
+      }
       
     } catch (error) {
       console.error('Error in service selection:', error);
@@ -155,6 +197,9 @@ function setupSubscribeHandler(bot) {
       }
 
       const months = parseInt(duration, 10);
+      const durationText = lang === 'am' 
+        ? `${months} ${months === 1 ? 'ወር' : 'ወራት'}`
+        : `${months} ${months === 1 ? 'Month' : 'Months'}`;
       
       // Find the matching plan
       const plan = service.plans?.find(p => p.duration === months);
@@ -225,7 +270,9 @@ function setupSubscribeHandler(bot) {
         serviceId,
         serviceName: service.name,
         duration,
+        durationName: durationText,
         price,
+        amount: `ETB ${price}`, // Formatted amount for display
         status: 'pending',
         createdAt: new Date().toISOString(),
         paymentMethod: 'manual',
@@ -269,6 +316,7 @@ function setupSubscribeHandler(bot) {
       
     } catch (error) {
       console.error('Error in payment instructions:', error);
+      const lang = ctx.userLang || 'en';
       await ctx.answerCbQuery(lang === 'am' ? 'ስህተት ተፈጥሯል' : 'An error occurred');
     }
   });
@@ -322,12 +370,47 @@ function setupSubscribeHandler(bot) {
       const file = await ctx.telegram.getFile(photo.file_id);
       const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
       
+      // Get payment data to create subscription
+      const paymentDoc = await firestore.collection('pendingPayments').doc(paymentId).get();
+      const paymentData = paymentDoc.data();
+      
+      // Generate payment reference
+      const paymentReference = `REF-${Date.now().toString().slice(-8)}-${userId.slice(-4)}`;
+      
       // Update payment with proof
       await firestore.collection('pendingPayments').doc(paymentId).update({
         paymentProof: fileUrl,
+        paymentReference: paymentReference,
         proofSubmittedAt: new Date().toISOString(),
         status: 'proof_submitted'
       });
+      
+      // Create pending subscription
+      const subscriptionId = `sub_${Date.now()}_${userId}`;
+      const months = parseInt(paymentData.duration, 10);
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + months);
+      
+      const subscriptionData = {
+        userId,
+        serviceId: paymentData.serviceId,
+        serviceName: paymentData.serviceName,
+        duration: paymentData.duration,
+        durationName: paymentData.durationName || `${paymentData.duration} Month${paymentData.duration > 1 ? 's' : ''}`,
+        amount: paymentData.price,
+        price: paymentData.price, // Keep for backward compatibility
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        status: 'pending',
+        paymentId,
+        paymentReference: paymentId,
+        paymentStatus: 'pending',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      await firestore.collection('subscriptions').doc(subscriptionId).set(subscriptionData);
       
       // Clear user state
       await firestore.collection('userStates').doc(userId).delete();
@@ -344,9 +427,7 @@ function setupSubscribeHandler(bot) {
       
       await ctx.reply(userMessage, { parse_mode: 'Markdown' });
       
-      // Notify admin with the proof
-      const payment = await firestore.collection('pendingPayments').doc(paymentId).get();
-      const paymentData = payment.data();
+      // Notify admin with the proof (reuse existing paymentData)
       
       const adminMessage = `🆕 *Payment Proof Submitted*\n\n` +
         `👤 User: ${ctx.from.first_name} ${ctx.from.last_name || ''} (@${ctx.from.username || 'no_username'})\n` +
@@ -409,28 +490,35 @@ function setupSubscribeHandler(bot) {
       const userId = payment.userId;
       const months = parseInt(payment.duration, 10);
       
+      // Find existing pending subscription
+      const subscriptionsQuery = await firestore.collection('subscriptions')
+        .where('paymentId', '==', paymentId)
+        .where('status', '==', 'pending')
+        .get();
+      
+      if (subscriptionsQuery.empty) {
+        await ctx.answerCbQuery('No pending subscription found');
+        return;
+      }
+      
+      // Update existing subscription to active
+      const subscriptionDoc = subscriptionsQuery.docs[0];
+      const subscriptionId = subscriptionDoc.id;
+      
       // Calculate subscription dates
       const startDate = new Date();
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() + months);
       
-      // Create subscription
-      const subscriptionId = `sub_${Date.now()}_${userId}`;
-      const subscriptionData = {
-        userId,
-        serviceId: payment.serviceId,
-        serviceName: payment.serviceName,
+      await firestore.collection('subscriptions').doc(subscriptionId).update({
+        status: 'active',
+        paymentStatus: 'completed',
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
-        price: payment.price,
-        status: 'active',
-        paymentId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      // Save subscription to database
-      await firestore.collection('subscriptions').doc(subscriptionId).set(subscriptionData);
+        updatedAt: new Date().toISOString(),
+        approvedAt: new Date().toISOString(),
+        approvedBy: adminId
+      });
       
       // Update payment status
       await paymentRef.update({
@@ -479,6 +567,23 @@ function setupSubscribeHandler(bot) {
       if (String(ctx.from.id) !== process.env.ADMIN_TELEGRAM_ID) {
         await ctx.answerCbQuery('Unauthorized');
         return;
+      }
+      
+      // Find and update existing pending subscription
+      const subscriptionsQuery = await firestore.collection('subscriptions')
+        .where('paymentId', '==', paymentId)
+        .where('status', '==', 'pending')
+        .get();
+      
+      if (!subscriptionsQuery.empty) {
+        const subscriptionDoc = subscriptionsQuery.docs[0];
+        await firestore.collection('subscriptions').doc(subscriptionDoc.id).update({
+          status: 'rejected',
+          paymentStatus: 'rejected',
+          rejectedAt: new Date().toISOString(),
+          rejectedBy: String(ctx.from.id),
+          updatedAt: new Date().toISOString()
+        });
       }
       
       // Update payment status

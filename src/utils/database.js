@@ -41,6 +41,57 @@ export async function updateUser(userId, updates) {
   }
 }
 
+export async function banUser(userId, reason = '') {
+  try {
+    const timestamp = new Date();
+    const result = await firestoreManager.updateDocument('users', userId, {
+      status: 'banned',
+      bannedAt: timestamp,
+      banReason: reason,
+      updatedAt: timestamp
+    });
+    
+    // Cancel all active subscriptions
+    const subsSnapshot = await firestoreManager.queryDocuments('subscriptions', {
+      userId: userId,
+      status: 'active'
+    });
+    
+    if (subsSnapshot.success && subsSnapshot.data.length > 0) {
+      const batch = [];
+      subsSnapshot.data.forEach(sub => {
+        batch.push(firestoreManager.updateDocument('subscriptions', sub.id, {
+          status: 'cancelled',
+          cancelledAt: timestamp,
+          cancellationReason: 'User banned',
+          updatedAt: timestamp
+        }));
+      });
+      await Promise.all(batch);
+    }
+    
+    return { success: true, userId };
+  } catch (error) {
+    console.error('Error banning user:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function unbanUser(userId) {
+  try {
+    const result = await firestoreManager.updateDocument('users', userId, {
+      status: 'active',
+      bannedAt: null,
+      banReason: '',
+      updatedAt: new Date()
+    });
+    return { success: true, userId };
+  } catch (error) {
+    console.error('Error unbanning user:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function getAllUsers() {
   try {
     const result = await firestoreManager.getAllDocuments('users');

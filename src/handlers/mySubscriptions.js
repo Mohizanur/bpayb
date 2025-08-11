@@ -1,5 +1,6 @@
 import { getUserSubscriptions, getSubscription } from "../utils/database.js";
 import { formatCurrency } from "../utils/payment.js";
+import { db } from "../../firebase-config.js";
 
 export default function mySubscriptionsHandler(bot) {
   // Handle my subscriptions menu
@@ -94,10 +95,20 @@ You don't have any subscriptions yet. To start a new subscription, please select
         { text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }
       ]);
       
-      await ctx.editMessageText(message, {
-        reply_markup: { inline_keyboard: keyboard },
-        parse_mode: 'Markdown'
-      });
+      try {
+        await ctx.editMessageText(message, {
+          reply_markup: { inline_keyboard: keyboard },
+          parse_mode: 'Markdown'
+        });
+      } catch (editError) {
+        // Handle "message is not modified" error gracefully
+        if (editError.response && editError.response.error_code === 400 && 
+            editError.response.description.includes('message is not modified')) {
+          console.log('Message content unchanged, skipping edit');
+        } else {
+          throw editError; // Re-throw other errors
+        }
+      }
 
       await ctx.answerCbQuery();
       
@@ -149,24 +160,32 @@ You don't have any subscriptions yet. To start a new subscription, please select
       const message = lang === 'am'
         ? `📊 **የምዝገባ ዝርዝር**
         
-**አገልግሎት:** ${subscription.serviceName}
-**የእቅድ ቆይታ:** ${subscription.durationName}
-**መጠን:** ${formatCurrency(subscription.amount)}
+**አገልግሎት:** ${subscription.serviceName || 'N/A'}
+**የእቅድ ቆይታ:** ${subscription.durationName || subscription.duration || 'N/A'}
+**መጠን:** ${subscription.amount && !isNaN(subscription.amount) ? formatCurrency(subscription.amount) : 'N/A'}
 **ሁኔታ:** ${statusEmoji[subscription.status]} ${statusText[subscription.status]}
-**የክፍያ ሁኔታ:** ${paymentStatusText[subscription.paymentStatus] || 'N/A'}
-**የክፍያ ማጣቀሻ:** ${subscription.paymentReference || 'N/A'}
-**የተፈጠረበት ቀን:** ${subscription.createdAt.toDate().toLocaleDateString()}
+**የክፍያ ሁኔታ:** ${paymentStatusText[subscription.paymentStatus] || 'በመጠባበቅ ላይ'}
+**የክፍያ ማጣቀሻ:** ${subscription.paymentReference || 'አልተገኘም'}
+**የተፈጠረበት ቀን:** ${subscription.createdAt && typeof subscription.createdAt.toDate === 'function' 
+          ? subscription.createdAt.toDate().toLocaleDateString() 
+          : subscription.createdAt 
+            ? new Date(subscription.createdAt).toLocaleDateString()
+            : 'N/A'}
 
 ${subscription.rejectionReason ? `**የመቀበል ምክንያት:** ${subscription.rejectionReason}` : ''}`
         : `📊 **Subscription Details**
         
-**Service:** ${subscription.serviceName}
-**Duration:** ${subscription.durationName}
-**Amount:** ${formatCurrency(subscription.amount)}
+**Service:** ${subscription.serviceName || 'N/A'}
+**Duration:** ${subscription.durationName || subscription.duration || 'N/A'}
+**Amount:** ${subscription.amount && !isNaN(subscription.amount) ? formatCurrency(subscription.amount) : 'N/A'}
 **Status:** ${statusEmoji[subscription.status]} ${statusText[subscription.status]}
-**Payment Status:** ${paymentStatusText[subscription.paymentStatus] || 'N/A'}
-**Payment Reference:** ${subscription.paymentReference || 'N/A'}
-**Created:** ${subscription.createdAt.toDate().toLocaleDateString()}
+**Payment Status:** ${paymentStatusText[subscription.paymentStatus] || 'Pending'}
+**Payment Reference:** ${subscription.paymentReference || 'Not Available'}
+**Created:** ${subscription.createdAt && typeof subscription.createdAt.toDate === 'function' 
+          ? subscription.createdAt.toDate().toLocaleDateString() 
+          : subscription.createdAt 
+            ? new Date(subscription.createdAt).toLocaleDateString()
+            : 'N/A'}
 
 ${subscription.rejectionReason ? `**Rejection Reason:** ${subscription.rejectionReason}` : ''}`;
       
@@ -276,34 +295,34 @@ Are you sure you want to cancel this subscription?`;
       const subscriptionId = ctx.match[1];
       const lang = ctx.userLang || 'en';
       
-      // Update subscription status to cancelled
-      // Assuming updateSubscription function exists elsewhere or is a placeholder
-      // For now, we'll simulate an update
-      const updateResult = { success: true }; // Placeholder for actual update logic
+      // Update subscription status to cancelled in database
+      await db.collection('subscriptions').doc(subscriptionId).update({
+        status: 'cancelled',
+        cancelledAt: new Date().toISOString(),
+        cancelledBy: String(ctx.from.id),
+        updatedAt: new Date().toISOString()
+      });
       
-      if (updateResult.success) {
-        const message = lang === 'am'
-          ? `✅ **ምዝገባ ተሰርዟል**
-          
+      // Cancellation successful
+      const message = lang === 'am'
+        ? `✅ **ምዝገባ ተሰርዟል**
+        
 የእርስዎ ምዝገባ በተሳካተ ሁኔታ ተሰርዟል። ለተጨማሪ መረጃ የድጋፍ ቡድኑን ያግኙ።`
-          : `✅ **Subscription Cancelled**
-          
+        : `✅ **Subscription Cancelled**
+        
 Your subscription has been cancelled successfully. Contact support for more information.`;
-        
-        const keyboard = [
-          [{ text: lang === 'am' ? '📊 የእኔ ምዝገባዎች' : '📊 My Subscriptions', callback_data: 'my_subs' }],
-          [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }]
-        ];
-        
-        await ctx.editMessageText(message, {
-          reply_markup: { inline_keyboard: keyboard },
-          parse_mode: 'Markdown'
-        });
-        
-        await ctx.answerCbQuery(lang === 'am' ? 'ምዝገባ ተሰርዟል' : 'Subscription cancelled');
-      } else {
-        throw new Error('Failed to cancel subscription');
-      }
+      
+      const keyboard = [
+        [{ text: lang === 'am' ? '📊 የእኔ ምዝገባዎች' : '📊 My Subscriptions', callback_data: 'my_subs' }],
+        [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }]
+      ];
+      
+      await ctx.editMessageText(message, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
+      });
+      
+      await ctx.answerCbQuery(lang === 'am' ? 'ምዝገባ ተሰርዟል' : 'Subscription cancelled');
       
     } catch (error) {
       console.error('Error confirming cancellation:', error);

@@ -66,7 +66,6 @@ import {
     utilityRoutes 
 } from "./api/routes.js";
 import { requireAdmin } from './middleware/requireAdmin.js';
-import { getBackToMenuButton } from './utils/navigation.js';
 
 console.log("Starting bot initialization...");
 console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
@@ -391,9 +390,6 @@ registerAdminPaymentHandlers(bot);
 // Initialize start handler
 setupStartHandler(bot);
 
-// Initialize my subscriptions handler
-mySubscriptionsHandler(bot);
-
 // Add admin callback handlers
 // Admin stats handler is defined later in the file
 
@@ -427,9 +423,8 @@ bot.use(async (ctx, next) => {
     const isContactMessage = ctx.message?.contact;
     const isManualPhoneInput = ctx.message?.text === '✍️ በእጅ መፃፍ' || ctx.message?.text === '✍️ Type Manually';
     const isVerificationCodeInput = ctx.message?.text && /^\d{6}$/.test(ctx.message.text.trim());
-    const isCallbackQuery = ctx.callbackQuery;
     
-    if (isAdmin || isVerificationCommand || isStartCommand || isContactMessage || isManualPhoneInput || isVerificationCodeInput || isCallbackQuery) {
+    if (isAdmin || isVerificationCommand || isStartCommand || isContactMessage || isManualPhoneInput || isVerificationCodeInput) {
       ctx.i18n = i18n;
       ctx.services = services;
       ctx.userLang = await getUserLang(ctx);
@@ -442,12 +437,6 @@ bot.use(async (ctx, next) => {
       const userId = String(ctx.from.id);
       const userDoc = await firestore.collection('users').doc(userId).get();
       let userData = userDoc.data();
-      
-      console.log(`📱 Phone verification check for user ${userId}:`, {
-        exists: userDoc.exists,
-        phoneVerified: userData?.phoneVerified,
-        hasPhoneNumber: !!userData?.phoneNumber
-      });
       
       // If user doesn't exist, create a new user record
       if (!userDoc.exists) {
@@ -471,16 +460,6 @@ bot.use(async (ctx, next) => {
           phoneVerified: false,
           updatedAt: new Date()
         });
-      }
-      
-      // Check if user has a phone number - if they do, they're likely verified
-      if (userData && userData.phoneNumber && !userData.phoneVerified) {
-        // Update verification status if they have a phone number but verification flag is false
-        await firestore.collection('users').doc(userId).update({
-          phoneVerified: true,
-          updatedAt: new Date()
-        });
-        userData.phoneVerified = true;
       }
       
       if (!userData.phoneVerified) {
@@ -521,7 +500,6 @@ bot.use(async (ctx, next) => {
       ctx.services = services;
       ctx.userLang = await getUserLang(ctx);
       await next();
-      return;
     }
     
   } catch (error) {
@@ -674,7 +652,7 @@ bot.on('contact', async (ctx) => {
       [
         { 
           text: lang === "am" ? "⭐ የእኔ ምዝገባዎች" : "⭐ My Subscriptions",
-          callback_data: "my_subs"
+          callback_data: "my_subscriptions"
         },
         { 
           text: lang === "am" ? "🏆 የተመለከተ" : "🏆 Referral",
@@ -775,22 +753,6 @@ bot.on('text', async (ctx, next) => {
         hasCompletedOnboarding: true
       }, { merge: true });
       
-      const successMsg = lang === 'am'
-        ? '✅ ስልክ ቁጥርዎ ተረጋግጧል! አሁን BirrPay አገልግሎቶችን መጠቀም ይችላሉ።'
-        : '✅ Phone number verified! You can now use BirrPay services.';
-      await ctx.reply(successMsg);
-      return;
-    }
-    
-    // Continue to next handler if not in verification flow
-    await next();
-    
-  } catch (error) {
-    console.error('Error in text handler:', error);
-    await next();
-  }
-});
-
 console.log('✅ Phone verification system registered!');
 
 // Real Admin callback handlers with actual functionality
@@ -2430,7 +2392,7 @@ async function startApp() {
     console.error('❌ Failed to start application:', error);
     process.exit(1);
   }
-}
+} // Close startApp() function
 
 // Start the application
 startApp();

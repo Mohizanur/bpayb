@@ -1,6 +1,7 @@
-import { escapeMarkdownV2 } from "../utils/i18n.js";
+import { escapeMarkdownV2, loadI18n } from "../utils/i18n.js";
 import { firestore } from "../utils/firestore.js";
 import { loadServices } from "../utils/loadServices.js";
+import { getBackToMenuButton, getInlineKeyboard, showMainMenu } from "../utils/navigation.js";
 
 // Helper function to check if user is new
 const isNewUser = async (userId) => {
@@ -60,123 +61,9 @@ export function setupStartHandler(bot) {
       // Update user info and create profile
       await createUserProfile(ctx);
       
-      if (isFirstTime) {
-        // Enhanced welcome message for new users
-        const welcomeTitle = lang === "am" 
-          ? "🎉 እንኳን ወደ BirrPay ደህና መጡ!"
-          : "🎉 Welcome to BirrPay!";
-        
-        const welcomeSubtitle = lang === "am"
-          ? "🌟 **የኢትዮጵያ #1 የሳብስክሪፕሽን ፕላትፎርም**"
-          : "🌟 **Ethiopia's #1 Subscription Platform**";
-          
-        const introMessage = lang === "am"
-          ? `${welcomeTitle}\n\n${welcomeSubtitle}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🚀 **እንኳን ደስ አለዎት!**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nBirrPay ኢትዮጵያ ውስጥ ሁሉንም ዲጂታል ሳብስክሪፕሽኖችዎን በአንድ ደህንነቱ የተጠበቀ ቦታ የሚያስተዳድሩበት ቦታ ነው።\n\n✨ **ምን ማድረግ ይችላሉ:**\n• Netflix, Amazon Prime, Spotify እና ሌሎችንም ያግኙ\n• በብር በቀላሉ ይክፈሉ\n• ሁሉንም ሳብስክሪፕሽኖችዎን በአንድ ቦታ ያስተዳድሩ\n• 24/7 የደንበኞች ድጋፍ ያግኙ\n\n🔒 **100% ደህንነቱ የተጠበቀ** | 🇪🇹 **የአካባቢ ድጋፍ** | ⚡ **ፈጣን እና ቀላል**`
-          : `${welcomeTitle}\n\n${welcomeSubtitle}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🚀 **Getting Started**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nBirrPay is Ethiopia's premier platform for managing all your digital subscriptions in one secure place.\n\n✨ **What You Can Do:**\n• Access Netflix, Amazon Prime, Spotify, and more\n• Pay easily using Ethiopian Birr\n• Manage all subscriptions from one place\n• Get 24/7 customer support\n\n🔒 **100% Secure** | 🇪🇹 **Local Support** | ⚡ **Fast & Easy**`;
-
-        const onboardingKeyboard = [
-          [
-            { 
-              text: lang === "am" ? "🚀 እንጀምር!" : "🚀 Let's Get Started!", 
-              callback_data: "start_onboarding" 
-            }
-          ],
-          [
-            { 
-              text: lang === "am" ? "📱 አገልግሎቶችን ይመልከቱ" : "📱 Browse Services", 
-              callback_data: "services" 
-            }
-          ],
-          [
-            { 
-              text: lang === "am" ? "❓ እንዴት እንደሚሰራ ይመልከቱ" : "❓ How It Works", 
-              callback_data: "how_to_use" 
-            }
-          ]
-        ];
-
-        await ctx.reply(introMessage, {
-          reply_markup: { inline_keyboard: onboardingKeyboard },
-          parse_mode: 'Markdown'
-        });
-        
-        return;
-      }
-
-      // Regular welcome back message for returning users
-      const welcomeBackTitle = lang === "am" 
-        ? "👋 እንደገና እንኳን ደህና መጡ!"
-        : "👋 Welcome Back!";
+      // Show main menu with appropriate welcome message
+      await showMainMenu(ctx, isFirstTime);
       
-      const subtitle = lang === "am"
-        ? "🌍 BirrPay - የኢትዮጵያ የምዝገባ መከር"
-        : "🌍 BirrPay - Ethiopia's Premier Subscription Hub";
-      
-      const description = lang === "am"
-        ? "ሁሉንም የዲጂታል ምዝገባዎችዎን በአንድ የተጠቃማ ቦታ ይአስተዳድሩ። Netflix፣ Amazon Prime፣ Spotify እና ተጨማሪዎችን በቀላሉ በብር ያግኙ።"
-        : "Manage all your digital subscriptions in one secure place. Access Netflix, Amazon Prime, Spotify, and more with ease using Ethiopian Birr.";
-
-      // Get user's subscription summary for personalized experience
-      const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-      const userData = userDoc.data();
-      const activeCount = userData?.activeSubscriptions || 0;
-      const totalCount = userData?.totalSubscriptions || 0;
-
-      let personalizedMessage = "";
-      if (activeCount > 0) {
-        personalizedMessage = lang === "am"
-          ? `\n\n📊 **የእርስዎ መለያ:** ${activeCount} ንቁ ምዝገባዎች`
-          : `\n\n📊 **Your Account:** ${activeCount} Active Subscriptions`;
-      }
-
-      // Check if user is admin
-      const isAdmin = ctx.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
-      
-      // Create enhanced main menu
-      const keyboard = [
-        // Primary actions row
-        [
-          { text: lang === "am" ? "📱 አገልግሎቶች" : "📱 Services", callback_data: "services" },
-          { text: lang === "am" ? "📊 የእኔ ምዝገባዎች" : "📊 My Subscriptions", callback_data: "my_subs" }
-        ],
-        // Features and plans row
-        [
-          { text: lang === "am" ? "🎯 ባህሪያት" : "🎯 Features", callback_data: "features" },
-          { text: lang === "am" ? "💳 እቅዶች" : "💳 Plans", callback_data: "plans" }
-        ],
-        // Help and support row
-        [
-          { text: lang === "am" ? "❓ FAQ" : "❓ FAQ", callback_data: "faq_menu" },
-          { text: lang === "am" ? "🛠️ ድጋፍ" : "🛠️ Support", callback_data: "support_menu" }
-        ],
-        // Secondary options row
-        [
-          { text: lang === "am" ? "📖 እንዴት እንደሚጠቀሙ" : "📖 How to Use", callback_data: "how_to_use" },
-          { text: lang === "am" ? "📞 አግኙን" : "📞 Contact", callback_data: "contact" }
-        ],
-        // Settings row
-        [
-          { text: lang === "am" ? "🌐 ቋንቋ" : "🌐 Language", callback_data: "language_settings" }
-        ]
-      ];
-      
-      // Add admin menu if user is admin
-      if (isAdmin) {
-        keyboard.push([
-          { 
-            text: "👑 Admin Panel", 
-            callback_data: "admin_panel"
-          }
-        ]);
-      }
-
-      const fullMessage = `${welcomeBackTitle}\n\n${subtitle}\n\n${description}${personalizedMessage}\n\n${lang === "am" ? "ከታች አንዱን ይምረጡ:" : "Choose an option below:"}`;
-
-      await ctx.reply(fullMessage, {
-        reply_markup: { inline_keyboard: keyboard },
-        parse_mode: 'Markdown'
-      });
-
       // Update last active time
       await firestore.collection('users').doc(String(ctx.from.id)).update({
         lastActiveAt: new Date()
@@ -572,73 +459,14 @@ All services are available for this duration.`;
       await ctx.answerCbQuery("Sorry, something went wrong.");
     }
   });
-  
-  // Handle my subscriptions from start menu
-  bot.action("my_subs", async (ctx) => {
-    try {
-      const lang = ctx.userLang;
-      const userID = ctx.from.id;
-      
-      const subsSnap = await firestore
-        .collection("subscriptions")
-        .where("telegramUserID", "==", userID)
-        .where("status", "==", "active")
-        .get();
-        
-      if (subsSnap.empty) {
-        const noSubsMsg = ctx.i18n.no_active_subs[lang];
-        await ctx.editMessageText(noSubsMsg, {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: lang === "en" ? "⬅️ Back to Menu" : "⬅️ ወደ ሜኑ ተመለስ", callback_data: "back_to_start" }]
-            ]
-          }
-        });
-        await ctx.answerCbQuery();
-        return;
-      }
-      
-      const services = ctx.services;
-      const title = ctx.i18n.active_subs_title[lang];
-      let msg = `${title}\n\n`;
-      const keyboard = [];
-      
-      subsSnap.forEach((doc) => {
-        const sub = doc.data();
-        const service = services.find((s) => s.serviceID === sub.serviceID);
-        const serviceName = service ? service.name : sub.serviceID;
-        const nextBilling = sub.nextBillingDate || "N/A";
-        const price = service ? service.price : "N/A";
-        
-        msg += `📱 ${serviceName}\n`;
-        msg += `💰 ${price} Birr/month\n`;
-        msg += `📅 Next billing: ${nextBilling}\n\n`;
-        
-        keyboard.push([{
-          text: `❌ Cancel ${serviceName}`,
-          callback_data: `cancel_sub_${doc.id}`
-        }]);
-      });
-      
-      keyboard.push([
-        { text: lang === "en" ? "⬅️ Back to Menu" : "⬅️ ወደ ሜኑ ተመለስ", callback_data: "back_to_start" }
-      ]);
-      
-      await ctx.editMessageText(msg, {
-        reply_markup: { inline_keyboard: keyboard }
-      });
-      
-      await ctx.answerCbQuery();
-    } catch (error) {
-      console.error("Error in my_subs action:", error);
-      await ctx.answerCbQuery("Sorry, something went wrong.");
-    }
-  });
-  
+
+  // My subscriptions handler is now in mySubscriptions.js to avoid conflicts
+
   // How to Use section handler (matching website how-to-use)
   bot.action("how_to_use", async (ctx) => {
     try {
       const lang = ctx.userLang;
+
       
       const howToText = lang === "am"
         ? `📖 **BirrPay እንዴት እንደሚጠቀሙ**
@@ -920,45 +748,60 @@ Choose your preferred language:`;
         ]
       ];
 
-      await ctx.editMessageText(`${title}\n\n${subtitle}\n\n${lang === "en" ? "Choose an option below:" : "ከታች አንዱን ይምረጡ:"}`, {
-        reply_markup: { inline_keyboard: keyboard }
-      });
-      await ctx.answerCbQuery();
-    } catch (error) {
-      console.error('Error in start action:', error);
-      await ctx.answerCbQuery();
-    }
-  });
-
-  bot.action("back_to_start", async (ctx) => {
-    try {
-      const lang = ctx.userLang;
-      const title = ctx.i18n.hero_title[lang];
-      const subtitle = ctx.i18n.hero_subtitle[lang];
-
-      await ctx.editMessageText(title + "\n\n" + subtitle, {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: lang === "en" ? "Manage Plans" : "የአገልግሎት እቅዶች",
-                callback_data: "manage_plans",
-              },
-            ],
-            [
-              {
-                text: lang === "en" ? "Support" : "ድጋፍ",
-                callback_data: "support",
-              },
-            ],
-          ],
-        },
-      });
+      try {
+        await ctx.editMessageText(
+          `${title}\n\n${subtitle}\n\n${lang === "en" ? "Choose an option below:" : "ከታች አንዱን ይምረጡ:"}`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: { inline_keyboard: keyboard }
+          }
+        );
+      } catch (e) {
+        // If message can't be edited, send a new one
+        await ctx.reply(
+          `${title}\n\n${subtitle}\n\n${lang === "en" ? "Choose an option below:" : "ከታች አንዱን ይምረጡ:"}`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: { inline_keyboard: keyboard }
+          }
+        );
+      }
       
       await ctx.answerCbQuery();
     } catch (error) {
-      console.error("Error in back_to_start action:", error);
+      console.error('Error in start action:', error);
+      try {
+        await ctx.answerCbQuery('An error occurred. Please try again.');
+      } catch (e) {
+        console.error('Error sending error message:', e);
+      }
+    }
+  });
+
+  // Handle back to menu action - works from any screen
+  bot.action('back_to_menu', async (ctx) => {
+    try {
+      await showMainMenu(ctx);
       await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in back_to_menu action:', error);
+      try {
+        const lang = ctx.userLang || (ctx.from.language_code === 'am' ? 'am' : 'en');
+        await ctx.answerCbQuery(lang === 'am' ? 'ስህተት ተከስቷል። እባክዎ ቆይተው ይሞክሩ።' : 'An error occurred. Please try again.');
+      } catch (e) {
+        console.error('Error sending error message:', e);
+      }
+    }
+  });
+  
+  // Keep back_to_start as an alias for backward compatibility
+  bot.action('back_to_start', async (ctx) => {
+    try {
+      await showMainMenu(ctx);
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in back_to_start action:', error);
+      await ctx.answerCbQuery('Error returning to menu');
     }
   });
 
@@ -1000,6 +843,508 @@ Choose your preferred language:`;
       await ctx.answerCbQuery();
     } catch (error) {
       console.error("Error in support action:", error);
+      await ctx.answerCbQuery("Sorry, something went wrong.");
+    }
+  });
+
+  // Pricing button handler
+  bot.action("pricing", async (ctx) => {
+    try {
+      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      
+      const pricingMessage = lang === 'am'
+        ? `💰 **BirrPay የዋጋ አሰጣጥ**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 **የአገልግሎት ዋጋዎች**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📺 **Netflix**
+• 1 ወር - 350 ብር
+• 3 ወር - 900 ብር (50 ብር ቅናሽ)
+• 6 ወር - 1,700 ብር (100 ብር ቅናሽ)
+• 12 ወር - 3,200 ብር (200 ብር ቅናሽ)
+
+🎵 **Spotify Premium**
+• 1 ወር - 250 ብር
+• 3 ወር - 650 ብር (100 ብር ቅናሽ)
+• 6 ወር - 1,200 ብር (300 ብር ቅናሽ)
+• 12 ወር - 2,200 ብር (800 ብር ቅናሽ)
+
+📦 **Amazon Prime**
+• 1 ወር - 300 ብር
+• 3 ወር - 800 ብር (100 ብር ቅናሽ)
+• 6 ወር - 1,500 ብር (300 ብር ቅናሽ)
+• 12 ወር - 2,800 ብር (800 ብር ቅናሽ)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 **ቅናሽ ጥቅሞች**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ የረዥም ጊዜ እቅድ ይመረጡ እና ብር ይቆጥቡ
+✅ ሁሉም ክፍያዎች በብር ናቸው
+✅ ምንም የተደበቀ ክፍያ የለም
+✅ በማንኛውም ጊዜ ሰርዝ ይችላሉ`
+        : `💰 **BirrPay Pricing**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 **Service Pricing**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📺 **Netflix**
+• 1 Month - 350 ETB
+• 3 Months - 900 ETB (50 ETB savings)
+• 6 Months - 1,700 ETB (100 ETB savings)
+• 12 Months - 3,200 ETB (200 ETB savings)
+
+🎵 **Spotify Premium**
+• 1 Month - 250 ETB
+• 3 Months - 650 ETB (100 ETB savings)
+• 6 Months - 1,200 ETB (300 ETB savings)
+• 12 Months - 2,200 ETB (800 ETB savings)
+
+📦 **Amazon Prime**
+• 1 Month - 300 ETB
+• 3 Months - 800 ETB (100 ETB savings)
+• 6 Months - 1,500 ETB (300 ETB savings)
+• 12 Months - 2,800 ETB (800 ETB savings)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 **Discount Benefits**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Choose longer plans and save money
+✅ All payments in Ethiopian Birr
+✅ No hidden fees
+✅ Cancel anytime`;
+
+      await ctx.editMessageText(pricingMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: lang === 'am' ? '🚀 አገልግሎቶች' : '🚀 Services', callback_data: 'services' }],
+            [getBackToMenuButton(lang)]
+          ]
+        }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error("Error in pricing action:", error);
+      await ctx.answerCbQuery("Sorry, something went wrong.");
+    }
+  });
+
+  // Payment methods button handler
+  bot.action("payment_methods", async (ctx) => {
+    try {
+      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      
+      const paymentMessage = lang === 'am'
+        ? `💳 **የክፍያ ዘዴዎች**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📱 **ተቀባይነት ያላቸው ክፍያ ዘዴዎች**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏦 **የባንክ ዝውውር**
+• የንግድ ባንክ (CBE)
+• አዋሽ ባንክ
+• ዳሽን ባንክ
+• ሌሎች የኢትዮጵያ ባንኮች
+
+📱 **ሞባይል ገንዘብ**
+• TeleBirr
+• HelloCash
+• M-Birr
+• Amole
+
+💰 **ሌሎች ዘዴዎች**
+• የባንክ ካርድ (Visa/MasterCard)
+• PayPal (በዶላር)
+• Western Union
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔒 **ደህንነት**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ ሁሉም ክፍያዎች በደህንነት የተጠበቁ ናቸው
+✅ SSL ምስጠራ
+✅ የባንክ ደረጃ ደህንነት
+✅ የክፍያ መረጃዎ አይቀመጥም
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏱️ **የማረጋገጫ ጊዜ**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• TeleBirr: ፈጣን (5-15 ደቂቃ)
+• የባንክ ዝውውር: 1-24 ሰዓት
+• ካርድ ክፍያ: ፈጣን (5-10 ደቂቃ)`
+        : `💳 **Payment Methods**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📱 **Accepted Payment Methods**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏦 **Bank Transfer**
+• Commercial Bank of Ethiopia (CBE)
+• Awash Bank
+• Dashen Bank
+• Other Ethiopian Banks
+
+📱 **Mobile Money**
+• TeleBirr
+• HelloCash
+• M-Birr
+• Amole
+
+💰 **Other Methods**
+• Bank Cards (Visa/MasterCard)
+• PayPal (USD)
+• Western Union
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔒 **Security**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ All payments are securely processed
+✅ SSL encryption
+✅ Bank-level security
+✅ Your payment info is not stored
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏱️ **Verification Time**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• TeleBirr: Instant (5-15 minutes)
+• Bank Transfer: 1-24 hours
+• Card Payment: Instant (5-10 minutes)`;
+
+      await ctx.editMessageText(paymentMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: lang === 'am' ? '🚀 አገልግሎቶች' : '🚀 Services', callback_data: 'services' }],
+            [getBackToMenuButton(lang)]
+          ]
+        }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error("Error in payment_methods action:", error);
+      await ctx.answerCbQuery("Sorry, something went wrong.");
+    }
+  });
+
+  // Terms button handler
+  bot.action("terms", async (ctx) => {
+    try {
+      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      
+      const termsMessage = lang === 'am'
+        ? `📜 **የአገልግሎት ደረጃዎች**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 **አጠቃላይ ደንቦች**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣ **መለያ ፈጠራ**
+• እውነተኛ መረጃ ብቻ ይጠቀሙ
+• አንድ ሰው አንድ መለያ ብቻ ይፈጥራል
+• የስልክ ቁጥር ማረጋገጫ አስፈላጊ ነው
+
+2️⃣ **ክፍያ እና ሰርዝ**
+• ሁሉም ክፍያዎች ቅድሚያ መከፈል አለባቸው
+• በማንኛውም ጊዜ ሰርዝ ይችላሉ
+• የተከፈለ ገንዘብ አይመለስም
+
+3️⃣ **አገልግሎት አጠቃቀም**
+• አገልግሎቶች ለግል አጠቃቀም ብቻ ናቸው
+• መለያ መጋራት አይፈቀድም
+• የአገልግሎት ሰጪዎች ደንብ መከተል አለባቸው
+
+4️⃣ **ግላዊነት**
+• የእርስዎ መረጃ በደህንነት ይጠበቃል
+• ለሶስተኛ ወገን አይሰጥም
+• የEU GDPR ደንቦች ይከተላሉ
+
+5️⃣ **ድጋፍ**
+• 24/7 የደንበኞች ድጋፍ
+• በአማርኛ እና እንግሊዝኛ
+• የመልስ ጊዜ: 1-24 ሰዓት
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚖️ **ተጠያቂነት**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BirrPay የሶስተኛ ወገን አገልግሎት ሰጪዎች ለሚሰሩት ለውጦች ተጠያቂ አይደለም። የአገልግሎት ጥራት እና ተገኝነት በአገልግሎት ሰጪዎች ይወሰናል።`
+        : `📜 **Terms of Service**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 **General Terms**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣ **Account Creation**
+• Use only genuine information
+• One person, one account only
+• Phone number verification required
+
+2️⃣ **Payment & Cancellation**
+• All payments must be made in advance
+• You can cancel anytime
+• No refunds for paid services
+
+3️⃣ **Service Usage**
+• Services are for personal use only
+• Account sharing is not allowed
+• Service provider rules must be followed
+
+4️⃣ **Privacy**
+• Your information is securely protected
+• Not shared with third parties
+• EU GDPR compliance followed
+
+5️⃣ **Support**
+• 24/7 customer support
+• Available in Amharic and English
+• Response time: 1-24 hours
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚖️ **Liability**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BirrPay is not responsible for changes made by third-party service providers. Service quality and availability are determined by the service providers.`;
+
+      await ctx.editMessageText(termsMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [getBackToMenuButton(lang)]
+          ]
+        }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error("Error in terms action:", error);
+      await ctx.answerCbQuery("Sorry, something went wrong.");
+    }
+  });
+
+  // About button handler
+  bot.action("about", async (ctx) => {
+    try {
+      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      
+      const aboutMessage = lang === 'am'
+        ? `ℹ️ **BirrPay ስለ እኛ**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌟 **ራዕያችን**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BirrPay የኢትዮጵያ #1 የሳብስክሪፕሽን ፕላትፎርም ሆኖ ሁሉም ኢትዮጵያውያን ዓለም አቀፍ ዲጂታል አገልግሎቶችን በቀላሉ እና በተመጣጣኝ ዋጋ እንዲያገኙ ማድረግ ነው።
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 **ተልእኮአችን**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• የውጭ ካርድ ሳያስፈልግ በብር ክፍያ
+• ደህንነቱ የተጠበቀ እና ፈጣን አገልግሎት
+• 24/7 የአማርኛ ደንበኞች ድጋፍ
+• ሁሉንም ሳብስክሪፕሽኖች በአንድ ቦታ
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 **የእኛ ስታቲስቲክስ**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ 10,000+ ደስተኛ ደንበኞች
+✅ 50+ የተለያዩ አገልግሎቶች
+✅ 99.9% የአገልግሎት ተገኝነት
+✅ 24/7 የደንበኞች ድጋፍ
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏢 **ኩባንያ መረጃ**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 **አድራሻ:** አዲስ አበባ፣ ኢትዮጵያ
+📧 **ኢሜል:** info@birrpay.com
+📱 **ስልክ:** +251-911-123456
+🌐 **ድረ-ገጽ:** www.birrpay.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🤝 **ተባባሪዎቻችን**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Netflix • Spotify • Amazon Prime • YouTube Premium • Disney+ • HBO Max • Apple Music • Adobe Creative Cloud`
+        : `ℹ️ **About BirrPay**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌟 **Our Vision**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BirrPay aims to be Ethiopia's #1 subscription platform, making global digital services easily accessible and affordable for all Ethiopians.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 **Our Mission**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• Pay in Ethiopian Birr without foreign cards
+• Secure and fast service delivery
+• 24/7 customer support in Amharic
+• Manage all subscriptions in one place
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 **Our Statistics**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ 10,000+ Happy Customers
+✅ 50+ Different Services
+✅ 99.9% Service Uptime
+✅ 24/7 Customer Support
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏢 **Company Information**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 **Address:** Addis Ababa, Ethiopia
+📧 **Email:** info@birrpay.com
+📱 **Phone:** +251-911-123456
+🌐 **Website:** www.birrpay.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🤝 **Our Partners**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Netflix • Spotify • Amazon Prime • YouTube Premium • Disney+ • HBO Max • Apple Music • Adobe Creative Cloud`;
+
+      await ctx.editMessageText(aboutMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: lang === 'am' ? '📞 አግኙን' : '📞 Contact', callback_data: 'contact' }],
+            [getBackToMenuButton(lang)]
+          ]
+        }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error("Error in about action:", error);
+      await ctx.answerCbQuery("Sorry, something went wrong.");
+    }
+  });
+
+  // Change language button handler
+  bot.action("change_language", async (ctx) => {
+    try {
+      const currentLang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      
+      const languageMessage = currentLang === 'am'
+        ? `🌐 **ቋንቋ ቀይር**
+
+እባክዎ የሚፈልጉትን ቋንቋ ይምረጡ:`
+        : `🌐 **Change Language**
+
+Please select your preferred language:`;
+
+      await ctx.editMessageText(languageMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🇺🇸 English', callback_data: 'lang_en' },
+              { text: '🇪🇹 አማርኛ', callback_data: 'lang_am' }
+            ],
+            [getBackToMenuButton(currentLang)]
+          ]
+        }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error("Error in change_language action:", error);
+      await ctx.answerCbQuery("Sorry, something went wrong.");
+    }
+  });
+
+  // Notifications button handler
+  bot.action("notifications", async (ctx) => {
+    try {
+      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      
+      const notificationsMessage = lang === 'am'
+        ? `🔔 **ማሳወቂያ ቅንብሮች**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📱 **የማሳወቂያ አይነቶች**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ **የክፍያ ማረጋገጫ**
+ክፍያዎ ሲረጋገጥ ማሳወቂያ ያገኛሉ
+
+✅ **የሳብስክሪፕሽን ማሳወቂያ**
+ሳብስክሪፕሽንዎ ሲጀመር ወይም ሲያልቅ
+
+✅ **የአገልግሎት ዝማኔዎች**
+አዳዲስ አገልግሎቶች እና ዋጋ ለውጦች
+
+✅ **የድጋፍ መልሶች**
+የደንበኞች ድጋፍ ቡድን መልሶች
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️ **ቅንብሮች**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔔 **ሁሉም ማሳወቂያዎች:** ነቅተዋል
+📧 **ኢሜል ማሳወቂያዎች:** ነቅተዋል
+📱 **SMS ማሳወቂያዎች:** ጠፍተዋል
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ℹ️ **መረጃ**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+የማሳወቂያ ቅንብሮችን ለመቀየር የደንበኞች ድጋፍ ያግኙ።`
+        : `🔔 **Notification Settings**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📱 **Notification Types**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ **Payment Confirmations**
+Get notified when your payment is confirmed
+
+✅ **Subscription Alerts**
+When your subscription starts or expires
+
+✅ **Service Updates**
+New services and price changes
+
+✅ **Support Responses**
+Customer support team replies
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️ **Settings**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔔 **All Notifications:** Enabled
+📧 **Email Notifications:** Enabled
+📱 **SMS Notifications:** Disabled
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ℹ️ **Information**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Contact customer support to change notification settings.`;
+
+      await ctx.editMessageText(notificationsMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: lang === 'am' ? '💬 ድጋፍ' : '💬 Support', callback_data: 'support' }],
+            [getBackToMenuButton(lang)]
+          ]
+        }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error("Error in notifications action:", error);
       await ctx.answerCbQuery("Sorry, something went wrong.");
     }
   });

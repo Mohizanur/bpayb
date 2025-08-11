@@ -675,18 +675,27 @@ export default function adminHandler(bot) {
     message += `\nPage ${page + 1} of ${totalPages}`;
 
     const keyboard = {
-        inline_keyboard: [
-          [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
-          [{ text: '💳 Payments', callback_data: 'admin_payments' }, { text: '📈 Analytics', callback_data: 'admin_stats' }],
-          [{ text: '🌐 Web Admin', url: 'https://bpayb.onrender.com/panel' }],
-          [{ text: '💬 Broadcast', callback_data: 'admin_broadcast' }],
-          [
-            { text: '⬅️ Previous', callback_data: `users_prev_${page}` },
-            { text: '🏠 Main Menu', callback_data: 'admin_menu' },
-            { text: '➡️ Next', callback_data: `users_next_${page}` }
-          ]
+      inline_keyboard: [
+        ...usersToShow.map(user => {
+          const isBanned = user.status === 'banned' || user.status === 'suspended';
+          return [
+            {
+              text: isBanned ? `✅ Unban ${user.firstName || 'User'}` : `🚫 Ban ${user.firstName || 'User'}`,
+              callback_data: isBanned ? `unban_${user.id}` : `ban_${user.id}`
+            },
+            {
+              text: '👤 View',
+              callback_data: `view_user_${user.id}`
+            }
+          ];
+        }),
+        [
+          { text: '⬅️ Previous', callback_data: `users_prev_${page}` },
+          { text: '🏠 Main Menu', callback_data: 'admin_menu' },
+          { text: '➡️ Next', callback_data: `users_next_${page}` }
         ]
-      };
+      ]
+    };
     
     if (ctx.update.callback_query) {
       await ctx.editMessageText(message, {
@@ -754,29 +763,29 @@ export default function adminHandler(bot) {
         }
       });
 
-      const adminMessage = `🌟 **BirrPay Admin Dashboard** 🌟
+      const adminMessage = `🔧 **BirrPay Admin Panel**
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👋 Welcome, Administrator!
 
-👋 **Welcome back, Administrator!**
+📊 **Live Statistics:**
+• 👥 Total Users: ${totalUsers}
+• ✅ Active Users: ${activeUsers}
+• 📱 Active Subscriptions: ${activeSubscriptions}
+• ⏳ Pending Subscriptions: ${pendingSubscriptions}
+• 💳 Total Payments: ${totalPayments}
+• ⏳ Pending Payments: ${pendingPayments}
+• 💰 Total Revenue: ETB ${totalRevenue.toFixed(2)}
+• 🛍️ Available Services: ${servicesSnapshot.size}
 
-📊 **Real-Time Analytics**
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Users:** ${totalUsers.toLocaleString()} total • ${activeUsers.toLocaleString()} active
-┃ 📱 **Subscriptions:** ${activeSubscriptions.toLocaleString()} active • ${pendingSubscriptions.toLocaleString()} pending  
-┃ 💳 **Payments:** ${totalPayments.toLocaleString()} total • ${pendingPayments.toLocaleString()} pending
-┃ 💰 **Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}
-┃ 🛍️ **Services:** ${servicesSnapshot.size} available
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-🌐 **Web Admin Panel:** [Open Dashboard](https://bpayb.onrender.com/panel)
-
-🎯 **Management Center:****`;
+**Available Actions:**`;
 
       const keyboard = {
         inline_keyboard: [
-          [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
-          [{ text: '💳 Payments', callback_data: 'admin_payments' }, { text: '📈 Analytics', callback_data: 'admin_stats' }],
+          [{ text: '👥 Users Management', callback_data: 'admin_users' }],
+          [{ text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
+          [{ text: '💳 Payments', callback_data: 'admin_payments' }],
+          [{ text: '🛠️ Support Messages', callback_data: 'admin_support' }],
+          [{ text: '📈 Detailed Statistics', callback_data: 'admin_stats' }],
           [{ text: '💬 Broadcast Message', callback_data: 'admin_broadcast' }],
           [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
         ]
@@ -1602,28 +1611,30 @@ export default function adminHandler(bot) {
         }
       });
 
-      const adminMessage = `🌟 **BirrPay Admin Dashboard** 🌟
+      const adminMessage = `🔧 **BirrPay Admin Panel**
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👋 Welcome, Administrator!
 
-👋 **Welcome back, Administrator!**
+📊 **Live Statistics:**
+• 👥 Total Users: ${totalUsers}
+• ✅ Active Users: ${activeUsers}
+• 📱 Active Subscriptions: ${activeSubscriptions}
+• ⏳ Pending Subscriptions: ${pendingSubscriptions}
+• 💳 Total Payments: ${totalPayments}
+• ⏳ Pending Payments: ${pendingPayments}
+• 💰 Total Revenue: ETB ${totalRevenue.toFixed(2)}
+• 🛍️ Available Services: ${servicesSnapshot.size}
 
-📊 **Real-Time Analytics**
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Users:** ${totalUsers.toLocaleString()} total • ${activeUsers.toLocaleString()} active
-┃ 📱 **Subscriptions:** ${activeSubscriptions.toLocaleString()} active • ${pendingSubscriptions.toLocaleString()} pending  
-┃ 💳 **Payments:** ${totalPayments.toLocaleString()} total • ${pendingPayments.toLocaleString()} pending
-┃ 💰 **Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}
-┃ 🛍️ **Services:** ${servicesSnapshot.size} available
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-🎯 **Management Center:**`;
+**Available Actions:**`;
 
       const keyboard = {
         inline_keyboard: [
-          [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
-          [{ text: '💳 Payments', callback_data: 'admin_payments' }, ],
-          [{ text: '📈 Analytics', callback_data: 'admin_stats' }, { text: '💬 Broadcast', callback_data: 'admin_broadcast' }],
+          [{ text: '👥 Users Management', callback_data: 'admin_users' }],
+          [{ text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
+          [{ text: '💳 Payments', callback_data: 'admin_payments' }],
+          [{ text: '🛠️ Support Messages', callback_data: 'admin_support' }],
+          [{ text: '📈 Detailed Statistics', callback_data: 'admin_stats' }],
+          [{ text: '💬 Broadcast Message', callback_data: 'admin_broadcast' }],
           [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
         ]
       };
@@ -2042,22 +2053,21 @@ ${message.length > 100 ? message.substring(0, 100) + '...' : message}`;
         }
       });
 
-      const adminMessage = `🌟 **BirrPay Admin Dashboard** 🌟
+      const adminMessage = `🔧 **BirrPay Admin Panel**
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👋 Welcome, Administrator!
 
-👋 **Welcome back, Administrator!**
+📊 **Live Statistics:**
+• 👥 Total Users: ${totalUsers}
+• ✅ Active Users: ${activeUsers}
+• 📱 Active Subscriptions: ${activeSubscriptions}
+• ⏳ Pending Subscriptions: ${pendingSubscriptions}
+• 💳 Total Payments: ${totalPayments}
+• ⏳ Pending Payments: ${pendingPayments}
+• 💰 Total Revenue: ETB ${totalRevenue.toFixed(2)}
+• 🛍️ Available Services: ${servicesSnapshot.size}
 
-📊 **Real-Time Analytics**
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Users:** ${totalUsers.toLocaleString()} total • ${activeUsers.toLocaleString()} active
-┃ 📱 **Subscriptions:** ${activeSubscriptions.toLocaleString()} active • ${pendingSubscriptions.toLocaleString()} pending  
-┃ 💳 **Payments:** ${totalPayments.toLocaleString()} total • ${pendingPayments.toLocaleString()} pending
-┃ 💰 **Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}
-┃ 🛍️ **Services:** ${servicesSnapshot.size} available
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-🎯 **Management Center:**`;
+**Available Actions:**`;
 
       const keyboard = {
         inline_keyboard: [
@@ -2082,121 +2092,4 @@ ${message.length > 100 ? message.substring(0, 100) + '...' : message}`;
       await ctx.answerCbQuery('❌ Error loading admin panel');
     }
   });
-
-  // Handle admin_subscriptions action
-  bot.action('admin_subscriptions', async (ctx) => {
-    if (!(await isAuthorizedAdmin(ctx))) {
-      await ctx.answerCbQuery("❌ Access denied.");
-      return;
-    }
-
-    try {
-      const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
-      
-      const activeCount = subscriptionsSnapshot.docs.filter(doc => doc.data().status === 'active').length;
-      const pendingCount = subscriptionsSnapshot.docs.filter(doc => doc.data().status === 'pending').length;
-      const expiredCount = subscriptionsSnapshot.docs.filter(doc => doc.data().status === 'expired').length;
-      const totalCount = subscriptionsSnapshot.size;
-
-      const message = `📊 **Subscription Management** 📊
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📈 **Overview:**
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 🟢 **Active:** ${activeCount.toLocaleString()}
-┃ 🟡 **Pending:** ${pendingCount.toLocaleString()}
-┃ 🔴 **Expired:** ${expiredCount.toLocaleString()}
-┃ 📊 **Total:** ${totalCount.toLocaleString()}
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-🎯 **Quick Actions:**
-• View and manage active subscriptions
-• Review pending subscription requests
-• Monitor expired subscriptions
-• Generate subscription reports`;
-
-      await ctx.editMessageText(message, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🟢 Active Subscriptions', callback_data: 'admin_active' }],
-            [{ text: '🟡 Pending Requests', callback_data: 'admin_pending' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        }
-      });
-      
-      await ctx.answerCbQuery();
-    } catch (error) {
-      console.error('Error loading subscriptions:', error);
-      await ctx.answerCbQuery('❌ Error loading subscriptions');
-    }
-  });
-
-  // Handle admin_payments action
-  bot.action('admin_payments', async (ctx) => {
-    if (!(await isAuthorizedAdmin(ctx))) {
-      await ctx.answerCbQuery("❌ Access denied.");
-      return;
-    }
-
-    try {
-      const [paymentsSnapshot, pendingPaymentsSnapshot] = await Promise.all([
-        firestore.collection('payments').get(),
-        firestore.collection('pendingPayments').get()
-      ]);
-
-      const approvedCount = paymentsSnapshot.docs.filter(doc => doc.data().status === 'approved').length;
-      const rejectedCount = paymentsSnapshot.docs.filter(doc => doc.data().status === 'rejected').length;
-      const pendingCount = pendingPaymentsSnapshot.size;
-      const totalCount = paymentsSnapshot.size;
-
-      // Calculate total revenue
-      let totalRevenue = 0;
-      paymentsSnapshot.docs.forEach(doc => {
-        const paymentData = doc.data();
-        if (paymentData.status === 'approved' && paymentData.amount) {
-          totalRevenue += parseFloat(paymentData.amount) || 0;
-        }
-      });
-
-      const message = `💳 **Payment Management** 💳
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💰 **Financial Overview:**
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ ✅ **Approved:** ${approvedCount.toLocaleString()}
-┃ ❌ **Rejected:** ${rejectedCount.toLocaleString()}
-┃ ⏳ **Pending:** ${pendingCount.toLocaleString()}
-┃ 📊 **Total Processed:** ${totalCount.toLocaleString()}
-┃ 💎 **Total Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-🎯 **Quick Actions:**
-• Review pending payment approvals
-• View approved payment history
-• Check rejected payments
-• Generate revenue reports`;
-
-      await ctx.editMessageText(message, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '⏳ Pending Approvals', callback_data: 'admin_pending' }],
-            [{ text: '✅ Approved Payments', callback_data: 'admin_approved' }],
-            [{ text: '❌ Rejected Payments', callback_data: 'admin_rejected' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        }
-      });
-      
-      await ctx.answerCbQuery();
-    } catch (error) {
-      console.error('Error loading payments:', error);
-      await ctx.answerCbQuery('❌ Error loading payments');
-    }
-  });
-
 }

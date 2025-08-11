@@ -7,14 +7,20 @@ const fallbackLogger = {
 };
 
 // Try to import the logger, use fallback if not available
-let logger;
-try {
-  const loggerModule = await import('./logger.js');
-  logger = loggerModule.logger || fallbackLogger;
-} catch (e) {
-  logger = fallbackLogger;
-  logger.warn('Using fallback logger. Could not import logger.js:', e.message);
+let logger = fallbackLogger;
+
+async function initLogger() {
+  try {
+    const loggerModule = await import('./logger.js');
+    logger = loggerModule.logger || fallbackLogger;
+  } catch (e) {
+    logger = fallbackLogger;
+    logger.warn('Using fallback logger. Could not import logger.js:', e.message);
+  }
 }
+
+// Initialize logger asynchronously
+initLogger();
 
 // Import fetch
 import nodeFetch from 'node-fetch';
@@ -82,4 +88,5 @@ class KeepAlive {
   }
 }
 
-export const keepAlive = new KeepAlive();
+const keepAlive = new KeepAlive();
+export default keepAlive;
