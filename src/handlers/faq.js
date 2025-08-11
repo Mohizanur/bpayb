@@ -8,7 +8,7 @@ export default function faqHandler(bot) {
       console.log("🚀 FAQ COMMAND TRIGGERED!");
       console.log("User ID:", ctx.from?.id);
       
-      const lang = ctx.from.language_code === 'am' ? 'am' : 'en';
+      const lang = ctx.userLang || 'en';
       
       // Enhanced FAQ data with comprehensive questions
       const faqData = {
@@ -119,7 +119,7 @@ export default function faqHandler(bot) {
       console.error("Error in faq handler:", error);
       try {
         await ctx.reply(
-          ctx.from.language_code === 'am'
+          ctx.userLang === 'am'
             ? "ይቅርታ፣ ችግር ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።"
             : "Sorry, something went wrong. Please try again."
         );
@@ -132,7 +132,7 @@ export default function faqHandler(bot) {
   // Handle FAQ menu from start menu
   bot.action("faq_menu", async (ctx) => {
     try {
-      const lang = ctx.from.language_code === 'am' ? 'am' : 'en';
+      const lang = ctx.userLang || 'en';
       
       // Trigger the FAQ command functionality
       ctx.command = { command: 'faq' };
@@ -194,7 +194,7 @@ export default function faqHandler(bot) {
   // Handle FAQ category selection
   bot.action(/faq_category_(\d+)/, async (ctx) => {
     try {
-      const lang = ctx.from.language_code === 'am' ? 'am' : 'en';
+      const lang = ctx.userLang || 'en';
       const categoryIndex = parseInt(ctx.match[1]);
 
       // Same FAQ data structure
@@ -305,7 +305,7 @@ export default function faqHandler(bot) {
   // Handle FAQ answer display
   bot.action(/faq_answer_(\d+)_(\d+)/, async (ctx) => {
     try {
-      const lang = ctx.from.language_code === 'am' ? 'am' : 'en';
+      const lang = ctx.userLang || 'en';
       const categoryIndex = parseInt(ctx.match[1]);
       const questionIndex = parseInt(ctx.match[2]);
 

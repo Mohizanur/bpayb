@@ -17,20 +17,25 @@ const isNewUser = async (userId) => {
 // Helper function to create user profile
 const createUserProfile = async (ctx) => {
   try {
+    // Check if user already exists to preserve their language selection
+    const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+    const existingData = userDoc.exists ? userDoc.data() : {};
+    
     await firestore.collection('users').doc(String(ctx.from.id)).set({
       telegramId: ctx.from.id,
       firstName: ctx.from.first_name,
       lastName: ctx.from.last_name || '',
       username: ctx.from.username || '',
-      language: ctx.from.language_code || 'en',
-      phoneVerified: false,
-      hasCompletedOnboarding: false,
-      joinedAt: new Date(),
+      // PRESERVE existing language selection, only set default for new users
+      language: existingData.language || ctx.userLang || ctx.from.language_code || 'en',
+      phoneVerified: existingData.phoneVerified || false,
+      hasCompletedOnboarding: existingData.hasCompletedOnboarding || false,
+      joinedAt: existingData.joinedAt || new Date(),
       updatedAt: new Date(),
-      createdAt: new Date(),
+      createdAt: existingData.createdAt || new Date(),
       lastActiveAt: new Date(),
-      totalSubscriptions: 0,
-      activeSubscriptions: 0
+      totalSubscriptions: existingData.totalSubscriptions || 0,
+      activeSubscriptions: existingData.activeSubscriptions || 0
     }, { merge: true });
     
     // Log user registration
@@ -41,7 +46,7 @@ const createUserProfile = async (ctx) => {
       metadata: {
         firstName: ctx.from.first_name,
         username: ctx.from.username,
-        language: ctx.from.language_code
+        language: existingData.language || ctx.userLang || ctx.from.language_code || 'en'
       }
     });
     
@@ -55,7 +60,8 @@ const createUserProfile = async (ctx) => {
 export function setupStartHandler(bot) {
   bot.start(async (ctx) => {
     try {
-      const lang = ctx.from.language_code === 'am' ? 'am' : 'en';
+      // Use the user's saved language preference, not Telegram's default
+      const lang = ctx.userLang || 'en';
       const isFirstTime = await isNewUser(ctx.from.id);
       
       // Update user info and create profile
@@ -72,7 +78,7 @@ export function setupStartHandler(bot) {
     } catch (error) {
       console.error("Error in start handler:", error);
       await ctx.reply(
-        ctx.from.language_code === 'am' 
+        ctx.userLang === 'am' 
           ? "ሰላምታ! እባክዎ እንደገና ይሞክሩ።" 
           : "Welcome! Please try again."
       );
@@ -82,7 +88,7 @@ export function setupStartHandler(bot) {
   // Handle onboarding flow for new users
   bot.action("start_onboarding", async (ctx) => {
     try {
-      const lang = ctx.from.language_code === 'am' ? 'am' : 'en';
+      const lang = ctx.userLang || 'en';
       
       const onboardingMessage = lang === "am"
         ? `🚀 **BirrPay የመጀመሪያ እርምጃዎች**
@@ -350,6 +356,9 @@ All services are available for the following durations:
           { text: lang === "en" ? "📅 12 Months" : "📅 12 ወር", callback_data: "select_plan_12months" }
         ],
         [
+          { text: lang === "en" ? "🎯 Custom Plan" : "🎯 ብጁ እቅድ", callback_data: "custom_plan" }
+        ],
+        [
           { text: lang === "en" ? "⬅️ Back to Menu" : "⬅️ ወደ ሜኑ ተመለስ", callback_data: "back_to_start" }
         ]
       ];
@@ -417,6 +426,541 @@ All services are available for this duration.`;
       await ctx.answerCbQuery();
     } catch (error) {
       console.error("Error in plan selection:", error);
+      await ctx.answerCbQuery("Sorry, something went wrong.");
+    }
+  });
+
+  // Custom plan handler
+  bot.action("custom_plan", async (ctx) => {
+    try {
+      const lang = ctx.userLang;
+      
+      const customPlanText = lang === "am"
+        ? `🎯 **ብጁ እቅድ ጥያቄ**
+
+📝 **ብጁ እቅድ ለመጠየቅ:**
+• የሚፈልጉትን አገልግሎት ይምረጡ
+• የሚፈልጉትን ጊዜ ይግለጹ (ለምሳሌ: 2 ወር፣ 5 ወር፣ 18 ወር)
+• ልዩ መስፈርቶችዎን ይግለጹ
+
+💡 **ብጁ እቅዶች ለ:**
+• ልዩ የጊዜ ፍላጎቶች
+• የቡድን ምዝገባዎች
+• የንግድ መለያዎች
+• የረጅም ጊዜ ቅናሽዎች
+
+⚡ **ሂደት:**
+1. ከታች "ብጁ እቅድ ይጠይቁ" ይጫኑ
+2. የሚፈልጉትን ዝርዝሮች ይላኩ
+3. አስተዳዳሪ ዋጋ እና ሁኔታዎች ይላካል
+4. ከተስማሙ ክፍያ ያድርጉ
+
+📞 **ወይም በቀጥታ ያነጋግሩን:**
+የብጁ እቅድ ጥያቄዎች በ24 ሰዓት ውስጥ ይመለሳሉ።`
+        : `🎯 **Custom Plan Request**
+
+📝 **To request a custom plan:**
+• Choose your desired service
+• Specify your preferred duration (e.g., 2 months, 5 months, 18 months)
+• Mention any special requirements
+
+💡 **Custom plans are perfect for:**
+• Unique duration needs
+• Group subscriptions
+• Business accounts
+• Long-term discounts
+
+⚡ **Process:**
+1. Click "Request Custom Plan" below
+2. Send us your requirements
+3. Admin will send pricing and terms
+4. Pay if you agree
+
+📞 **Or contact us directly:**
+Custom plan requests are answered within 24 hours.`;
+
+      const keyboard = [
+        [
+          { text: lang === "en" ? "📝 Request Custom Plan" : "📝 ብጁ እቅድ ይጠይቁ", callback_data: "request_custom_plan" }
+        ],
+        [
+          { text: lang === "en" ? "📞 Contact Support" : "📞 ድጋፍ ያነጋግሩ", callback_data: "support" }
+        ],
+        [
+          { text: lang === "en" ? "⬅️ Back to Plans" : "⬅️ ወደ እቅዶች", callback_data: "plans" }
+        ]
+      ];
+
+      await ctx.editMessageText(customPlanText, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: "Markdown"
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error("Error in custom_plan action:", error);
+      await ctx.answerCbQuery("Sorry, something went wrong.");
+    }
+  });
+
+  // Request custom plan handler
+  bot.action("request_custom_plan", async (ctx) => {
+    try {
+      const lang = ctx.userLang;
+      
+      const requestText = lang === "am"
+        ? `📝 **ብጁ እቅድ ጥያቄ**
+
+እባክዎ የሚከተለውን መረጃ ይላኩ:
+
+1️⃣ **አገልግሎት:** የሚፈልጉት አገልግሎት (Netflix, Spotify, ወዘተ)
+2️⃣ **ጊዜ:** የሚፈልጉት ጊዜ (ለምሳሌ: 2 ወር, 5 ወር)
+3️⃣ **ብዛት:** ስንት መለያ (ለቡድን ምዝገባ)
+4️⃣ **ልዩ መስፈርቶች:** ማንኛውም ተጨማሪ መረጃ
+
+**ምሳሌ:**
+"Netflix 2 ወር, 3 መለያዎች, የቤተሰብ እቅድ"
+
+💬 በሚቀጥለው መልእክትዎ ላይ ዝርዝሮችን ይላኩ።`
+        : `📝 **Custom Plan Request**
+
+Please send the following information:
+
+1️⃣ **Service:** Which service you want (Netflix, Spotify, etc.)
+2️⃣ **Duration:** How long you need it (e.g., 2 months, 5 months)
+3️⃣ **Quantity:** How many accounts (for group subscriptions)
+4️⃣ **Special Requirements:** Any additional information
+
+**Example:**
+"Netflix for 2 months, 3 accounts, family plan"
+
+💬 Send your details in your next message.`;
+
+      const keyboard = [
+        [
+          { text: lang === "en" ? "📞 Contact Support Instead" : "📞 ይልቁንም ድጋፍ ያነጋግሩ", callback_data: "support" }
+        ],
+        [
+          { text: lang === "en" ? "⬅️ Back" : "⬅️ ተመለስ", callback_data: "custom_plan" }
+        ]
+      ];
+
+      await ctx.editMessageText(requestText, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: "Markdown"
+      });
+      await ctx.answerCbQuery();
+
+      // Set user state to expect custom plan details
+      if (!global.userStates) global.userStates = {};
+      global.userStates[ctx.from.id] = { 
+        state: 'awaiting_custom_plan_details',
+        timestamp: Date.now()
+      };
+
+    } catch (error) {
+      console.error("Error in request_custom_plan action:", error);
+      await ctx.answerCbQuery("Sorry, something went wrong.");
+    }
+  });
+
+  // Handle custom pricing acceptance
+  bot.action(/^accept_custom_pricing_(.+)$/, async (ctx) => {
+    try {
+      const requestId = ctx.match[1];
+      const lang = ctx.userLang;
+
+      // Get the custom plan request with pricing
+      const requestDoc = await firestore.collection('customPlanRequests').doc(requestId).get();
+      if (!requestDoc.exists) {
+        await ctx.answerCbQuery('❌ Request not found');
+        return;
+      }
+
+      const requestData = requestDoc.data();
+
+      // Create a pending payment for this custom plan
+      const pendingPaymentData = {
+        userId: ctx.from.id,
+        userFirstName: ctx.from.first_name || '',
+        userLastName: ctx.from.last_name || '',
+        username: ctx.from.username || '',
+        serviceName: 'Custom Plan',
+        serviceID: 'custom_plan',
+        duration: 'Custom Duration',
+        durationName: 'Custom Duration',
+        amount: requestData.price,
+        paymentReference: `CUSTOM_${Date.now()}`,
+        paymentStatus: 'pending',
+        customPlanRequestId: requestId,
+        createdAt: new Date(),
+        language: lang || 'en'
+      };
+
+      const pendingPaymentRef = await firestore.collection('pendingPayments').add(pendingPaymentData);
+
+      // Update custom plan request status
+      await firestore.collection('customPlanRequests').doc(requestId).update({
+        status: 'accepted',
+        acceptedAt: new Date(),
+        pendingPaymentId: pendingPaymentRef.id
+      });
+
+      // Show payment methods
+      const paymentMethodsSnapshot = await firestore.collection('config').doc('paymentMethods').get();
+      let paymentMethods = [];
+
+      if (paymentMethodsSnapshot.exists) {
+        const methodsData = paymentMethodsSnapshot.data();
+        paymentMethods = methodsData.methods?.filter(method => method.active) || [];
+      }
+
+      // Fallback to default methods if none configured
+      if (paymentMethods.length === 0) {
+        paymentMethods = [
+          {
+            id: 'telebirr',
+            name: 'TeleBirr',
+            nameAm: 'ቴሌ ብር',
+            account: '0911234567',
+            instructions: 'Send payment to this TeleBirr number and upload screenshot',
+            instructionsAm: 'ወደዚህ ቴሌ ብር ቁጥር ክፍያ ይላኩ እና ስክሪንሾት ይላኩ',
+            icon: '📱'
+          }
+        ];
+      }
+
+      const paymentText = lang === 'am'
+        ? `💰 **ክፍያ ዝርዝር**
+
+📋 **የእርስዎ ብጁ እቅድ:**
+• **ጥያቄ:** ${requestData.customPlanDetails}
+• **ዋጋ:** ${requestData.price}
+
+💳 **የክፍያ ዘዴዎች:**
+
+${paymentMethods.map(method => 
+  `${method.icon} **${method.nameAm || method.name}**
+📞 መለያ: ${method.account}
+📝 ${method.instructionsAm || method.instructions}`
+).join('\n\n')}
+
+📤 **ቀጣይ ደረጃ:**
+ክፍያ ካደረጉ በኋላ የክፍያ ማረጋገጫ ፎቶ ይላኩ።`
+        : `💰 **Payment Details**
+
+📋 **Your Custom Plan:**
+• **Request:** ${requestData.customPlanDetails}
+• **Price:** ${requestData.price}
+
+💳 **Payment Methods:**
+
+${paymentMethods.map(method => 
+  `${method.icon} **${method.name}**
+📞 Account: ${method.account}
+📝 ${method.instructions}`
+).join('\n\n')}
+
+📤 **Next Step:**
+After making payment, send a screenshot of your payment proof.`;
+
+      const keyboard = [
+        [
+          { text: lang === 'am' ? '📤 የክፍያ ማረጋገጫ ላክ' : '📤 Send Payment Proof', 
+            callback_data: `upload_custom_proof_${pendingPaymentRef.id}` }
+        ],
+        [
+          { text: lang === 'am' ? '❌ ሰርዝ' : '❌ Cancel', 
+            callback_data: 'back_to_menu' }
+        ]
+      ];
+
+      await ctx.editMessageText(paymentText, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
+      });
+      await ctx.answerCbQuery();
+
+    } catch (error) {
+      console.error('Error accepting custom pricing:', error);
+      await ctx.answerCbQuery('❌ Error processing request');
+    }
+  });
+
+  // Handle custom pricing decline
+  bot.action(/^decline_custom_pricing_(.+)$/, async (ctx) => {
+    try {
+      const requestId = ctx.match[1];
+      const lang = ctx.userLang;
+
+      // Update custom plan request status
+      await firestore.collection('customPlanRequests').doc(requestId).update({
+        status: 'declined_by_user',
+        declinedAt: new Date()
+      });
+
+      const declineMsg = lang === 'am'
+        ? `❌ **ብጁ እቅድ ውድቅ ተደረገ**
+
+የብጁ እቅዱን ዋጋ ውድቅ አድርገዋል።
+
+💡 **ሌሎች አማራጮች:**
+• የተለየ ብጁ እቅድ ይጠይቁ
+• ከመደበኛ እቅዶች ይምረጡ
+• ለተጨማሪ መረጃ /support ይጠቀሙ
+
+🏠 ወደ ዋና ገጽ ለመመለስ /start ይጫኑ።`
+        : `❌ **Custom Plan Declined**
+
+You have declined the custom plan pricing.
+
+💡 **Other Options:**
+• Request a different custom plan
+• Choose from our standard plans
+• Use /support for more information
+
+🏠 Press /start to return to main menu.`;
+
+      await ctx.editMessageText(declineMsg, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: lang === 'am' ? '🏠 ዋና ገጽ' : '🏠 Main Menu', callback_data: 'back_to_menu' }]
+          ]
+        },
+        parse_mode: 'Markdown'
+      });
+      await ctx.answerCbQuery();
+
+    } catch (error) {
+      console.error('Error declining custom pricing:', error);
+      await ctx.answerCbQuery('❌ Error processing decline');
+    }
+  });
+
+  // Handle custom payment proof upload
+  bot.action(/^upload_custom_proof_(.+)$/, async (ctx) => {
+    try {
+      const pendingPaymentId = ctx.match[1];
+      const lang = ctx.userLang;
+
+      const instructionMsg = lang === 'am'
+        ? `📤 **የክፍያ ማረጋገጫ ላክ**
+
+እባክዎ የክፍያ ማረጋገጫዎን (ስክሪንሾት) ይላኩ።
+
+📝 **መመሪያዎች:**
+• የክፍያ ማረጋገጫ ፎቶ ይላኩ
+• ግልጽ እና ሊነበብ የሚችል መሆን አለበት
+• የክፍያ መጠን እና ቀን መታየት አለበት
+
+📤 በሚቀጥለው መልእክት ፎቶውን ይላኩ።`
+        : `📤 **Send Payment Proof**
+
+Please send your payment proof (screenshot).
+
+📝 **Instructions:**
+• Send a photo of your payment confirmation
+• Make sure it's clear and readable
+• Payment amount and date should be visible
+
+📤 Send the photo in your next message.`;
+
+      await ctx.editMessageText(instructionMsg, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: lang === 'am' ? '❌ ሰርዝ' : '❌ Cancel', callback_data: 'back_to_menu' }]
+          ]
+        },
+        parse_mode: 'Markdown'
+      });
+
+      // Set user state to expect payment proof
+      if (!global.userStates) global.userStates = {};
+      global.userStates[ctx.from.id] = { 
+        state: 'awaiting_custom_payment_proof',
+        pendingPaymentId: pendingPaymentId,
+        timestamp: Date.now()
+      };
+
+      await ctx.answerCbQuery();
+
+    } catch (error) {
+      console.error('Error setting up payment proof upload:', error);
+      await ctx.answerCbQuery('❌ Error setting up upload');
+    }
+  });
+
+  // Handle service-specific custom plan requests
+  bot.action(/^custom_plan_for_(.+)$/, async (ctx) => {
+    try {
+      const serviceId = ctx.match[1];
+      const lang = ctx.userLang;
+      
+      // Get service details
+      let service;
+      if (ctx.services) {
+        service = ctx.services.find(s => s.id === serviceId || s.serviceID === serviceId);
+      }
+      
+      if (!service) {
+        try {
+          const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+          if (serviceDoc.exists) {
+            service = { id: serviceDoc.id, ...serviceDoc.data() };
+          }
+        } catch (error) {
+          console.error('Error fetching service:', error);
+        }
+      }
+
+      const serviceName = service ? service.name : serviceId;
+      
+      const customPlanText = lang === "am"
+        ? `🎯 **${serviceName} ብጁ እቅድ ጥያቄ**
+
+📝 **ለ${serviceName} ብጁ እቅድ ለመጠየቅ:**
+• የሚፈልጉትን ጊዜ ይግለጹ (ለምሳሌ: 7 ቀናት፣ 2 ሳምንት፣ 45 ቀናት)
+• የሚፈልጉትን የመለያ ብዛት ይግለጹ
+• ልዩ መስፈርቶችዎን ይግለጹ
+
+💡 **ብጁ እቅዶች ለ:**
+• ልዩ የጊዜ ፍላጎቶች (ቀናት፣ ሳምንታት)
+• የቡድን ምዝገባዎች
+• የንግድ መለያዎች
+• የረጅም ጊዜ ቅናሽዎች
+
+⚡ **ሂደት:**
+1. ከታች "ብጁ እቅድ ይጠይቁ" ይጫኑ
+2. የሚፈልጉትን ዝርዝሮች ይላኩ
+3. አስተዳዳሪ ዋጋ እና ሁኔታዎች ይላካል
+4. ከተስማሙ ክፍያ ያድርጉ
+
+📞 **ወይም በቀጥታ ያነጋግሩን:**
+የብጁ እቅድ ጥያቄዎች በ24 ሰዓት ውስጥ ይመለሳሉ።`
+        : `🎯 **${serviceName} Custom Plan Request**
+
+📝 **To request a custom plan for ${serviceName}:**
+• Specify your preferred duration (e.g., 7 days, 2 weeks, 45 days)
+• Mention how many accounts you need
+• Include any special requirements
+
+💡 **Custom plans are perfect for:**
+• Unique duration needs (days, weeks)
+• Group subscriptions
+• Business accounts
+• Long-term discounts
+
+⚡ **Process:**
+1. Click "Request Custom Plan" below
+2. Send us your requirements
+3. Admin will send pricing and terms
+4. Pay if you agree
+
+📞 **Or contact us directly:**
+Custom plan requests are answered within 24 hours.`;
+
+      const keyboard = [
+        [
+          { text: lang === "en" ? "📝 Request Custom Plan" : "📝 ብጁ እቅድ ይጠይቁ", 
+            callback_data: `request_custom_plan_for_${serviceId}` }
+        ],
+        [
+          { text: lang === "en" ? "📞 Contact Support" : "📞 ድጋፍ ያነጋግሩ", callback_data: "support" }
+        ],
+        [
+          { text: lang === "en" ? "⬅️ Back to Plans" : "⬅️ ወደ እቅዶች", 
+            callback_data: `select_service_${serviceId}` }
+        ]
+      ];
+
+      await ctx.editMessageText(customPlanText, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: "Markdown"
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error("Error in custom_plan_for action:", error);
+      await ctx.answerCbQuery("Sorry, something went wrong.");
+    }
+  });
+
+  // Handle service-specific custom plan request
+  bot.action(/^request_custom_plan_for_(.+)$/, async (ctx) => {
+    try {
+      const serviceId = ctx.match[1];
+      const lang = ctx.userLang;
+      
+      // Get service details
+      let service;
+      if (ctx.services) {
+        service = ctx.services.find(s => s.id === serviceId || s.serviceID === serviceId);
+      }
+      
+      if (!service) {
+        try {
+          const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+          if (serviceDoc.exists) {
+            service = { id: serviceDoc.id, ...serviceDoc.data() };
+          }
+        } catch (error) {
+          console.error('Error fetching service:', error);
+        }
+      }
+
+      const serviceName = service ? service.name : serviceId;
+      
+      const requestText = lang === "am"
+        ? `📝 **${serviceName} ብጁ እቅድ ጥያቄ**
+
+እባክዎ የሚከተለውን መረጃ ይላኩ:
+
+1️⃣ **ጊዜ:** የሚፈልጉት ጊዜ (ለምሳሌ: 7 ቀናት, 2 ሳምንት, 45 ቀናት)
+2️⃣ **ብዛት:** ስንት መለያ (ለቡድን ምዝገባ)
+3️⃣ **ልዩ መስፈርቶች:** ማንኛውም ተጨማሪ መረጃ
+
+**ምሳሌ:**
+"${serviceName} 15 ቀናት, 2 መለያዎች, የቤተሰብ እቅድ"
+
+💬 በሚቀጥለው መልእክትዎ ላይ ዝርዝሮችን ይላኩ።`
+        : `📝 **${serviceName} Custom Plan Request**
+
+Please send the following information:
+
+1️⃣ **Duration:** How long you need it (e.g., 7 days, 2 weeks, 45 days)
+2️⃣ **Quantity:** How many accounts (for group subscriptions)
+3️⃣ **Special Requirements:** Any additional information
+
+**Example:**
+"${serviceName} for 15 days, 2 accounts, family plan"
+
+💬 Send your details in your next message.`;
+
+      const keyboard = [
+        [
+          { text: lang === "en" ? "📞 Contact Support Instead" : "📞 ይልቁንም ድጋፍ ያነጋግሩ", callback_data: "support" }
+        ],
+        [
+          { text: lang === "en" ? "⬅️ Back" : "⬅️ ተመለስ", 
+            callback_data: `custom_plan_for_${serviceId}` }
+        ]
+      ];
+
+      await ctx.editMessageText(requestText, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: "Markdown"
+      });
+      await ctx.answerCbQuery();
+
+      // Set user state to expect custom plan details with service context
+      if (!global.userStates) global.userStates = {};
+      global.userStates[ctx.from.id] = { 
+        state: 'awaiting_custom_plan_details',
+        serviceId: serviceId,
+        serviceName: serviceName,
+        timestamp: Date.now()
+      };
+
+    } catch (error) {
+      console.error("Error in request_custom_plan_for action:", error);
       await ctx.answerCbQuery("Sorry, something went wrong.");
     }
   });
@@ -786,7 +1330,7 @@ Choose your preferred language:`;
     } catch (error) {
       console.error('Error in back_to_menu action:', error);
       try {
-        const lang = ctx.userLang || (ctx.from.language_code === 'am' ? 'am' : 'en');
+        const lang = ctx.userLang || (ctx.userLang === 'am' ? 'am' : 'en');
         await ctx.answerCbQuery(lang === 'am' ? 'ስህተት ተከስቷል። እባክዎ ቆይተው ይሞክሩ።' : 'An error occurred. Please try again.');
       } catch (e) {
         console.error('Error sending error message:', e);
@@ -850,7 +1394,7 @@ Choose your preferred language:`;
   // Pricing button handler
   bot.action("pricing", async (ctx) => {
     try {
-      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      const lang = ctx.userLang || 'en';
       
       const pricingMessage = lang === 'am'
         ? `💰 **BirrPay የዋጋ አሰጣጥ**
@@ -937,7 +1481,7 @@ Choose your preferred language:`;
   // Payment methods button handler
   bot.action("payment_methods", async (ctx) => {
     try {
-      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      const lang = ctx.userLang || 'en';
       
       const paymentMessage = lang === 'am'
         ? `💳 **የክፍያ ዘዴዎች**
@@ -1038,7 +1582,7 @@ Choose your preferred language:`;
   // Terms button handler
   bot.action("terms", async (ctx) => {
     try {
-      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      const lang = ctx.userLang || 'en';
       
       const termsMessage = lang === 'am'
         ? `📜 **የአገልግሎት ደረጃዎች**
@@ -1132,7 +1676,7 @@ BirrPay is not responsible for changes made by third-party service providers. Se
   // About button handler
   bot.action("about", async (ctx) => {
     try {
-      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      const lang = ctx.userLang || 'en';
       
       const aboutMessage = lang === 'am'
         ? `ℹ️ **BirrPay ስለ እኛ**
@@ -1235,7 +1779,7 @@ Netflix • Spotify • Amazon Prime • YouTube Premium • Disney+ • HBO Max
   // Change language button handler
   bot.action("change_language", async (ctx) => {
     try {
-      const currentLang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      const currentLang = ctx.userLang || 'en';
       
       const languageMessage = currentLang === 'am'
         ? `🌐 **ቋንቋ ቀይር**
@@ -1267,7 +1811,7 @@ Please select your preferred language:`;
   // Notifications button handler
   bot.action("notifications", async (ctx) => {
     try {
-      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      const lang = ctx.userLang || 'en';
       
       const notificationsMessage = lang === 'am'
         ? `🔔 **ማሳወቂያ ቅንብሮች**

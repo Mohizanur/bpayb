@@ -9,8 +9,10 @@ const require = createRequire(import.meta.url);
 import "dotenv/config";
 import Fastify from "fastify";
 import { bot } from "./bot.js";
-import { loadI18n, getUserLang, setUserLang } from "./utils/i18n.js";
+import { loadI18n, getUserLang, setUserLang, getErrorMessage, getTranslatedMessage, setLanguageCache } from "./utils/i18n.js";
 import { loadServices } from "./utils/loadServices.js";
+import { startScheduler } from "./utils/scheduler.js";
+import { handleRenewalCallback, triggerExpirationCheck } from "./utils/expirationReminder.js";
 // Import firestore conditionally for development
 let firestore = null;
 try {
@@ -185,6 +187,21 @@ try {
   console.error("❌ Failed to register static file serving:", error);
 }
 
+// CRITICAL MIDDLEWARE: Set user language context for ALL interactions
+bot.use(async (ctx, next) => {
+  try {
+    // Set user language context for ALL interactions (commands, callbacks, messages)
+    if (ctx.from?.id) {
+      ctx.userLang = await getUserLang(ctx);
+      console.log(`🌐 User language context set to: ${ctx.userLang} for user ${ctx.from.id}`);
+    }
+  } catch (error) {
+    console.error("Error setting user language context:", error);
+    ctx.userLang = 'en'; // Fallback to English
+  }
+  await next();
+});
+
 // CRITICAL FIX: Register ALL handlers BEFORE middleware
 console.log("🚀 REGISTERING ALL HANDLERS FIRST...");
 
@@ -216,7 +233,8 @@ bot.command("help", async (ctx) => {
     console.log("✅ Help response sent successfully!");
   } catch (error) {
     console.error("⚠️ Error in help command:", error);
-    await ctx.reply("Sorry, something went wrong. Please try again.");
+    const errorMsg = await getErrorMessage(ctx);
+    await ctx.reply(errorMsg);
   }
 });
 
@@ -259,7 +277,8 @@ bot.command("faq", async (ctx) => {
     console.log("✅ FAQ response sent!");
   } catch (error) {
     console.error("⚠️ Error in FAQ:", error);
-    await ctx.reply("Sorry, something went wrong. Please try again.");
+    const errorMsg = await getErrorMessage(ctx);
+    await ctx.reply(errorMsg);
   }
 });
 
@@ -272,13 +291,15 @@ bot.command("lang", async (ctx) => {
       [{ text: "🇺🇸 English", callback_data: "lang_en" }],
       [{ text: "🇪🇹 አማርኛ", callback_data: "lang_am" }]
     ];
-    await ctx.reply("🌐 Choose your language / ቋንቃዎን ይምረጡ:", {
+    const langText = "🌐 Choose your language / ቋንቃዎን ይምረጡ:";
+    await ctx.reply(langText, {
       reply_markup: { inline_keyboard: keyboard }
     });
     console.log("✅ Language selection sent!");
   } catch (error) {
     console.error("⚠️ Error in lang:", error);
-    await ctx.reply("Sorry, something went wrong. Please try again.");
+    const errorMsg = await getErrorMessage(ctx);
+    await ctx.reply(errorMsg);
   }
 });
 
@@ -325,8 +346,8 @@ bot.action(/faq_(\d+)/, async (ctx) => {
 bot.action("support", async (ctx) => {
   try {
     console.log("🚀 SUPPORT CALLBACK TRIGGERED!");
-    // Get language from Telegram or default to English
-    const lang = ctx.from?.language_code === "am" ? "am" : "en";
+    // Get user's selected language
+    const lang = ctx.userLang || "en";
     const supportText = lang === "am"
       ? "📞 የደንበኞች አገልግሎት\n\nየእርዳታ አገልግሎት አትፈልግዎት?\n\nየተለያዩ የደጋፍ አገልግሎቶች:\n• የምዝገባ እርዳታ\n• የክፍያ ጥያቄዎች\n• ተክኒካዊ ድጋፍ\n• የመረጃ ጥያቄዎች\n\nየተጠቃሚ ድጋፍዎ መረጃ: @BirrPaySupport"
       : "📞 Customer Support\n\nNeed help with your account?\n\nOur support team can help with:\n• Subscription management\n• Payment issues\n• Technical support\n• Account questions\n\nContact our support team: @BirrPaySupport";
@@ -343,21 +364,45 @@ bot.action(/lang_(en|am)/, async (ctx) => {
   try {
     console.log("🚀 LANGUAGE CALLBACK TRIGGERED!");
     const newLang = ctx.match[1];
+    
     // Save to Firestore if available
     try {
       await firestore.collection("users").doc(String(ctx.from.id)).set(
         { language: newLang },
         { merge: true }
       );
+      console.log(`✅ Language saved to Firestore: ${newLang}`);
     } catch (firestoreError) {
       console.log("Firestore not available, language change temporary");
     }
+    
+    // Update the current context immediately AND cache it
+    ctx.userLang = newLang;
+    setLanguageCache(ctx.from.id, newLang);
+    
+    // Show confirmation message
     const confirmText = newLang === "am"
-      ? "✅ ቋንቃ ወደ አማርኛ ተቀይሯል!"
+      ? "✅ ቋንቋ ወደ አማርኛ ተቀይሯል!"
       : "✅ Language changed to English!";
     await ctx.answerCbQuery();
     await ctx.reply(confirmText);
-    console.log("✅ Language changed!");
+    
+    // Show main menu in the new language to demonstrate the change
+    const { getMainMenuContent } = await import("./utils/menuContent.js");
+    const menuData = getMainMenuContent(newLang, false);
+    
+    setTimeout(async () => {
+      try {
+        await ctx.reply(menuData.message, {
+          reply_markup: { inline_keyboard: menuData.keyboard },
+          parse_mode: "Markdown"
+        });
+      } catch (error) {
+        console.error("Error showing menu in new language:", error);
+      }
+    }, 1000);
+    
+    console.log(`✅ Language changed to ${newLang} and menu updated!`);
   } catch (error) {
     console.error("⚠️ Error in language callback:", error);
     await ctx.answerCbQuery("Error occurred");
@@ -411,11 +456,203 @@ bot.command("mysubs", async (ctx) => {
     console.log("✅ MySubs command response sent!");
   } catch (error) {
     console.error("⚠️ Error in mysubs command:", error);
-    await ctx.reply("Sorry, something went wrong. Please try again.");
+    const errorMsg = await getErrorMessage(ctx);
+    await ctx.reply(errorMsg);
   }
 });
 
 console.log("✅ Admin commands and bot menu setup completed!");
+
+// Add renewal callback handler
+bot.action('start_renewal', handleRenewalCallback);
+
+// Add admin command to manually trigger expiration check
+bot.command("checkexpiry", async (ctx) => {
+  if (ctx.from?.id.toString() !== process.env.ADMIN_TELEGRAM_ID) {
+    const accessDeniedMsg = await getTranslatedMessage(ctx, 'access_denied_admin', "❌ Access denied. Admin only command.");
+    await ctx.reply(accessDeniedMsg);
+    return;
+  }
+
+  try {
+    const checkingMsg = await getTranslatedMessage(ctx, 'checking_expirations', "🔍 Checking subscription expirations...");
+    await ctx.reply(checkingMsg);
+    const result = await triggerExpirationCheck();
+    
+    const message = `✅ **Expiration Check Complete**
+
+📊 **Results:**
+• Total expiring subscriptions: ${result?.totalExpiring || 0}
+• User reminders sent: ${result?.remindersSent || 0}
+• Admin alert sent: ${result?.adminAlertSent ? 'Yes' : 'No'}
+
+⏰ **Check completed at:** ${new Date().toLocaleString()}`;
+
+    await ctx.reply(message, { parse_mode: 'Markdown' });
+  } catch (error) {
+    console.error("Error in checkexpiry command:", error);
+    const errorMsg = await getTranslatedMessage(ctx, 'error_checking_expirations', "❌ Error checking expirations:");
+    await ctx.reply(errorMsg + " " + error.message);
+  }
+});
+
+// Add payment method command handler
+bot.command("addpayment", async (ctx) => {
+  if (ctx.from?.id.toString() !== process.env.ADMIN_TELEGRAM_ID) {
+    await ctx.reply("❌ Access denied. Admin only command.");
+    return;
+  }
+
+  try {
+    const messageText = ctx.message.text;
+    const lines = messageText.split('\n').slice(1); // Skip the command line
+    
+    if (lines.length < 5) {
+      await ctx.reply(`❌ Invalid format. Please use:
+
+\`\`\`
+/addpayment
+Name: Bank Name or Service
+NameAm: የባንክ ስም (Amharic name)
+Account: Account number or phone
+Instructions: Payment instructions in English
+InstructionsAm: Payment instructions in Amharic
+Icon: 🏦 (emoji icon)
+\`\`\``, { parse_mode: 'Markdown' });
+      return;
+    }
+
+    const paymentData = {};
+    for (const line of lines) {
+      const [key, ...valueParts] = line.split(':');
+      if (key && valueParts.length > 0) {
+        const value = valueParts.join(':').trim();
+        paymentData[key.trim().toLowerCase()] = value;
+      }
+    }
+
+    // Validate required fields
+    if (!paymentData.name || !paymentData.account || !paymentData.instructions) {
+      await ctx.reply("❌ Missing required fields: Name, Account, Instructions");
+      return;
+    }
+
+    // Generate unique ID
+    const methodId = paymentData.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    const newMethod = {
+      id: methodId,
+      name: paymentData.name,
+      nameAm: paymentData.nameam || paymentData.name,
+      account: paymentData.account,
+      instructions: paymentData.instructions,
+      instructionsAm: paymentData.instructionsam || paymentData.instructions,
+      icon: paymentData.icon || '💳',
+      active: true
+    };
+
+    // Get existing payment methods
+    const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
+    const existingMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
+    
+    // Check if method already exists
+    if (existingMethods.find(method => method.id === methodId)) {
+      await ctx.reply(`❌ Payment method with ID "${methodId}" already exists`);
+      return;
+    }
+
+    // Add new method
+    existingMethods.push(newMethod);
+
+    // Save to Firestore
+    await firestore.collection('config').doc('paymentMethods').set({
+      methods: existingMethods,
+      updatedAt: new Date(),
+      updatedBy: ctx.from.id.toString()
+    });
+
+    await ctx.reply(`✅ **Payment Method Added Successfully!**
+
+${newMethod.icon} **${newMethod.name}**
+📱 Account: \`${newMethod.account}\`
+🟢 Status: Active
+
+The new payment method is now available to users during subscription and renewal.`, { parse_mode: 'Markdown' });
+
+  } catch (error) {
+    console.error("Error adding payment method:", error);
+    await ctx.reply("❌ Error adding payment method: " + error.message);
+  }
+});
+
+// Store editing state in memory (simple approach)
+global.editingStates = global.editingStates || new Map();
+
+// Handle payment method editing text input
+bot.on('text', async (ctx, next) => {
+  const userId = ctx.from?.id.toString();
+  
+  // Check if user is editing a payment method
+  if (global.editingStates.has(userId) && userId === process.env.ADMIN_TELEGRAM_ID) {
+    try {
+      const { methodId, field } = global.editingStates.get(userId);
+      const newValue = ctx.message.text.trim();
+
+      if (newValue.toLowerCase() === 'cancel') {
+        global.editingStates.delete(userId);
+        await ctx.reply('❌ Edit cancelled.');
+        return;
+      }
+
+      // Get current payment methods
+      const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
+      const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
+      
+      const methodIndex = paymentMethods.findIndex(method => method.id === methodId);
+      if (methodIndex === -1) {
+        await ctx.reply('❌ Payment method not found.');
+        global.editingStates.delete(userId);
+        return;
+      }
+
+      // Update the field
+      paymentMethods[methodIndex][field] = newValue;
+
+      // Save to Firestore
+      await firestore.collection('config').doc('paymentMethods').set({
+        methods: paymentMethods,
+        updatedAt: new Date(),
+        updatedBy: userId
+      });
+
+      const fieldNames = {
+        account: 'Account Number',
+        instructions: 'Instructions (English)',
+        instructionsAm: 'Instructions (Amharic)',
+        icon: 'Icon'
+      };
+
+      await ctx.reply(`✅ **${fieldNames[field]} Updated Successfully!**
+
+${paymentMethods[methodIndex].icon || '💳'} **${paymentMethods[methodIndex].name}**
+Updated field: ${fieldNames[field]}
+New value: ${field === 'account' ? `\`${newValue}\`` : newValue}
+
+The payment method has been updated and is now available to users.`, { parse_mode: 'Markdown' });
+
+      global.editingStates.delete(userId);
+      return;
+    } catch (error) {
+      console.error('Error updating payment method:', error);
+      await ctx.reply('❌ Error updating payment method: ' + error.message);
+      global.editingStates.delete(userId);
+      return;
+    }
+  }
+
+  // Continue to next middleware if not editing
+  await next();
+});
 
 // Phone verification middleware - Check if user is verified before allowing access
 bot.use(async (ctx, next) => {
@@ -428,11 +665,14 @@ bot.use(async (ctx, next) => {
     const isManualPhoneInput = ctx.message?.text === '✍️ በእጅ መፃፍ' || ctx.message?.text === '✍️ Type Manually';
     const isVerificationCodeInput = ctx.message?.text && /^\d{6}$/.test(ctx.message.text.trim());
     const isCallbackQuery = ctx.callbackQuery;
+    const isAdminCommand = ctx.message?.text?.startsWith('/addpayment') || ctx.message?.text?.startsWith('/checkexpiry');
     
-    if (isAdmin || isVerificationCommand || isStartCommand || isContactMessage || isManualPhoneInput || isVerificationCodeInput || isCallbackQuery) {
+    if (isAdmin || isVerificationCommand || isStartCommand || isContactMessage || isManualPhoneInput || isVerificationCodeInput || isCallbackQuery || isAdminCommand) {
       ctx.i18n = i18n;
       ctx.services = services;
+      // Always get fresh language from Firestore to ensure language changes are reflected immediately
       ctx.userLang = await getUserLang(ctx);
+      console.log(`🌐 User language context set to: ${ctx.userLang} for user ${ctx.from.id}`);
       await next();
       return;
     }
@@ -456,7 +696,7 @@ bot.use(async (ctx, next) => {
           firstName: ctx.from.first_name,
           lastName: ctx.from.last_name || '',
           username: ctx.from.username || '',
-          language: ctx.from.language_code || 'en',
+          language: ctx.userLang || 'en',
           phoneVerified: false,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -511,6 +751,7 @@ bot.use(async (ctx, next) => {
       ctx.i18n = i18n;
       ctx.services = services;
       ctx.userLang = await getUserLang(ctx);
+      console.log(`🌐 User language context set to: ${ctx.userLang} for verified user ${ctx.from.id}`);
       ctx.userData = userData;
       await next();
       
@@ -520,8 +761,8 @@ bot.use(async (ctx, next) => {
       ctx.i18n = i18n;
       ctx.services = services;
       ctx.userLang = await getUserLang(ctx);
+      console.log(`🌐 User language context set to: ${ctx.userLang} for user ${ctx.from.id} (DB fallback)`);
       await next();
-      return;
     }
     
   } catch (error) {
@@ -536,7 +777,7 @@ bot.use(async (ctx, next) => {
 // Phone verification handlers
 bot.action('verify_phone', async (ctx) => {
   try {
-    const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+    const lang = ctx.userLang || 'en';
     const requestMsg = lang === 'am'
       ? '📱 የተልፍዎን ማረጋገጫ\n\nእባክዎ የተልፍዎን መረጃ ለማረጋገጥ ከታች ያለውን ቁልፍ በመጫን እውቂያዎን ያጋሩ።\n\nአስፈላጊ: ይህ የሚያስፈልገው የእርስዎን ስልክ ቁጥር ለማረጋገጥ ብቻ ነው።'
       : '📱 Phone Verification\n\nPlease tap the button below to share your contact for verification.\n\nNote: This is only used to verify your phone number.';
@@ -676,7 +917,7 @@ bot.on('contact', async (ctx) => {
           text: lang === "am" ? "⭐ የእኔ ምዝገባዎች" : "⭐ My Subscriptions",
           callback_data: "my_subs"
         },
-        { 
+        {                          
           text: lang === "am" ? "🏆 የተመለከተ" : "🏆 Referral",
           callback_data: "referral"
         }
@@ -710,6 +951,12 @@ bot.on('contact', async (ctx) => {
           text: lang === "am" ? "🔔 ማሳወቂያዎች" : "🔔 Notifications",
           callback_data: "notifications"
         }
+      ],
+      [
+        { 
+          text: lang === "am" ? "👥 ማህበረሰብ እና ትምህርት" : "👥 Community & Tutorial",
+          url: "https://t.me/birrpayofficial"
+        }
       ]
     ];
 
@@ -742,6 +989,206 @@ bot.on('text', async (ctx, next) => {
     const userData = userDoc.data() || {};
     const lang = userData.language || (ctx.from.language_code === 'am' ? 'am' : 'en');
     
+    // Check if user is awaiting custom plan details
+    if (global.userStates && global.userStates[ctx.from.id] && 
+        global.userStates[ctx.from.id].state === 'awaiting_custom_plan_details') {
+      
+      const customPlanDetails = ctx.message.text.trim();
+      
+      // Clear user state
+      delete global.userStates[ctx.from.id];
+      
+      // Save custom plan request to Firestore
+      try {
+        const requestRef = await firestore.collection('customPlanRequests').add({
+          userId: ctx.from.id,
+          userFirstName: ctx.from.first_name || '',
+          userLastName: ctx.from.last_name || '',
+          username: ctx.from.username || '',
+          details: customPlanDetails,
+          status: 'pending',
+          createdAt: new Date(),
+          language: lang
+        });
+        
+        const requestId = requestRef.id;
+
+        // Send confirmation to user
+        const confirmMsg = lang === 'am'
+          ? `✅ **ብጁ እቅድ ጥያቄዎ ተላከ!**
+
+📝 **የእርስዎ ጥያቄ:**
+${customPlanDetails}
+
+⏰ **ቀጣይ ደረጃዎች:**
+• አስተዳዳሪ ጥያቄዎን ይገመግማል
+• በ24 ሰዓት ውስጥ ዋጋ እና ሁኔታዎች ይላካሉ
+• ከተስማሙ ክፍያ ማድረግ ይችላሉ
+
+📞 ለተጨማሪ ጥያቄዎች /support ይጠቀሙ።
+
+ለትዕግስትዎ እናመሰግናለን! 🙏`
+          : `✅ **Custom Plan Request Submitted!**
+
+📝 **Your Request:**
+${customPlanDetails}
+
+⏰ **Next Steps:**
+• Admin will review your request
+• Pricing and terms will be sent within 24 hours
+• You can proceed with payment if you agree
+
+📞 Use /support for additional questions.
+
+Thank you for your patience! 🙏`;
+
+        await ctx.reply(confirmMsg, { parse_mode: 'Markdown' });
+
+        // Notify admin about new custom plan request
+        const adminId = process.env.ADMIN_TELEGRAM_ID;
+        if (adminId) {
+          const adminMsg = `🎯 New Custom Plan Request
+
+👤 User: ${ctx.from.first_name} ${ctx.from.last_name || ''} (@${ctx.from.username || 'no_username'})
+🆔 User ID: ${ctx.from.id}
+🌐 Language: ${lang === 'am' ? 'Amharic' : 'English'}
+
+📝 Request Details:
+${customPlanDetails}
+
+📅 Submitted: ${new Date().toLocaleString()}
+
+💡 Quick Actions: Use buttons below or admin panel for full management.`;
+
+          const adminKeyboard = {
+            inline_keyboard: [
+              [
+                { text: '💰 Set Pricing', callback_data: `set_custom_price_${requestId}` },
+                { text: '❌ Reject Request', callback_data: `reject_custom_${requestId}` }
+              ]
+            ]
+          };
+
+          try {
+            await ctx.telegram.sendMessage(adminId, adminMsg, { 
+              reply_markup: adminKeyboard
+            });
+          } catch (adminError) {
+            console.error('Failed to notify admin about custom plan request:', adminError);
+          }
+        }
+
+        return;
+      } catch (error) {
+        console.error('Error saving custom plan request:', error);
+        const errorMsg = lang === 'am'
+          ? '❌ ጥያቄዎን ማስቀመጥ አልተቻለም። እባክዎ እንደገና ይሞክሩ።'
+          : '❌ Failed to save your request. Please try again.';
+        await ctx.reply(errorMsg);
+        return;
+      }
+    }
+
+    // Check if admin is setting custom plan pricing
+    if (global.customPricingStates && global.customPricingStates.has(ctx.from.id.toString())) {
+      const pricingState = global.customPricingStates.get(ctx.from.id.toString());
+      const pricingText = ctx.message.text.trim();
+
+      if (pricingText.toLowerCase() === 'cancel') {
+        global.customPricingStates.delete(ctx.from.id.toString());
+        await ctx.reply('❌ Pricing setup cancelled.');
+        return;
+      }
+
+      // Simple price input - system already knows the service and duration from request
+      const price = pricingText.trim();
+      
+      // Basic validation for price format
+      if (!price || price.length < 3) {
+        await ctx.reply('❌ Please enter a valid price.\n\nExample: ETB 600 or 600');
+        return;
+      }
+
+      try {
+        // Get the original request
+        const requestDoc = await firestore.collection('customPlanRequests').doc(pricingState.requestId).get();
+        if (!requestDoc.exists) {
+          await ctx.reply('❌ Request not found.');
+          global.customPricingStates.delete(ctx.from.id.toString());
+          return;
+        }
+
+        const requestData = requestDoc.data();
+
+        // Update request with pricing (use original request data for service info)
+        await firestore.collection('customPlanRequests').doc(pricingState.requestId).update({
+          status: 'priced',
+          price: price,
+          pricedAt: new Date(),
+          pricedBy: ctx.from.id.toString()
+        });
+
+        // Send pricing to user
+        const userLang = requestData.language || 'en';
+        const pricingMsg = userLang === 'am'
+          ? `💰 **ብጁ እቅድ ዋጋ**
+
+የእርስዎ ብጁ እቅድ ጥያቄ ተገምግሟል!
+
+📝 **የእርስዎ ጥያቄ:**
+${requestData.customPlanDetails || requestData.details}
+
+💰 **ዋጋ ዝርዝር:**
+• **ዋጋ:** ${price}
+
+✅ ከተስማሙ "ክፍያ ማድረግ" ይጫኑ
+❌ ካልተስማሙ "ውድቅ አድርግ" ይጫኑ`
+          : `💰 **Custom Plan Pricing**
+
+Your custom plan request has been reviewed!
+
+📝 **Your Request:**
+${requestData.customPlanDetails || requestData.details}
+
+💰 **Pricing Details:**
+• **Price:** ${price}
+
+✅ Click "Proceed with Payment" if you agree
+❌ Click "Decline" if you don't agree`;
+
+        const keyboard = [
+          [
+            { text: userLang === 'am' ? '✅ ክፍያ ማድረግ' : '✅ Proceed with Payment', 
+              callback_data: `accept_custom_pricing_${pricingState.requestId}` }
+          ],
+          [
+            { text: userLang === 'am' ? '❌ ውድቅ አድርግ' : '❌ Decline', 
+              callback_data: `decline_custom_pricing_${pricingState.requestId}` }
+          ]
+        ];
+
+        await ctx.telegram.sendMessage(requestData.userId, pricingMsg, {
+          reply_markup: { inline_keyboard: keyboard },
+          parse_mode: 'Markdown'
+        });
+
+        // Confirm to admin
+        await ctx.reply(`✅ **Pricing Sent to User**
+
+**Request:** ${requestData.customPlanDetails || requestData.details}
+**Price:** ${price}
+
+The user has been notified and can now proceed with payment if they agree.`);
+
+        global.customPricingStates.delete(ctx.from.id.toString());
+
+      } catch (error) {
+        console.error('Error setting custom pricing:', error);
+        await ctx.reply('❌ Error setting pricing. Please try again.');
+      }
+      return;
+    }
+
     // Check if user is in phone verification flow
     if (userData.awaitingPhone && !userData.phoneVerified) {
       const phoneNumber = ctx.message.text.trim();
@@ -788,6 +1235,167 @@ bot.on('text', async (ctx, next) => {
   } catch (error) {
     console.error('Error in text handler:', error);
     await next();
+  }
+});
+
+// Handle photo uploads for custom payment proof
+bot.on('photo', async (ctx, next) => {
+  try {
+    const userId = ctx.from.id;
+    
+    // Check if user is uploading custom payment proof
+    if (global.userStates && global.userStates[userId] && 
+        global.userStates[userId].state === 'awaiting_custom_payment_proof') {
+      
+      const userState = global.userStates[userId];
+      const pendingPaymentId = userState.pendingPaymentId;
+      
+      // Get user data for language
+      const userDoc = await firestore.collection('users').doc(userId.toString()).get();
+      const userData = userDoc.data() || {};
+      const lang = userData.language || (ctx.from.language_code === 'am' ? 'am' : 'en');
+      
+      // Get the largest photo
+      const photo = ctx.message.photo[ctx.message.photo.length - 1];
+      const fileId = photo.file_id;
+      
+      try {
+        // Get pending payment data
+        const pendingPaymentDoc = await firestore.collection('pendingPayments').doc(pendingPaymentId).get();
+        if (!pendingPaymentDoc.exists) {
+          await ctx.reply(lang === 'am' ? '❌ የክፍያ መረጃ አልተገኘም።' : '❌ Payment information not found.');
+          delete global.userStates[userId];
+          return;
+        }
+        
+        const pendingPaymentData = pendingPaymentDoc.data();
+        
+        // Update pending payment with proof
+        await firestore.collection('pendingPayments').doc(pendingPaymentId).update({
+          paymentProof: fileId,
+          paymentProofUploadedAt: new Date(),
+          paymentStatus: 'proof_uploaded'
+        });
+        
+        // Create subscription record
+        const subscriptionData = {
+          userId: userId,
+          userFirstName: ctx.from.first_name || '',
+          userLastName: ctx.from.last_name || '',
+          username: ctx.from.username || '',
+          serviceName: pendingPaymentData.serviceName,
+          serviceID: pendingPaymentData.serviceID,
+          duration: pendingPaymentData.duration,
+          durationName: pendingPaymentData.durationName,
+          amount: pendingPaymentData.amount,
+          paymentReference: pendingPaymentData.paymentReference,
+          paymentProof: fileId,
+          status: 'pending',
+          createdAt: new Date(),
+          language: lang,
+          isCustomPlan: true,
+          customPlanRequestId: pendingPaymentData.customPlanRequestId
+        };
+        
+        const subscriptionRef = await firestore.collection('subscriptions').add(subscriptionData);
+        
+        // Update pending payment with subscription ID
+        await firestore.collection('pendingPayments').doc(pendingPaymentId).update({
+          subscriptionId: subscriptionRef.id
+        });
+        
+        // Clear user state
+        delete global.userStates[userId];
+        
+        // Confirm to user
+        const confirmMsg = lang === 'am'
+          ? `✅ **የክፍያ ማረጋገጫ ተላከ!**
+
+📋 **የእርስዎ ብጁ እቅድ:**
+• **አገልግሎት:** ${pendingPaymentData.serviceName}
+• **ጊዜ:** ${pendingPaymentData.duration}
+• **ዋጋ:** ${pendingPaymentData.amount}
+
+⏰ **ቀጣይ ደረጃ:**
+• አስተዳዳሪ የክፍያ ማረጋገጫዎን ይገመግማል
+• ከተፈቀደ ምዝገባዎ ይጀምራል
+• በ24 ሰዓት ውስጥ ውጤት ይላካል
+
+📞 ለተጨማሪ መረጃ /support ይጠቀሙ።
+
+ለትዕግስትዎ እናመሰግናለን! 🙏`
+          : `✅ **Payment Proof Submitted!**
+
+📋 **Your Custom Plan:**
+• **Service:** ${pendingPaymentData.serviceName}
+• **Duration:** ${pendingPaymentData.duration}
+• **Price:** ${pendingPaymentData.amount}
+
+⏰ **Next Steps:**
+• Admin will review your payment proof
+• If approved, your subscription will start
+• Result will be sent within 24 hours
+
+📞 Use /support for additional questions.
+
+Thank you for your patience! 🙏`;
+
+        await ctx.reply(confirmMsg, { parse_mode: 'Markdown' });
+        
+        // Notify admin
+        const adminId = process.env.ADMIN_TELEGRAM_ID;
+        if (adminId) {
+          const adminMsg = `💰 New Custom Plan Payment Proof
+
+👤 Customer: ${ctx.from.first_name} ${ctx.from.last_name || ''} (@${ctx.from.username || 'no_username'})
+🆔 User ID: ${ctx.from.id}
+
+📋 Custom Plan Details:
+• Service: ${pendingPaymentData.serviceName}
+• Duration: ${pendingPaymentData.duration}
+• Price: ${pendingPaymentData.amount}
+• Reference: ${pendingPaymentData.paymentReference}
+
+📅 Submitted: ${new Date().toLocaleString()}
+
+💡 Quick Actions: Use buttons below or admin panel for full management.`;
+
+          const paymentKeyboard = {
+            inline_keyboard: [
+              [
+                { text: '✅ Approve Subscription', callback_data: `approve_subscription_${subscriptionRef.id}` },
+                { text: '❌ Reject Payment', callback_data: `reject_subscription_${subscriptionRef.id}` }
+              ]
+            ]
+          };
+
+          try {
+            await ctx.telegram.sendPhoto(adminId, fileId, { 
+              caption: adminMsg,
+              reply_markup: paymentKeyboard
+            });
+          } catch (adminError) {
+            console.error('Failed to notify admin about custom payment proof:', adminError);
+          }
+        }
+        
+      } catch (error) {
+        console.error('Error processing custom payment proof:', error);
+        const errorMsg = lang === 'am'
+          ? '❌ የክፍያ ማረጋገጫ ማስቀመጥ አልተቻለም። እባክዎ እንደገና ይሞክሩ።'
+          : '❌ Failed to save payment proof. Please try again.';
+        await ctx.reply(errorMsg);
+      }
+      
+      return;
+    }
+    
+    // Continue to next handler if not in custom payment proof flow
+    await next();
+    
+  } catch (error) {
+    console.error('Error in photo handler:', error);
+    // Don't call next() here as it may cause multiple calls
   }
 });
 
@@ -2399,6 +3007,14 @@ async function startApp() {
       : `http://localhost:${server.address().port}/panel`;
     console.log(`🔧 Admin Panel: ${adminPanelUrl}`);
     console.log(`🔑 Admin ID: ${process.env.ADMIN_TELEGRAM_ID || 'Not set'}`);
+    
+    // Start expiration reminder scheduler
+    try {
+      startScheduler();
+      console.log('⏰ Expiration reminder scheduler started');
+    } catch (error) {
+      console.error('❌ Failed to start scheduler:', error.message);
+    }
     
     // Set up bot commands
     try {

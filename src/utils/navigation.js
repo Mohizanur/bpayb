@@ -50,8 +50,17 @@ export const showMainMenu = async (ctx, isNewUser = false) => {
         });
         return;
       } catch (editError) {
-        // If editing fails (e.g., message is too similar), send a new one
-        console.log('Could not edit message, sending new one:', editError);
+        // If editing fails due to identical content, just answer the callback query
+        if (editError.description && editError.description.includes('message is not modified')) {
+          try {
+            await ctx.answerCbQuery();
+            return;
+          } catch (answerError) {
+            // Ignore answer callback errors
+          }
+        }
+        // For other edit errors, fall through to send new message
+        console.log('Could not edit message, sending new one:', editError.message || editError);
       }
     }
     
@@ -63,13 +72,14 @@ export const showMainMenu = async (ctx, isNewUser = false) => {
     });
   } catch (error) {
     console.error('Error showing main menu:', error);
-    // Fallback to simple message if there's an error
-    const fallbackMsg = lang === 'am' 
-      ? 'የዋና ምናሌ ማሳየት አልተቻለም። እባክዎ ቆይተው ይሞክሩ።' 
-      : 'Could not show main menu. Please try again.';
-    
-    await ctx.reply(fallbackMsg, {
-      reply_markup: { inline_keyboard: [[getBackToMenuButton(lang)]] }
-    });
+    // Fallback to a simple message
+    const fallbackMsg = ctx.userLang === 'am' ? 
+      '🏠 ዋና ገጽ' : 
+      '🏠 Main Menu';
+    try {
+      await ctx.reply(fallbackMsg);
+    } catch (fallbackError) {
+      console.error('Failed to send fallback message:', fallbackError);
+    }
   }
 };

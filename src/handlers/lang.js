@@ -1,4 +1,4 @@
-import { setUserLang } from "../utils/i18n.js";
+import { getUserLang, setUserLang, loadI18n, getErrorMessage } from "../utils/i18n.js";
 
 export default function langHandler(bot) {
   console.log("🌍 Registering lang command handler");
@@ -41,7 +41,8 @@ export default function langHandler(bot) {
     } catch (error) {
       console.error("Error in lang handler:", error);
       try {
-        await ctx.reply("Sorry, something went wrong. Please try again.");
+        const errorMsg = await getErrorMessage(ctx);
+        await ctx.reply(errorMsg);
       } catch (replyError) {
         console.error("Failed to send error message:", replyError);
       }

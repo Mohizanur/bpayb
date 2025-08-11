@@ -94,6 +94,14 @@ function setupSubscribeHandler(bot) {
         keyboardRows.push(planButtons.slice(i, i + 2));
       }
       
+      // Add custom plan button
+      keyboardRows.push([
+        { 
+          text: lang === 'am' ? '🎯 ብጁ እቅድ ይጠይቁ' : '🎯 Request Custom Plan', 
+          callback_data: `custom_plan_for_${service.id || service.serviceID}` 
+        }
+      ]);
+      
       // Add back button
       keyboardRows.push([
         { 
@@ -205,69 +213,69 @@ function setupSubscribeHandler(bot) {
       const plan = service.plans?.find(p => p.duration === months);
       
       // Payment instructions
-      const paymentMessage = lang === 'am'
-        ? `💳 *የክፍያ መመሪያ*
+        // Get payment methods from Firestore
+        let paymentMethods = [];
+        try {
+          const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
+          if (paymentMethodsDoc.exists) {
+            paymentMethods = paymentMethodsDoc.data().methods?.filter(method => method.active) || [];
+          }
+        } catch (error) {
+          console.error('Error fetching payment methods:', error);
+        }
 
-` +
-          `አገልግሎት: ${service.name}
-` +
-          `ቆይታ: ${plan?.billingCycle || `${months} ${months === 1 ? 'ወር' : 'ወራት'}`}
-` +
-          `ጠቅላላ ዋጋ: *${price.toLocaleString()} ብር*
+        // Fallback to default payment methods if none configured
+        if (paymentMethods.length === 0) {
+          paymentMethods = [
+            {
+              id: 'telebirr',
+              name: 'TeleBirr',
+              nameAm: 'ቴሌብር',
+              account: '0912345678',
+              instructions: 'Send payment to TeleBirr account and upload screenshot',
+              instructionsAm: 'ወደ ቴሌብር መለያ ክፍያ በመላክ ስክሪንሾት ይላኩ',
+              icon: '📱'
+            }
+          ];
+        }
 
-` +
-          `ክፍያ ለማድረግ ወደሚከተሉት አካውንቶች ገንዘብ ያስተላልፉ፡
-` +
-          `📱 *TeleBirr*: 0912345678
-` +
-          `🏦 *CBE Birr*: 1000000000000
-` +
-          `🏛 *Bank Transfer*:
-` +
-          `   - Bank: Commercial Bank of Ethiopia
-` +
-          `   - Account: 1000000000000
-` +
-          `   - Name: Your Business Name
+        // Build payment methods list
+        let paymentMethodsListEn = '';
+        let paymentMethodsListAm = '';
+        
+        paymentMethods.forEach(method => {
+          const icon = method.icon || '💳';
+          paymentMethodsListEn += `${icon} *${method.name}*: ${method.account}\n`;
+          paymentMethodsListAm += `${icon} *${method.nameAm || method.name}*: ${method.account}\n`;
+        });
 
-` +
-          `ክፍያ ካደረጉ በኋላ የክፍያ ማረጋገጫ ስክሪንሾት ወይም ሪሲት ይላኩ።
-` +
-          `አስተናጋጁ ክፍያዎን ከፀደቀ በኋላ አገልግሎቱ ይጀምራል።`
+        const paymentMessage = lang === 'am'
+        ? `💳 *የክፍያ መመሪያዎች*
+
+አገልግሎት: ${service.name}
+ቆይታ: ${plan?.billingCycle || `${months} ${months === 1 ? 'ወር' : 'ወራት'}`}
+ጠቅላላ ዋጋ: *${price.toLocaleString()} ብር*
+
+ክፍያ ለማድረግ ወደሚከተሉት አካውንቶች ገንዘብ ያስተላልፉ፡
+${paymentMethodsListAm}
+${paymentMethods.length > 0 ? (paymentMethods[0].instructionsAm || 'ክፍያ ካደረጉ በኋላ የክፍያ ማረጋገጫ ስክሪንሾት ወይም ሪሲት ይላኩ።') : 'ክፍያ ካደረጉ በኋላ የክፍያ ማረጋገጫ ስክሪንሾት ወይም ሪሲት ይላኩ።'}
+አስተናጋጁ ክፍያዎን ከፀደቀ በኋላ አገልግሎቱ ይጀምራል።`
         : `💳 *Payment Instructions*
 
-` +
-          `Service: ${service.name}
-` +
-          `Duration: ${plan?.billingCycle || `${months} ${months === 1 ? 'Month' : 'Months'}`}
-` +
-          `Total Amount: *${price.toLocaleString()} ETB*
+Service: ${service.name}
+Duration: ${plan?.billingCycle || `${months} ${months === 1 ? 'Month' : 'Months'}`}
+Total Amount: *${price.toLocaleString()} ETB*
 
-` +
-          `Please make payment to any of the following accounts:
-` +
-          `📱 *TeleBirr*: 0912345678
-` +
-          `🏦 *CBE Birr*: 1000000000000
-` +
-          `🏛 *Bank Transfer*:
-` +
-          `   - Bank: Commercial Bank of Ethiopia
-` +
-          `   - Account: 1000000000000
-` +
-          `   - Name: Your Business Name
-
-` +
-          `After making the payment, please upload your payment proof (screenshot or receipt).
-` +
-          `Your subscription will start once the admin verifies your payment.`;
+Please make payment to any of the following accounts:
+${paymentMethodsListEn}
+${paymentMethods.length > 0 ? (paymentMethods[0].instructions || 'After payment, please send a screenshot or receipt as proof.') : 'After payment, please send a screenshot or receipt as proof.'}
+Your service will start after admin approves your payment.`;
 
       // Save pending payment to database (without starting subscription yet)
       const paymentId = `pay_${Date.now()}_${userId}`;
       const paymentData = {
         userId,
-        serviceId,
+        serviceId: service.id,
         serviceName: service.name,
         duration,
         durationName: durationText,

@@ -10,7 +10,7 @@ export default function helpHandler(bot) {
       console.log("User ID:", ctx.from?.id);
       console.log("User language:", ctx.userLang);
       
-      const lang = ctx.from.language_code === 'am' ? 'am' : 'en';
+      const lang = ctx.userLang || 'en';
       
       const helpMessage = lang === "am" 
         ? `🔧 **BirrPay እርዳታ ማእከል**
@@ -122,7 +122,7 @@ export default function helpHandler(bot) {
     } catch (error) {
       console.error("⚠️ Error in help command:", error);
       try {
-        const errorMsg = ctx.from.language_code === 'am'
+        const errorMsg = ctx.userLang === 'am'
           ? "ይቅርታ፣ ችግር ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።"
           : "Sorry, something went wrong. Please try again.";
         await ctx.reply(errorMsg);
@@ -135,7 +135,7 @@ export default function helpHandler(bot) {
   // Enhanced mysubs command
   bot.command("mysubs", async (ctx) => {
     try {
-      const lang = ctx.from.language_code === 'am' ? 'am' : 'en';
+      const lang = ctx.userLang || 'en';
       
       // Quick access to subscriptions
       const quickMessage = lang === "am"
@@ -173,7 +173,7 @@ export default function helpHandler(bot) {
     } catch (error) {
       console.error("Error in mysubs command:", error);
       await ctx.reply(
-        ctx.from.language_code === 'am'
+        ctx.userLang === 'am'
           ? "ይቅርታ፣ ችግር ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።"
           : "Sorry, something went wrong. Please try again."
       );
@@ -183,7 +183,7 @@ export default function helpHandler(bot) {
   // Enhanced lang command
   bot.command("lang", async (ctx) => {
     try {
-      const currentLang = ctx.from.language_code === 'am' ? 'am' : 'en';
+      const currentLang = ctx.userLang === 'am' ? 'am' : 'en';
       
       const langMessage = currentLang === "am"
         ? "🌐 **ቋንቋ ቅንብሮች**\n\nየቋንቋ ምርጫዎን ይምረጡ:"
@@ -209,7 +209,10 @@ export default function helpHandler(bot) {
 
     } catch (error) {
       console.error("Error in lang command:", error);
-      await ctx.reply("Error changing language settings.");
+      const userLang = await getUserLang(ctx);
+      const i18n = await loadI18n();
+      const errorMsg = i18n.error_generic?.[userLang] || "❌ Something went wrong. Please try again or contact support.";
+      await ctx.reply(errorMsg);
     }
   });
 

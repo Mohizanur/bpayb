@@ -134,5 +134,21 @@
   "yearly": {
     "en": "year",
     "am": "ዓመት"
+  },
+  "choose_language": {
+    "en": "🌐 Choose your language / ቋንቃዎን ይምረጡ:",
+    "am": "🌐 Choose your language / ቋንቃዎን ይምረጡ:"
+  },
+  "access_denied_admin": {
+    "en": "❌ Access denied. Admin only command.",
+    "am": "❌ የመዳረሻ ፍቃድ ተከልክሏል። የአስተዳዳሪ ትዕዛዝ ብቻ።"
+  },
+  "checking_expirations": {
+    "en": "🔍 Checking subscription expirations...",
+    "am": "🔍 የመዋቅር ማብቂያዎችን በመፈተሽ ላይ..."
+  },
+  "error_checking_expirations": {
+    "en": "❌ Error checking expirations:",
+    "am": "❌ ማብቂያዎችን በመፈተሽ ላይ ስህተት:"
   }
 }

@@ -94,6 +94,12 @@ BirrPay is Ethiopia's premier platform for managing all your digital subscriptio
     ],
     [
       { 
+        text: lang === "am" ? "👥 ማህበረሰብ እና ትምህርት" : "👥 Community & Tutorial",
+        url: "https://t.me/birrpayofficial"
+      }
+    ],
+    [
+      { 
         text: lang === "am" ? "🌐 ቋንቋ" : "🌐 Language",
         callback_data: "change_language"
       },

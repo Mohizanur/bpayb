@@ -38,7 +38,10 @@ export default function cancelSubscriptionHandler(bot) {
       );
     } catch (error) {
       console.error("Error in cancel_subscription handler:", error);
-      await ctx.reply("Sorry, something went wrong. Please try again.");
+      const userLang = await getUserLang(ctx);
+      const i18n = await loadI18n();
+      const errorMsg = i18n.error_generic?.[userLang] || "❌ Something went wrong. Please try again or contact support.";
+      await ctx.reply(errorMsg);
     }
   });
 
