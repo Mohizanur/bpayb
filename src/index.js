@@ -104,10 +104,14 @@ try {
 const fastifyCookie = (await import('@fastify/cookie')).default;
 await fastify.register(fastifyCookie);
 
-// Register static file serving for public directory
+// Register static file serving for public directory (optional for deployment)
+let staticFilesEnabled = false;
 try {
+  // Try to import @fastify/static - if it fails, continue without static files
+  const fastifyStatic = await import('@fastify/static');
+  
   // Serve public files
-  await fastify.register(import('@fastify/static'), {
+  await fastify.register(fastifyStatic.default, {
     root: path.join(process.cwd(), 'public'),
     prefix: '/',
     decorateReply: false,
@@ -115,8 +119,13 @@ try {
     list: false
   });
   console.log("✅ Public static file serving registered");
-  
-  // Register panel route directly on main fastify instance
+  staticFilesEnabled = true;
+} catch (error) {
+  console.log("⚠️ Static file serving disabled (not critical for bot operation):", error.message);
+}
+
+// Register panel route directly on main fastify instance
+try {
   const panelPath = path.join(process.cwd(), 'panel');
   console.log("Panel files path:", panelPath);
 
@@ -162,29 +171,38 @@ try {
     }
   });
 
-  // Serve panel static files - register as a separate plugin context
-  await fastify.register(async function (fastify) {
-    // Register static files for panel assets
-    await fastify.register(import('@fastify/static'), {
-      root: panelPath,
-      prefix: '/panel/',
-      decorateReply: false,
-      index: false,
-      setHeaders: (res, pathName) => {
-        // Cache versioned assets aggressively, but not HTML
-        if (pathName.endsWith('.html')) {
-          res.setHeader('Cache-Control', 'no-cache');
-        } else {
-          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        }
-      }
-    });
-  });
+  // Serve panel static files - register as a separate plugin context (if static files are enabled)
+  if (staticFilesEnabled) {
+    try {
+      const fastifyStatic = await import('@fastify/static');
+      await fastify.register(async function (fastify) {
+        // Register static files for panel assets
+        await fastify.register(fastifyStatic.default, {
+          root: panelPath,
+          prefix: '/panel/',
+          decorateReply: false,
+          index: false,
+          setHeaders: (res, pathName) => {
+            // Cache versioned assets aggressively, but not HTML
+            if (pathName.endsWith('.html')) {
+              res.setHeader('Cache-Control', 'no-cache');
+            } else {
+              res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            }
+          }
+        });
+      });
+      console.log("✅ Panel static file serving registered at /panel");
+    } catch (error) {
+      console.log("⚠️ Panel static file serving failed (continuing without it):", error.message);
+    }
+  } else {
+    console.log("⚠️ Panel static file serving skipped (static files disabled)");
+  }
   
-  console.log("✅ Panel static file serving registered at /panel");
   // Health endpoints are defined later centrally; no quick routes here to avoid duplication
 } catch (error) {
-  console.error("❌ Failed to register static file serving:", error);
+  console.error("❌ Failed to register admin panel routes:", error);
 }
 
 // CRITICAL MIDDLEWARE: Set user language context for ALL interactions

@@ -26,9 +26,9 @@
     "fastify": "^4.17.0",
     "firebase-admin": "^11.11.0",
     "glob": "^10.3.10",
+    "mime": "^3.0.0",
     "node-cron": "^4.2.1",
     "node-fetch": "^2.7.0",
-    "mime": "^3.0.0",
     "pump": "^3.0.2",
     "telegraf": "^4.12.2",
     "telegraf-i18n": "^6.5.0"
@@ -36,12 +36,14 @@
   "resolutions": {
     "debug": "4.3.4",
     "@google-cloud/firestore": "^6.6.0",
-    "mime": "^3.0.0"
+    "mime": "^3.0.0",
+    "@fastify/send": "^4.1.0"
   },
   "overrides": {
     "debug": "4.3.4",
     "@google-cloud/firestore": "^6.6.0",
-    "mime": "^3.0.0"
+    "mime": "^3.0.0",
+    "@fastify/send": "^4.1.0"
   },
   "engines": {
     "node": ">=18.20.2 <=20.x"
