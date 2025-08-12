@@ -8,10 +8,11 @@ services:
       rm -rf node_modules package-lock.json
       npm cache clean --force
       npm cache verify
-      npm install mime@3.0.0 --save
       npm install --legacy-peer-deps --force
+      npm install mime@3.0.0 --save-exact
       npm rebuild
       npm list mime
+      npm list @fastify/static
     startCommand: npm start
     envVars:
       - key: NODE_ENV
