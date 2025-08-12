@@ -116,6 +116,37 @@ const server = http.createServer((req, res) => {
     return;
   }
   
+  // Telegram webhook endpoint - CRITICAL for bot to receive messages
+  if (parsedUrl.pathname === '/telegram') {
+    if (req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+      req.on('end', async () => {
+        try {
+          const update = JSON.parse(body);
+          console.log('📥 Received Telegram update:', update.update_id);
+          
+          // Process the update through the bot
+          await bot.handleUpdate(update);
+          
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+        } catch (error) {
+          console.error('❌ Error processing webhook:', error);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: error.message }));
+        }
+      });
+      return;
+    } else {
+      res.writeHead(405, { 'Content-Type': 'text/plain' });
+      res.end('Method Not Allowed');
+      return;
+    }
+  }
+  
   // API endpoints for admin panel
   if (parsedUrl.pathname.startsWith('/api/')) {
     // Handle API requests
