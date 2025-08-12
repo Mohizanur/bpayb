@@ -2123,15 +2123,28 @@ async function startApp() {
       console.error('❌ Failed to set up bot commands:', error.message);
     }
     
-    // Handle process termination
+    // Handle process termination gracefully but keep service alive
     const shutdown = async () => {
-      console.log('Shutting down gracefully...');
-      await server.close();
-      process.exit(0);
+      console.log('Received shutdown signal, cleaning up...');
+      try {
+        await bot.stop();
+        console.log('Bot stopped gracefully');
+      } catch (error) {
+        console.error('Error stopping bot:', error);
+      }
     };
     
-    process.on('SIGTERM', shutdown);
+    // Only handle SIGINT (Ctrl+C) for local development
+    // Don't handle SIGTERM to prevent Render from shutting down the service
     process.on('SIGINT', shutdown);
+    
+    // Keep the process alive with a simple interval
+    console.log('🎉 BirrPay Bot & Admin Panel are running and ready to receive requests!');
+    
+    // Keep-alive mechanism to prevent the service from sleeping
+    setInterval(() => {
+      console.log('🔄 Keep-alive ping:', new Date().toISOString());
+    }, 5 * 60 * 1000); // Every 5 minutes
   } catch (error) {
     console.error('❌ Failed to start application:', error);
     process.exit(1);
