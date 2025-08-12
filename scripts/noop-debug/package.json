@@ -1,0 +1,9 @@
+{
+  "name": "noop-debug",
+  "version": "1.0.0",
+  "description": "No-operation debug module replacement",
+  "main": "index.js",
+  "keywords": ["debug", "noop", "production"],
+  "author": "BirrPay Team",
+  "license": "MIT"
+}

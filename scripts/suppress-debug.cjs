@@ -1,10 +1,10 @@
-// This script suppresses the debug module in production
-// by replacing it with a no-op function
+// This script completely suppresses the debug module in production
+// by intercepting ALL require calls at the Node.js level
 // Using CommonJS syntax for maximum compatibility
 
 'use strict';
 
-// Create a noop function with debug-like interface
+// Create a comprehensive noop debug function
 function createNoopDebug() {
   const noop = function() { return noop; };
   noop.log = function() {};
@@ -13,25 +13,62 @@ function createNoopDebug() {
   noop.enabled = false;
   noop.namespace = '';
   noop.extend = function() { return noop; };
+  noop.destroy = function() {};
+  noop.color = 0;
+  noop.diff = 0;
+  noop.inspectOpts = {};
   return noop;
 }
 
-// Check if we're in production
-if (process.env.NODE_ENV === 'production') {
-  // Handle CommonJS require
-  if (typeof module !== 'undefined' && module.require) {
-    const originalRequire = module.require;
+// Always suppress debug in production (Render sets NODE_ENV=production)
+const shouldSuppress = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+
+if (shouldSuppress) {
+  // Intercept at the Module level - most comprehensive approach
+  const Module = require('module');
+  const originalRequire = Module.prototype.require;
+  
+  Module.prototype.require = function(id) {
+    // Intercept debug module and all its variants
+    if (id === 'debug' || 
+        id.startsWith('debug/') || 
+        id.endsWith('/debug') ||
+        id.includes('debug/src') ||
+        id.includes('/debug/')) {
+      return createNoopDebug();
+    }
     
-    module.require = function(moduleName) {
-      if (moduleName === 'debug' || moduleName.startsWith('debug/')) {
+    // For any other module, use original require
+    try {
+      return originalRequire.apply(this, arguments);
+    } catch (error) {
+      // If module fails to load and it's debug-related, return noop
+      if (error.code === 'MODULE_NOT_FOUND' && 
+          (id.includes('debug') || error.message.includes('debug'))) {
         return createNoopDebug();
       }
-      return originalRequire.apply(this, arguments);
+      throw error;
+    }
+  };
+  
+  // Also intercept global require if it exists
+  if (typeof global !== 'undefined' && global.require) {
+    const originalGlobalRequire = global.require;
+    global.require = function(id) {
+      if (id === 'debug' || id.startsWith('debug/')) {
+        return createNoopDebug();
+      }
+      return originalGlobalRequire.apply(this, arguments);
     };
   }
   
-  // Set DEBUG environment variable to empty to prevent debug output
+  // Set all debug-related environment variables
   process.env.DEBUG = '';
+  process.env.DEBUG_COLORS = 'false';
+  process.env.DEBUG_DEPTH = '0';
+  process.env.DEBUG_SHOW_HIDDEN = 'false';
   
-  console.log('🔇 Debug module is suppressed in production');
+  console.log('🔇 Debug module is completely suppressed in production');
+} else {
+  console.log('🔍 Debug module suppression skipped (not in production)');
 }

@@ -9,11 +9,12 @@ services:
       npm cache clean --force
       npm cache verify
       npm install --legacy-peer-deps --force
-      npm install mime@3.0.0 --save-exact
+      npm install debug@4.3.4 mime@3.0.0 --save-exact
       npm rebuild
+      npm list debug
       npm list mime
       npm list @fastify/static
-    startCommand: npm start
+    startCommand: node -r ./scripts/suppress-debug.cjs src/index.js
     envVars:
       - key: NODE_ENV
         value: production
