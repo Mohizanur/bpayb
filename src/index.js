@@ -1,14 +1,7 @@
 // @ts-check
 'use strict';
 
-// Debug module failsafe for production
-if (process.env.NODE_ENV === 'production') {
-  // Disable debug logging entirely
-  process.env.DEBUG = '';
-}
-
-// Load environment variables
-import "dotenv/config";
+// Enable ES modules
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 

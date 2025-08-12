@@ -1,18 +1,20 @@
 // This script suppresses the debug module in production
 // by replacing it with a no-op function
-// This is a workaround for the debug module's ESM compatibility issues
+// Using CommonJS syntax for maximum compatibility
+
+'use strict';
 
 // Create a noop function with debug-like interface
-const createNoopDebug = () => {
-  const noop = () => noop;
-  noop.log = () => {};
-  noop.enable = () => {};
-  noop.disable = () => {};
+function createNoopDebug() {
+  const noop = function() { return noop; };
+  noop.log = function() {};
+  noop.enable = function() {};
+  noop.disable = function() {};
   noop.enabled = false;
   noop.namespace = '';
-  noop.extend = () => noop;
+  noop.extend = function() { return noop; };
   return noop;
-};
+}
 
 // Check if we're in production
 if (process.env.NODE_ENV === 'production') {
@@ -26,28 +28,6 @@ if (process.env.NODE_ENV === 'production') {
       }
       return originalRequire.apply(this, arguments);
     };
-  }
-  
-  // Handle ESM imports
-  if (typeof import !== 'undefined') {
-    (async () => {
-      try {
-        const debugModule = await import('debug');
-        const noop = createNoopDebug();
-        
-        // Override all exports
-        Object.keys(debugModule).forEach(key => {
-          debugModule[key] = noop;
-        });
-        
-        // Override default export
-        if (debugModule.default) {
-          debugModule.default = noop;
-        }
-      } catch (error) {
-        console.warn('Failed to suppress debug module in ESM context:', error.message);
-      }
-    })();
   }
   
   // Set DEBUG environment variable to empty to prevent debug output
