@@ -176,6 +176,45 @@ async function handleApiRequest(req, res, parsedUrl) {
   }
   
   try {
+    // Admin login endpoint
+    if (pathname === '/api/admin/login' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+      req.on('end', async () => {
+        try {
+          const { username, password } = JSON.parse(body);
+          const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+          const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+          
+          if (username === adminUsername && password === adminPassword) {
+            // Generate a simple token (in production, use proper JWT)
+            const token = Buffer.from(`${username}:${Date.now()}`).toString('base64');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              success: true, 
+              token,
+              message: 'Login successful'
+            }));
+          } else {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              success: false, 
+              message: 'Invalid credentials' 
+            }));
+          }
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            success: false, 
+            message: 'Invalid request body' 
+          }));
+        }
+      });
+      return;
+    }
+    
     // Admin stats endpoint
     if (pathname === '/api/admin/stats' && req.method === 'GET') {
       const stats = await getAdminStats();
