@@ -175,6 +175,30 @@ async function handleApiRequest(req, res, parsedUrl) {
     return;
   }
   
+  // Helper function to validate admin token
+  const validateAdminToken = (req) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return false;
+    }
+    
+    const token = authHeader.substring(7);
+    try {
+      // Simple token validation - in production use proper JWT verification
+      const decoded = Buffer.from(token, 'base64').toString();
+      const [username, timestamp] = decoded.split(':');
+      const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+      
+      // Check if token is valid and not too old (24 hours)
+      const tokenAge = Date.now() - parseInt(timestamp);
+      const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+      
+      return username === adminUsername && tokenAge < maxAge;
+    } catch (error) {
+      return false;
+    }
+  };
+
   try {
     // Admin login endpoint
     if (pathname === '/api/admin/login' && req.method === 'POST') {
@@ -217,33 +241,53 @@ async function handleApiRequest(req, res, parsedUrl) {
     
     // Admin stats endpoint
     if (pathname === '/api/admin/stats' && req.method === 'GET') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
+        return;
+      }
       const stats = await getAdminStats();
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(stats));
+      res.end(JSON.stringify({ success: true, stats }));
       return;
     }
     
     // Admin subscriptions endpoint
     if (pathname === '/api/admin/subscriptions' && req.method === 'GET') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
+        return;
+      }
       const subscriptions = await getAdminSubscriptions();
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(subscriptions));
+      res.end(JSON.stringify({ success: true, subscriptions }));
       return;
     }
     
     // Admin users endpoint
     if (pathname === '/api/admin/users' && req.method === 'GET') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
+        return;
+      }
       const users = await getAdminUsers();
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(users));
+      res.end(JSON.stringify({ success: true, users }));
       return;
     }
     
     // Admin payments endpoint
     if (pathname === '/api/admin/payments' && req.method === 'GET') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
+        return;
+      }
       const payments = await getAdminPayments();
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(payments));
+      res.end(JSON.stringify({ success: true, payments }));
       return;
     }
     
