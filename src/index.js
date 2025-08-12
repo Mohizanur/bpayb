@@ -92,7 +92,7 @@ const server = http.createServer((req, res) => {
   if (parsedUrl.pathname === '/panel') {
     try {
       const panelPath = path.join(process.cwd(), 'panel');
-      const adminHtmlPath = path.join(panelPath, 'admin-modern.html');
+      const adminHtmlPath = path.join(panelPath, 'admin-fixed.html');
       
       // Check if admin panel file exists
       if (fs.existsSync(adminHtmlPath)) {
