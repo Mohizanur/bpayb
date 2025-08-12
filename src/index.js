@@ -7,7 +7,6 @@ const require = createRequire(import.meta.url);
 
 // Load environment variables
 import "dotenv/config";
-import Fastify from "fastify";
 import { bot } from "./bot.js";
 import { loadI18n, getUserLang, setUserLang, getErrorMessage, getTranslatedMessage, setLanguageCache } from "./utils/i18n.js";
 import { loadServices } from "./utils/loadServices.js";
@@ -42,9 +41,12 @@ try {
     })
   };
 }
+
+import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import url from 'url';
 import { setupStartHandler } from "./handlers/start.js";
 import setupSubscribeHandler from "./handlers/subscribe.js";
 import supportHandler from "./handlers/support.js";
@@ -75,8 +77,18 @@ console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
 console.log("Bot token length:", process.env.TELEGRAM_BOT_TOKEN?.length || 0);
 console.log("Bot token starts with:", process.env.TELEGRAM_BOT_TOKEN?.substring(0, 10) || "N/A");
 
-const fastify = Fastify({
-  logger: process.env.NODE_ENV === 'production' ? true : false
+// Create simple HTTP server instead of Fastify to avoid debug issues
+const server = http.createServer((req, res) => {
+  // Basic health check endpoint
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
+    return;
+  }
+  
+  // Default response
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('BirrPay Bot is running');
 });
 
 // Get current directory for serving static files
