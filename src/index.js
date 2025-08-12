@@ -77,12 +77,49 @@ console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
 console.log("Bot token length:", process.env.TELEGRAM_BOT_TOKEN?.length || 0);
 console.log("Bot token starts with:", process.env.TELEGRAM_BOT_TOKEN?.substring(0, 10) || "N/A");
 
-// Create simple HTTP server instead of Fastify to avoid debug issues
+// Create simple HTTP server with admin panel support
 const server = http.createServer((req, res) => {
+  const parsedUrl = url.parse(req.url, true);
+  
   // Basic health check endpoint
-  if (req.url === '/health') {
+  if (parsedUrl.pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
+    return;
+  }
+  
+  // Admin panel endpoint
+  if (parsedUrl.pathname === '/panel') {
+    try {
+      const panelPath = path.join(process.cwd(), 'panel');
+      const adminHtmlPath = path.join(panelPath, 'admin-modern.html');
+      
+      // Check if admin panel file exists
+      if (fs.existsSync(adminHtmlPath)) {
+        const html = fs.readFileSync(adminHtmlPath, 'utf8');
+        res.writeHead(200, { 
+          'Content-Type': 'text/html',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        });
+        res.end(html);
+      } else {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Admin panel not found');
+      }
+    } catch (error) {
+      console.error('Error serving admin panel:', error);
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end('Internal Server Error');
+    }
+    return;
+  }
+  
+  // API endpoints for admin panel
+  if (parsedUrl.pathname.startsWith('/api/')) {
+    // Handle API requests
+    handleApiRequest(req, res, parsedUrl);
     return;
   }
   
@@ -90,6 +127,180 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('BirrPay Bot is running');
 });
+
+// Handle API requests for admin panel
+async function handleApiRequest(req, res, parsedUrl) {
+  const pathname = parsedUrl.pathname;
+  
+  // Set CORS headers for admin panel
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+  
+  try {
+    // Admin stats endpoint
+    if (pathname === '/api/admin/stats' && req.method === 'GET') {
+      const stats = await getAdminStats();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(stats));
+      return;
+    }
+    
+    // Admin subscriptions endpoint
+    if (pathname === '/api/admin/subscriptions' && req.method === 'GET') {
+      const subscriptions = await getAdminSubscriptions();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(subscriptions));
+      return;
+    }
+    
+    // Admin users endpoint
+    if (pathname === '/api/admin/users' && req.method === 'GET') {
+      const users = await getAdminUsers();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(users));
+      return;
+    }
+    
+    // Admin payments endpoint
+    if (pathname === '/api/admin/payments' && req.method === 'GET') {
+      const payments = await getAdminPayments();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(payments));
+      return;
+    }
+    
+    // Default 404 for unknown API endpoints
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'API endpoint not found' }));
+    
+  } catch (error) {
+    console.error('API Error:', error);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+}
+
+// Admin API functions
+async function getAdminStats() {
+  try {
+    // Get basic stats from Firestore
+    const usersSnapshot = await firestore.collection('users').get();
+    const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
+    const paymentsSnapshot = await firestore.collection('pendingPayments').get();
+    
+    const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => 
+      doc.data().status === 'active'
+    ).length;
+    
+    const totalRevenue = subscriptionsSnapshot.docs.reduce((sum, doc) => {
+      const data = doc.data();
+      return sum + (parseFloat(data.amount) || 0);
+    }, 0);
+    
+    return {
+      totalUsers: usersSnapshot.size,
+      totalSubscriptions: subscriptionsSnapshot.size,
+      activeSubscriptions,
+      totalPayments: paymentsSnapshot.size,
+      totalRevenue: totalRevenue.toFixed(2)
+    };
+  } catch (error) {
+    console.error('Error getting admin stats:', error);
+    return {
+      totalUsers: 0,
+      totalSubscriptions: 0,
+      activeSubscriptions: 0,
+      totalPayments: 0,
+      totalRevenue: '0.00'
+    };
+  }
+}
+
+async function getAdminSubscriptions() {
+  try {
+    const snapshot = await firestore.collection('subscriptions').orderBy('createdAt', 'desc').limit(50).get();
+    const subscriptions = [];
+    
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      subscriptions.push({
+        id: doc.id,
+        userId: data.userId,
+        serviceName: data.serviceName || data.service || 'Unknown',
+        duration: data.duration || data.durationName || 'Unknown',
+        amount: data.amount || 0,
+        status: data.status || 'unknown',
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        endDate: data.endDate?.toDate?.()?.toISOString() || null
+      });
+    }
+    
+    return subscriptions;
+  } catch (error) {
+    console.error('Error getting subscriptions:', error);
+    return [];
+  }
+}
+
+async function getAdminUsers() {
+  try {
+    const snapshot = await firestore.collection('users').orderBy('createdAt', 'desc').limit(50).get();
+    const users = [];
+    
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      users.push({
+        id: doc.id,
+        firstName: data.firstName || '',
+        lastName: data.lastName || '',
+        username: data.username || '',
+        phone: data.phone || '',
+        language: data.language || 'en',
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        phoneVerified: data.phoneVerified || false
+      });
+    });
+    
+    return users;
+  } catch (error) {
+    console.error('Error getting users:', error);
+    return [];
+  }
+}
+
+async function getAdminPayments() {
+  try {
+    const snapshot = await firestore.collection('pendingPayments').orderBy('createdAt', 'desc').limit(50).get();
+    const payments = [];
+    
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      payments.push({
+        id: doc.id,
+        userId: data.userId,
+        amount: data.amount || 0,
+        service: data.service || 'Unknown',
+        duration: data.duration || 'Unknown',
+        status: data.status || 'pending',
+        paymentReference: data.paymentReference || '',
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
+      });
+    });
+    
+    return payments;
+  } catch (error) {
+    console.error('Error getting payments:', error);
+    return [];
+  }
+}
 
 // Get current directory for serving static files
 const __filename = fileURLToPath(import.meta.url);
@@ -2864,21 +3075,22 @@ async function startServer() {
   
   for (let attempt = 1; attempt <= maxPortAttempts; attempt++) {
     try {
-      // Start the server
+      // Start the HTTP server
       await new Promise((resolve, reject) => {
-        fastify.listen({ port: currentPort, host: '0.0.0.0' }, (err, address) => {
+        server.listen(currentPort, '0.0.0.0', (err) => {
           if (err) return reject(err);
           // Set the actual server port as environment variable for admin handlers
           process.env.ACTUAL_SERVER_PORT = currentPort.toString();
           console.log(`🚀 BirrPay Bot & Admin Panel running on port ${currentPort}`);
-          resolve(address);
+          console.log(`🔧 Admin Panel: http://localhost:${currentPort}/panel`);
+          resolve(server);
         });
       });
       
       // Server started successfully - webhook and bot setup will be handled in startApp()
       // Admin panel URL will be logged in startApp() with proper environment handling
       
-      return fastify.server; // Return the server instance
+      return server; // Return the server instance
     } catch (err) {
       if (err.code === 'EADDRINUSE') {
         console.warn(`⚠️ Port ${currentPort} is in use, trying port ${currentPort + 1}...`);
