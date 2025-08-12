@@ -291,6 +291,19 @@ async function handleApiRequest(req, res, parsedUrl) {
       return;
     }
     
+    // Admin services endpoint
+    if (pathname === '/api/admin/services' && req.method === 'GET') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
+        return;
+      }
+      const services = await getAdminServices();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, services }));
+      return;
+    }
+    
     // Default 404 for unknown API endpoints
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'API endpoint not found' }));
@@ -412,6 +425,30 @@ async function getAdminPayments() {
     return payments;
   } catch (error) {
     console.error('Error getting payments:', error);
+    return [];
+  }
+}
+
+async function getAdminServices() {
+  try {
+    const snapshot = await firestore.collection('services').get();
+    const servicesList = [];
+    
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      servicesList.push({
+        id: doc.id,
+        name: data.name || '',
+        description: data.description || '',
+        status: data.status || 'active',
+        plans: data.plans || [],
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
+      });
+    });
+    
+    return servicesList;
+  } catch (error) {
+    console.error('Error getting services:', error);
     return [];
   }
 }
