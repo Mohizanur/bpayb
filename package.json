@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "prestart": "node scripts/verify-env.js",
-    "start": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning --unhandled-rejections=strict' NODE_ENV=production node -r ./scripts/suppress-debug.cjs src/index.js",
+    "start": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning --unhandled-rejections=strict' NODE_ENV=production DEBUG=*,-follow-redirects,-telegraf:client* node src/index.js",
     "dev": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning' NODE_ENV=development node --watch src/index.js",
     "test": "node --test tests/*.test.js",
     "test:watch": "node --test --watch tests/*.test.js",
@@ -32,8 +32,11 @@
     "telegraf": "^4.12.2",
     "telegraf-i18n": "^6.5.0"
   },
+  "resolutions": {
+    "debug": "4.3.4"
+  },
   "overrides": {
-    "debug": "^4.3.4"
+    "debug": "4.3.4"
   },
   "engines": {
     "node": ">=18.20.2 <=20.x"

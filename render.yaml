@@ -14,6 +14,8 @@ services:
         value: production
       - key: NODE_OPTIONS
         value: --no-warnings=ExperimentalWarning --unhandled-rejections=strict
+      - key: DEBUG
+        value: '*,-follow-redirects,-telegraf:client*'
       - key: NPM_CONFIG_PRODUCTION
         value: "false"
     healthCheckPath: /health
