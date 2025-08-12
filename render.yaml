@@ -7,7 +7,9 @@ services:
     buildCommand: |
       rm -rf node_modules package-lock.json
       npm cache clean --force
+      npm cache verify
       npm install --legacy-peer-deps --force
+      npm rebuild
     startCommand: npm start
     envVars:
       - key: NODE_ENV
