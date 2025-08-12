@@ -112,110 +112,12 @@ try {
   services = [];
 }
 
-// Register cookie plugin for auth cookie
-const fastifyCookie = (await import('@fastify/cookie')).default;
-await fastify.register(fastifyCookie);
+// Cookie functionality removed - using simple HTTP server
 
-// Register static file serving for public directory (optional for deployment)
-let staticFilesEnabled = false;
-try {
-  // Try to import @fastify/static - if it fails, continue without static files
-  const fastifyStatic = await import('@fastify/static');
-  
-  // Serve public files
-  await fastify.register(fastifyStatic.default, {
-    root: path.join(process.cwd(), 'public'),
-    prefix: '/',
-    decorateReply: false,
-    index: false,
-    list: false
-  });
-  console.log("✅ Public static file serving registered");
-  staticFilesEnabled = true;
-} catch (error) {
-  console.log("⚠️ Static file serving disabled (not critical for bot operation):", error.message);
-}
+// Static file serving removed - using simple HTTP server
 
-// Register panel route directly on main fastify instance
-try {
-  const panelPath = path.join(process.cwd(), 'panel');
-  console.log("Panel files path:", panelPath);
-
-  // Handle root panel route
-  fastify.get('/panel', async (req, reply) => {
-    try {
-      // Log request for debugging
-      console.log('📄 Serving /panel to', req.headers['x-forwarded-for'] || req.ip);
-      
-      // Auto-set admin token cookie if configured
-      try {
-        const token = process.env.ADMIN_TOKEN;
-        if (token) {
-          reply.setCookie('admin_token', token, {
-            path: '/',
-            httpOnly: true,
-            sameSite: 'lax',
-            secure: req.protocol === 'https' || (req.headers['x-forwarded-proto'] || '').includes('https'),
-            maxAge: 60 * 60 * 24 * 7 // 7 days
-          });
-        }
-      } catch (cookieErr) {
-        console.warn('⚠️ Could not set admin_token cookie:', cookieErr?.message);
-      }
-      
-      // Security headers for the admin panel HTML
-      reply
-        .header('Content-Security-Policy', "default-src 'self' data: blob: https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; connect-src 'self' https:; font-src 'self' data: https:")
-        .header('X-Content-Type-Options', 'nosniff')
-        .header('Referrer-Policy', 'no-referrer')
-        .header('Cache-Control', 'no-cache, no-store, must-revalidate')
-        .header('Pragma', 'no-cache')
-        .header('Expires', '0')
-        .type('text/html');
-
-      // Use a direct file read to serve the admin panel
-      const adminHtmlPath = path.join(panelPath, 'admin-fixed.html');
-      const html = fs.readFileSync(adminHtmlPath, 'utf8');
-      return reply.send(html);
-    } catch (error) {
-      console.error('Error serving admin panel:', error);
-      return reply.status(500).send({ error: 'Internal Server Error', message: error.message });
-    }
-  });
-
-  // Serve panel static files - register as a separate plugin context (if static files are enabled)
-  if (staticFilesEnabled) {
-    try {
-      const fastifyStatic = await import('@fastify/static');
-      await fastify.register(async function (fastify) {
-        // Register static files for panel assets
-        await fastify.register(fastifyStatic.default, {
-          root: panelPath,
-          prefix: '/panel/',
-          decorateReply: false,
-          index: false,
-          setHeaders: (res, pathName) => {
-            // Cache versioned assets aggressively, but not HTML
-            if (pathName.endsWith('.html')) {
-              res.setHeader('Cache-Control', 'no-cache');
-            } else {
-              res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-            }
-          }
-        });
-      });
-      console.log("✅ Panel static file serving registered at /panel");
-    } catch (error) {
-      console.log("⚠️ Panel static file serving failed (continuing without it):", error.message);
-    }
-  } else {
-    console.log("⚠️ Panel static file serving skipped (static files disabled)");
-  }
-  
-  // Health endpoints are defined later centrally; no quick routes here to avoid duplication
-} catch (error) {
-  console.error("❌ Failed to register admin panel routes:", error);
-}
+// Panel routes removed - using simple HTTP server
+console.log("⚠️ Admin panel disabled - using simple HTTP server");
 
 // CRITICAL MIDDLEWARE: Set user language context for ALL interactions
 bot.use(async (ctx, next) => {
