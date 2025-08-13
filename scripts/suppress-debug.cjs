@@ -26,44 +26,6 @@ function createNoopDebug(namespace) {
   return noop;
 }
 
-// Create minimal Firestore/admin stubs to avoid crashes if required
-function createNoopFirestoreModule() {
-  const collectionStub = () => ({
-    doc: () => ({ get: async () => ({ exists: false }), set: async () => ({}), update: async () => ({}), delete: async () => ({}) }),
-    add: async () => ({ id: 'mock_id', get: async () => ({ exists: true, data: () => ({}) }) }),
-    get: async () => ({ docs: [], empty: true, size: 0, forEach: () => {}, docChanges: () => [] }),
-    where: () => ({ get: async () => ({ docs: [], empty: true, size: 0, forEach: () => {}, docChanges: () => [] }) }),
-    onSnapshot: (cb) => { setTimeout(() => cb({ docs: [], empty: true, size: 0, forEach: () => {}, docChanges: () => [] }), 10); return () => {}; }
-  });
-
-  class Firestore {
-    collection() { return collectionStub(); }
-  }
-
-  return {
-    Firestore,
-    Timestamp: { now: () => new Date() },
-    FieldValue: { serverTimestamp: () => new Date() }
-  };
-}
-
-function createNoopFirebaseAdmin() {
-  const firestoreModule = {
-    getFirestore: () => ({ collection: () => ({ doc: () => ({ get: async () => ({ exists: false }) }) }) })
-  };
-  const appModule = {
-    initializeApp: () => ({}),
-    cert: () => ({})
-  };
-  const adminDefault = {
-    apps: [],
-    initializeApp: () => ({}),
-    credential: { cert: () => ({}) },
-    firestore: () => ({ collection: () => ({ doc: () => ({ get: async () => ({ exists: false }) }) }) })
-  };
-  return { firestoreModule, appModule, adminDefault };
-}
-
 // Always suppress debug in production (Render sets NODE_ENV=production)
 const shouldSuppress = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 
@@ -88,33 +50,6 @@ if (shouldSuppress) {
       mainDebug.humanize = function() { return '0ms'; };
       mainDebug.destroy = function() {};
       return mainDebug;
-    }
-
-    // Intercept Firestore/admin modules to avoid missing './reference' crashes
-    if (
-      id === '@google-cloud/firestore' || id.startsWith('@google-cloud/firestore') ||
-      id === 'firebase-admin/firestore' || id.startsWith('firebase-admin/firestore')
-    ) {
-      process.env.FIRESTORE_STUBBED = 'true';
-      return createNoopFirestoreModule();
-    }
-
-    if (id === 'firebase-admin') {
-      process.env.FIREBASE_ADMIN_STUBBED = 'true';
-      const { adminDefault } = createNoopFirebaseAdmin();
-      return adminDefault;
-    }
-
-    if (id === 'firebase-admin/app') {
-      process.env.FIREBASE_ADMIN_STUBBED = 'true';
-      const { appModule } = createNoopFirebaseAdmin();
-      return appModule;
-    }
-
-    if (id === 'firebase-admin/firestore') {
-      process.env.FIREBASE_ADMIN_STUBBED = 'true';
-      const { firestoreModule } = createNoopFirebaseAdmin();
-      return firestoreModule;
     }
     
     // For any other module, use original require - don't catch errors for non-debug modules
