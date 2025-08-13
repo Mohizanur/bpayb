@@ -118,6 +118,11 @@ const server = http.createServer((req, res) => {
   
   // Telegram webhook endpoint - CRITICAL for bot to receive messages
   if (parsedUrl.pathname === '/telegram') {
+    if (!process.env.TELEGRAM_BOT_TOKEN) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'Bot token not configured' }));
+      return;
+    }
     if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => {
@@ -198,7 +203,6 @@ async function handleApiRequest(req, res, parsedUrl) {
       // Token is valid and user is admin
       return true;
     } catch (error) {
-      console.error('Token validation error:', error.message);
       return false;
     }
   };
@@ -1574,7 +1578,7 @@ bot.on('photo', async (ctx, next) => {
         // Get pending payment data
         const pendingPaymentDoc = await firestore.collection('pendingPayments').doc(pendingPaymentId).get();
         if (!pendingPaymentDoc.exists) {
-          await ctx.reply(lang === 'am' ? '❌ የክፍያ መረጃ አልተገኘም።' : '❌ Payment information not found.');
+          await ctx.reply(lang === 'am' ? '❌ የክፍያ ማረጋገጫ አልተገኘም።' : '❌ Payment information not found.');
           delete global.userStates[userId];
           return;
         }
@@ -2076,10 +2080,9 @@ process.on('unhandledRejection', (reason, promise) => {
   // process.exit(1);
 });
 
-// Check for required environment variables
+// Check for required environment variables (token is optional in production for health checks)
 if (!process.env.TELEGRAM_BOT_TOKEN) {
-  console.error('❌ Error: TELEGRAM_BOT_TOKEN environment variable is not set');
-  process.exit(1);
+  console.warn('⚠️ TELEGRAM_BOT_TOKEN not set. Bot features disabled; HTTP server will still run.');
 }
 
 if (!process.env.ADMIN_TELEGRAM_ID) {
