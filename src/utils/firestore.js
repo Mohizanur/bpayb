@@ -47,12 +47,18 @@ async function initializeFirebase() {
           firebaseConfig = JSON.parse(configFile);
         } catch (fileError) {
           console.error("❌ Failed reading firebaseConfig.json:", fileError.message);
-          console.warn("➡️ Falling back to in-memory Firestore mock");
+          if (process.env.NODE_ENV === 'production') {
+            process.exit(1);
+          }
+          console.warn("➡️ Falling back to in-memory Firestore mock (development)");
           return createMockFirestore();
         }
       } else {
-        console.warn('⚠️ Firebase configuration not found. Set FIREBASE_CONFIG or provide firebaseConfig.json');
-        console.warn("➡️ Falling back to in-memory Firestore mock");
+        console.error('❌ Firebase configuration not found. Set FIREBASE_CONFIG or provide firebaseConfig.json');
+        if (process.env.NODE_ENV === 'production') {
+          process.exit(1);
+        }
+        console.warn("➡️ Falling back to in-memory Firestore mock (development)");
         return createMockFirestore();
       }
     }
@@ -62,7 +68,10 @@ async function initializeFirebase() {
     for (const field of requiredFields) {
       if (!firebaseConfig[field]) {
         console.error(`❌ Missing required Firebase configuration field: ${field}`);
-        console.warn("➡️ Falling back to in-memory Firestore mock");
+        if (process.env.NODE_ENV === 'production') {
+          process.exit(1);
+        }
+        console.warn("➡️ Falling back to in-memory Firestore mock (development)");
         return createMockFirestore();
       }
     }
@@ -88,7 +97,10 @@ async function initializeFirebase() {
     return db;
   } catch (error) {
     console.error("❌ Error initializing Firebase:", error.message);
-    console.warn("➡️ Falling back to in-memory Firestore mock");
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
+    }
+    console.warn("➡️ Falling back to in-memory Firestore mock (development)");
     return createMockFirestore();
   }
 }

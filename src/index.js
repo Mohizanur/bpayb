@@ -18,28 +18,33 @@ try {
   const firestoreModule = await import("./utils/firestore.js");
   firestore = firestoreModule.firestore;
 } catch (error) {
-  console.warn("⚠️ Firebase not available, running in development mode:", error.message);
-  // Create mock firestore for development
-  firestore = {
-    collection: () => ({
-      get: () => Promise.resolve({ docs: [] }),
-      doc: () => ({
-        get: () => Promise.resolve({ exists: false }),
-        set: () => Promise.resolve(),
-        update: () => Promise.resolve(),
-        delete: () => Promise.resolve()
-      }),
-      where: () => ({
+  if (process.env.NODE_ENV === 'production') {
+    console.error("❌ Firebase module load failed in production:", error.message);
+    process.exit(1);
+  } else {
+    console.warn("⚠️ Firebase not available, running in development mode:", error.message);
+    // Create mock firestore for development only
+    firestore = {
+      collection: () => ({
         get: () => Promise.resolve({ docs: [] }),
+        doc: () => ({
+          get: () => Promise.resolve({ exists: false }),
+          set: () => Promise.resolve(),
+          update: () => Promise.resolve(),
+          delete: () => Promise.resolve()
+        }),
+        where: () => ({
+          get: () => Promise.resolve({ docs: [] }),
+          limit: () => ({
+            get: () => Promise.resolve({ docs: [] })
+          })
+        }),
         limit: () => ({
           get: () => Promise.resolve({ docs: [] })
         })
-      }),
-      limit: () => ({
-        get: () => Promise.resolve({ docs: [] })
       })
-    })
-  };
+    };
+  }
 }
 
 import http from 'http';
