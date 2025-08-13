@@ -79,8 +79,11 @@ async function initializeFirebase() {
     console.log("✅ Firebase initialized successfully");
     console.log(`📊 Connected to project: ${firebaseConfig.project_id}`);
     
-    // Test the connection
-    await testFirebaseConnection(db);
+    // Test the connection (non-fatal)
+    const ok = await testFirebaseConnection(db);
+    if (!ok) {
+      console.warn("⚠️ Proceeding with real Firestore despite test failure");
+    }
     
     return db;
   } catch (error) {
@@ -224,12 +227,15 @@ async function testFirebaseConnection(dbInstance) {
       console.log("✅ Firebase connection test successful");
       // Clean up test document
       await testDoc.delete();
+      return true;
     } else {
-      throw new Error("Failed to write/read test document");
+      console.warn("⚠️ Firebase connection test could not verify readback (doc not found)");
+      return false;
     }
   } catch (error) {
-    console.error("❌ Firebase connection test failed:", error.message);
-    throw error;
+    console.warn("⚠️ Firebase connection test failed:", error.message);
+    // Do not throw; allow app to continue using real Firestore
+    return false;
   }
 }
 
