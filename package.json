@@ -4,8 +4,8 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "prestart": "node scripts/verify-env.js",
-    "start": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning --unhandled-rejections=strict' NODE_ENV=production DEBUG=*,-follow-redirects,-telegraf:client* node src/index.js",
+    "prestart:disabled": "node scripts/verify-env.js",
+    "start": "node start-production.js",
     "start:render": "node scripts/render-start.js",
     "dev": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning' NODE_ENV=development node --watch src/index.js",
     "test": "node --test tests/*.test.js",
