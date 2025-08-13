@@ -30,17 +30,15 @@ function createNoopDebug(namespace) {
 const shouldSuppress = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 
 if (shouldSuppress) {
-  // Intercept at the Module level - most comprehensive approach
+  // Intercept at the Module level - but be more careful
   const Module = require('module');
   const originalRequire = Module.prototype.require;
   
   Module.prototype.require = function(id) {
-    // Intercept debug module and all its variants
+    // Only intercept exact debug module matches, not relative paths
     if (id === 'debug' || 
-        id.startsWith('debug/') || 
-        id.endsWith('/debug') ||
-        id.includes('debug/src') ||
-        id.includes('/debug/')) {
+        (id.startsWith('debug/') && !id.startsWith('./')) || 
+        (id.endsWith('/debug') && !id.startsWith('./'))) {
       
       // Create a debug function that works with avvio and other packages
       const debugFunc = createNoopDebug();
@@ -66,24 +64,15 @@ if (shouldSuppress) {
       return mainDebug;
     }
     
-    // For any other module, use original require
-    try {
-      return originalRequire.apply(this, arguments);
-    } catch (error) {
-      // If module fails to load and it's debug-related, return noop
-      if (error.code === 'MODULE_NOT_FOUND' && 
-          (id.includes('debug') || error.message.includes('debug'))) {
-        return createNoopDebug();
-      }
-      throw error;
-    }
+    // For any other module, use original require - don't catch errors for non-debug modules
+    return originalRequire.apply(this, arguments);
   };
   
-  // Also intercept global require if it exists
+  // Also intercept global require if it exists, but be more conservative
   if (typeof global !== 'undefined' && global.require) {
     const originalGlobalRequire = global.require;
     global.require = function(id) {
-      if (id === 'debug' || id.startsWith('debug/')) {
+      if (id === 'debug' || (id.startsWith('debug/') && !id.startsWith('./'))) {
         return createNoopDebug();
       }
       return originalGlobalRequire.apply(this, arguments);

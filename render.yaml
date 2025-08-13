@@ -14,7 +14,7 @@ services:
       npm list debug
       npm list mime
       npm list @fastify/static
-    startCommand: node -r ./scripts/pre-suppress-debug.cjs -r ./scripts/suppress-debug.cjs src/index.js
+    startCommand: node scripts/render-start.js
     envVars:
       - key: NODE_ENV
         value: production
