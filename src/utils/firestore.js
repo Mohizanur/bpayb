@@ -1,5 +1,3 @@
-import { initializeApp, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 import fs from 'fs';
 import path from 'path';
 
@@ -9,22 +7,53 @@ let isFirebaseConnected = false;
 // Firebase connection with enhanced error handling
 async function initializeFirebase() {
   try {
+    // Dynamically import firebase-admin only when needed
+    let initializeApp;
+    let cert;
+    let getFirestore;
+
+    try {
+      const adminApp = await import('firebase-admin/app');
+      const adminFirestore = await import('firebase-admin/firestore');
+      initializeApp = adminApp.initializeApp;
+      cert = adminApp.cert;
+      getFirestore = adminFirestore.getFirestore;
+    } catch (importError) {
+      console.warn("⚠️ firebase-admin modules not available:", importError.message);
+      console.warn("➡️ Falling back to in-memory Firestore mock");
+      return createMockFirestore();
+    }
+
     // Try to load Firebase config from environment variable first
     let firebaseConfig;
     
     if (process.env.FIREBASE_CONFIG) {
       console.log("Loading Firebase config from environment variable...");
-      firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG);
+      try {
+        firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG);
+      } catch (parseError) {
+        console.error("❌ Invalid FIREBASE_CONFIG JSON:", parseError.message);
+        console.warn("➡️ Falling back to in-memory Firestore mock");
+        return createMockFirestore();
+      }
     } else {
       // Fallback to config file
       console.log("Loading Firebase config from file...");
       const configPath = path.resolve(process.cwd(), 'firebaseConfig.json');
       
       if (fs.existsSync(configPath)) {
-        const configFile = fs.readFileSync(configPath, 'utf8');
-        firebaseConfig = JSON.parse(configFile);
+        try {
+          const configFile = fs.readFileSync(configPath, 'utf8');
+          firebaseConfig = JSON.parse(configFile);
+        } catch (fileError) {
+          console.error("❌ Failed reading firebaseConfig.json:", fileError.message);
+          console.warn("➡️ Falling back to in-memory Firestore mock");
+          return createMockFirestore();
+        }
       } else {
-        throw new Error('Firebase configuration not found. Please set FIREBASE_CONFIG environment variable or provide firebaseConfig.json');
+        console.warn('⚠️ Firebase configuration not found. Set FIREBASE_CONFIG or provide firebaseConfig.json');
+        console.warn("➡️ Falling back to in-memory Firestore mock");
+        return createMockFirestore();
       }
     }
 
@@ -32,7 +61,9 @@ async function initializeFirebase() {
     const requiredFields = ['project_id', 'private_key', 'client_email'];
     for (const field of requiredFields) {
       if (!firebaseConfig[field]) {
-        throw new Error(`Missing required Firebase configuration field: ${field}`);
+        console.error(`❌ Missing required Firebase configuration field: ${field}`);
+        console.warn("➡️ Falling back to in-memory Firestore mock");
+        return createMockFirestore();
       }
     }
 
@@ -42,26 +73,20 @@ async function initializeFirebase() {
       databaseURL: `https://${firebaseConfig.project_id}-default-rtdb.firebaseio.com/`
     });
 
-    firestore = getFirestore(app);
+    const db = getFirestore(app);
     isFirebaseConnected = true;
     
     console.log("✅ Firebase initialized successfully");
     console.log(`📊 Connected to project: ${firebaseConfig.project_id}`);
     
     // Test the connection
-    await testFirebaseConnection();
+    await testFirebaseConnection(db);
     
-    return firestore;
+    return db;
   } catch (error) {
     console.error("❌ Error initializing Firebase:", error.message);
-    
-    // For testing environment, use mock instead of failing
-    if (process.env.NODE_ENV === 'test') {
-      console.log("🧪 Using mock Firestore for testing");
-      return createMockFirestore();
-    }
-    
-    throw error;
+    console.warn("➡️ Falling back to in-memory Firestore mock");
+    return createMockFirestore();
   }
 }
 
@@ -69,7 +94,7 @@ async function initializeFirebase() {
 function createMockFirestore() {
   const mockData = new Map();
   
-  return {
+  const api = {
     collection: (name) => ({
       doc: (id) => ({
         get: async () => ({
@@ -114,7 +139,8 @@ function createMockFirestore() {
           docs,
           empty: docs.length === 0,
           size: docs.length,
-          forEach: (callback) => docs.forEach(callback)
+          forEach: (callback) => docs.forEach(callback),
+          docChanges: () => []
         };
       },
       where: (field, op, value) => ({
@@ -145,7 +171,8 @@ function createMockFirestore() {
             docs,
             empty: docs.length === 0,
             size: docs.length,
-            forEach: (callback) => docs.forEach(callback)
+            forEach: (callback) => docs.forEach(callback),
+            docChanges: () => []
           };
         }
       }),
@@ -163,23 +190,29 @@ function createMockFirestore() {
               });
             }
           }
-          callback({
+          const snapshot = {
             docs,
             empty: docs.length === 0,
             size: docs.length,
-            forEach: (callback) => docs.forEach(callback)
-          });
+            forEach: (callback) => docs.forEach(callback),
+            docChanges: () => []
+          };
+          callback(snapshot);
         }, 100);
         return unsubscribe;
       }
     })
   };
+
+  isFirebaseConnected = false;
+  console.log("🧪 Using in-memory Firestore mock");
+  return api;
 }
 
 // Test Firebase connection
-async function testFirebaseConnection() {
+async function testFirebaseConnection(dbInstance) {
   try {
-    const testDoc = firestore.collection('_health_check').doc('test');
+    const testDoc = dbInstance.collection('_health_check').doc('test');
     await testDoc.set({ 
       timestamp: new Date().toISOString(), 
       status: 'connected',
@@ -386,30 +419,16 @@ let firestoreManager = null;
 
 try {
   console.log("🚀 Initializing Firebase connection...");
-  firestore = await initializeFirebase();
-  firestoreManager = new FirestoreManager(firestore);
+  const db = await initializeFirebase();
+  firestore = db;
+  firestoreManager = new FirestoreManager(db);
   console.log("✅ Firebase integration completed successfully");
 } catch (error) {
-  if (process.env.NODE_ENV === 'test') {
-    console.log("🧪 Using mock Firestore for testing environment");
-    firestore = createMockFirestore();
-    firestoreManager = new FirestoreManager(firestore);
-    isFirebaseConnected = false;
-  } else {
-    console.error("💥 CRITICAL ERROR: Firebase initialization failed");
-    console.error("This is a production system that requires Firebase connection");
-    console.error("Error details:", error.message);
-    
-    // In production, try to continue with degraded functionality
-    if (process.env.NODE_ENV === 'production') {
-      console.log("⚠️  Running in degraded mode without Firebase");
-      firestore = createMockFirestore();
-      firestoreManager = new FirestoreManager(firestore);
-      isFirebaseConnected = false;
-    } else {
-      process.exit(1); // Exit the application if Firebase fails in development
-    }
-  }
+  // We should not reach here since initializeFirebase falls back to mock
+  console.error("💥 Unexpected error during Firebase initialization:", error.message);
+  firestore = createMockFirestore();
+  firestoreManager = new FirestoreManager(firestore);
+  isFirebaseConnected = false;
 }
 
-export { firestore, firestoreManager, isFirebaseConnected };
+export { firestore, firestoreManager, isFirebaseConnected, initializeFirebase };

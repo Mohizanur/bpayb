@@ -2,28 +2,9 @@
  * Import admin from 'firebase-admin';
  */
 
-import admin from 'firebase-admin';
+import { firestore } from '../utils/firestore.js';
 
-// Initialize Firebase Admin if not already initialized
-if (!admin.apps.length) {
-  try {
-    const firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG);
-    
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: firebaseConfig.project_id,
-        clientEmail: firebaseConfig.client_email,
-        privateKey: firebaseConfig.private_key.replace(/\\\\n/g, '\\n')
-      })
-    });
-    console.log('Firebase Admin initialized successfully');
-  } catch (error) {
-    console.error('Error initializing Firebase Admin:', error);
-    throw error; // Fail fast if Firebase initialization fails
-  }
-}
-
-const firestore = admin.firestore();
+// Use shared Firestore instance (real or mock based on environment/config)
 
 /**
  * Subscribe handler for the Telegram bot
