@@ -365,7 +365,35 @@
                     try { history.replaceState({}, '', location.pathname); } catch (_) {}
                     return urlParam;
                 }
-                return localStorage.getItem(TOKEN_STORAGE_KEY) || '';
+                
+                const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+                
+                // Check if token is valid (basic JWT format check)
+                if (storedToken) {
+                    try {
+                        const parts = storedToken.split('.');
+                        if (parts.length === 3) {
+                            // Basic JWT format validation
+                            const payload = JSON.parse(atob(parts[1]));
+                            const now = Math.floor(Date.now() / 1000);
+                            
+                            // Check if token is expired
+                            if (payload.exp && payload.exp < now) {
+                                console.log('Token expired, removing from storage');
+                                localStorage.removeItem(TOKEN_STORAGE_KEY);
+                                return null;
+                            }
+                            
+                            return storedToken;
+                        }
+                    } catch (e) {
+                        console.log('Invalid token format, removing from storage');
+                        localStorage.removeItem(TOKEN_STORAGE_KEY);
+                        return null;
+                    }
+                }
+                
+                return storedToken || '';
             };
 
             window.configureToken = function () {
@@ -458,14 +486,29 @@
                         if (token && !headers.has('Authorization')) {
                             headers.set('Authorization', 'Bearer ' + token);
                         }
+                        
+                        let response;
                         if (typeof input === 'string') {
-                            return originalFetch(input, { ...init, headers });
+                            response = await originalFetch(input, { ...init, headers });
                         } else {
-                            return originalFetch(new Request(input, { headers }), init);
+                            response = await originalFetch(new Request(input, { headers }), init);
                         }
+                        
+                        // Handle authentication errors
+                        if (response.status === 401) {
+                            console.log('Authentication failed, clearing token and showing login');
+                            localStorage.removeItem('adminToken');
+                            showLoginModal();
+                            throw new Error('Authentication failed');
+                        }
+                        
+                        return response;
                     }
-                } catch (_) {
-                    // fall through to original fetch
+                } catch (error) {
+                    if (error.message === 'Authentication failed') {
+                        throw error;
+                    }
+                    // fall through to original fetch for other errors
                 }
                 return originalFetch(input, init);
             };

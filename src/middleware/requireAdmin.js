@@ -26,13 +26,15 @@ export const requireAdmin = (req, reply, done) => {
     if (token) {
       // Try JWT authentication first
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'birrpay_default_secret');
+        const jwtSecret = process.env.JWT_SECRET || 'birrpay_default_secret_change_in_production';
+        const decoded = jwt.verify(token, jwtSecret);
         if (decoded.role === 'admin') {
           authorized = true;
           // Add admin info to request for use in handlers
           req.admin = decoded;
         }
       } catch (jwtError) {
+        console.error('JWT verification failed:', jwtError.message);
         // If JWT fails, fall back to legacy token check
         if (configuredToken && token === configuredToken) {
           authorized = true;
@@ -49,13 +51,19 @@ export const requireAdmin = (req, reply, done) => {
     }
     
     if (!authorized) {
-      reply.status(403).send({ error: 'Forbidden: Invalid admin credentials' });
+      reply.status(401).send({ 
+        success: false,
+        error: 'Unauthorized: Invalid admin credentials' 
+      });
       return;
     }
     
     done();
   } catch (error) {
     console.error('Admin auth error:', error);
-    reply.status(403).send({ error: 'Forbidden: Invalid admin credentials' });
+    reply.status(401).send({ 
+      success: false,
+      error: 'Unauthorized: Authentication failed' 
+    });
   }
 };

@@ -304,6 +304,84 @@ export const adminRoutes = (fastify) => {
   }
   adminRouteRegistered = true;
   
+  // Admin login endpoint (no authentication required)
+  fastify.post('/api/admin/login', async (req, reply) => {
+    try {
+      const { username, password } = req.body;
+      const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+      const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+      
+      if (username === adminUsername && password === adminPassword) {
+        // Generate proper JWT token
+        const jwt = require('jsonwebtoken');
+        const jwtSecret = process.env.JWT_SECRET || 'birrpay_default_secret_change_in_production';
+        
+        const payload = {
+          username,
+          role: 'admin',
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+        };
+        
+        const token = jwt.sign(payload, jwtSecret);
+        
+        return { 
+          success: true, 
+          token,
+          message: 'Login successful',
+          expiresIn: '24h'
+        };
+      } else {
+        return reply.status(401).send({ 
+          success: false, 
+          message: 'Invalid credentials' 
+        });
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      return reply.status(400).send({ 
+        success: false, 
+        message: 'Invalid request body' 
+      });
+    }
+  });
+  
+  // Admin logout endpoint
+  fastify.post('/api/admin/logout', { preHandler: requireAdmin }, async (req, reply) => {
+    try {
+      // Since JWT is stateless, we just need to tell client to remove token
+      return { 
+        success: true, 
+        message: 'Logged out successfully' 
+      };
+    } catch (error) {
+      console.error('Logout error:', error);
+      return reply.status(500).send({ 
+        success: false, 
+        message: 'Logout failed' 
+      });
+    }
+  });
+  
+  // Token validation endpoint
+  fastify.get('/api/admin/validate', { preHandler: requireAdmin }, async (req, reply) => {
+    try {
+      // If we reach here, token is valid (middleware validated it)
+      return { 
+        success: true, 
+        valid: true,
+        user: req.admin || { role: 'admin' }
+      };
+    } catch (error) {
+      console.error('Token validation error:', error);
+      return reply.status(401).send({ 
+        success: false, 
+        valid: false,
+        message: 'Invalid token' 
+      });
+    }
+  });
+  
   // Aliases to support frontend paths expecting /api/admin/*
   // Users
   fastify.get('/api/admin/users', { preHandler: requireAdmin }, async (req, reply) => {

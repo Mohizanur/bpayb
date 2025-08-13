@@ -184,17 +184,21 @@ async function handleApiRequest(req, res, parsedUrl) {
     
     const token = authHeader.substring(7);
     try {
-      // Simple token validation - in production use proper JWT verification
-      const decoded = Buffer.from(token, 'base64').toString();
-      const [username, timestamp] = decoded.split(':');
-      const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+      // Proper JWT token validation
+      const jwt = require('jsonwebtoken');
+      const jwtSecret = process.env.JWT_SECRET || 'birrpay_default_secret_change_in_production';
       
-      // Check if token is valid and not too old (24 hours)
-      const tokenAge = Date.now() - parseInt(timestamp);
-      const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+      const decoded = jwt.verify(token, jwtSecret);
       
-      return username === adminUsername && tokenAge < maxAge;
+      // Check if token has admin role
+      if (decoded.role !== 'admin') {
+        return false;
+      }
+      
+      // Token is valid and user is admin
+      return true;
     } catch (error) {
+      console.error('Token validation error:', error.message);
       return false;
     }
   };
@@ -213,13 +217,25 @@ async function handleApiRequest(req, res, parsedUrl) {
           const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
           
           if (username === adminUsername && password === adminPassword) {
-            // Generate a simple token (in production, use proper JWT)
-            const token = Buffer.from(`${username}:${Date.now()}`).toString('base64');
+            // Generate proper JWT token
+            const jwt = require('jsonwebtoken');
+            const jwtSecret = process.env.JWT_SECRET || 'birrpay_default_secret_change_in_production';
+            
+            const payload = {
+              username,
+              role: 'admin',
+              iat: Math.floor(Date.now() / 1000),
+              exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+            };
+            
+            const token = jwt.sign(payload, jwtSecret);
+            
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ 
               success: true, 
               token,
-              message: 'Login successful'
+              message: 'Login successful',
+              expiresIn: '24h'
             }));
           } else {
             res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -229,6 +245,7 @@ async function handleApiRequest(req, res, parsedUrl) {
             }));
           }
         } catch (error) {
+          console.error('Login error:', error);
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ 
             success: false, 
