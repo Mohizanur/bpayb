@@ -2,6 +2,10 @@ import { firestore } from "../utils/firestore.js";
 
 export default function firestoreListener(bot) {
   try {
+    if (process.env.ENABLE_FIRESTORE_LISTENER !== 'true') {
+      console.log("Firestore listener disabled (set ENABLE_FIRESTORE_LISTENER=true to enable)");
+      return;
+    }
     firestore.collection("subscriptions").onSnapshot(
       (snapshot) => {
         snapshot.docChanges().forEach(async (change) => {
