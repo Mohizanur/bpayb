@@ -693,4 +693,44 @@ try {
   services = [];
 }
 
-// ... existing code ...
+// Start the HTTP server and Telegram bot (polling)
+async function startApp() {
+  try {
+    const port = process.env.PORT || 3000;
+    await new Promise((resolve, reject) => {
+      server.listen(port, '0.0.0.0', (err) => {
+        if (err) return reject(err);
+        console.log(`🚀 Server listening on port ${port}`);
+        const adminUrl = process.env.RENDER_EXTERNAL_URL
+          ? `${process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '')}/panel`
+          : `http://localhost:${port}/panel`;
+        console.log(`🔧 Admin Panel: ${adminUrl}`);
+        resolve();
+      });
+    });
+
+    if (process.env.TELEGRAM_BOT_TOKEN) {
+      try {
+        await bot.launch();
+        console.log('✅ Telegram bot launched (polling)');
+      } catch (e) {
+        console.error('❌ Failed to start bot (polling):', e.message);
+      }
+    } else {
+      console.warn('⚠️ TELEGRAM_BOT_TOKEN not set; bot not started.');
+    }
+
+    process.on('SIGINT', () => {
+      try { bot.stop('SIGINT'); } catch (_) {}
+      process.exit(0);
+    });
+    process.on('SIGTERM', () => {
+      try { bot.stop('SIGTERM'); } catch (_) {}
+      process.exit(0);
+    });
+  } catch (err) {
+    console.error('❌ Failed to start application:', err);
+  }
+}
+
+startApp();
