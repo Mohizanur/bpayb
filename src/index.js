@@ -474,175 +474,202 @@ function setCached(key, value) {
   adminCache[key] = { data: value, ts: Date.now() };
 }
 
-async function getAdminStats() {
-  try {
-    const cached = getCached('stats');
-    if (cached) return cached;
-    // Fetch basic stats from Firestore
-    const usersSnapshot = await firestore.collection('users').get();
-    const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
-    const paymentsSnapshot = await firestore.collection('pendingPayments').get();
-    
-    const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => 
-      doc.data().status === 'active'
-    ).length;
-    
-    const totalRevenue = subscriptionsSnapshot.docs.reduce((sum, doc) => {
-      const data = doc.data();
-      return sum + (parseFloat(data.amount) || 0);
-    }, 0);
-    
-    const result = {
-      totalUsers: usersSnapshot.size,
-      totalSubscriptions: subscriptionsSnapshot.size,
-      activeSubscriptions,
-      totalPayments: paymentsSnapshot.size,
-      totalRevenue: totalRevenue.toFixed(2)
-    };
-    setCached('stats', result);
-    return result;
-  } catch (error) {
-    console.error('Error getting admin stats:', error);
-    const cached = getCached('stats');
-    if (cached) return cached;
-    return {
-      totalUsers: 0,
-      totalSubscriptions: 0,
-      activeSubscriptions: 0,
-      totalPayments: 0,
-      totalRevenue: '0.00',
-      quotaExceeded: true
-    };
+// Coalesce concurrent requests to the same admin resource to reduce Firestore hits
+const inFlightRequests = new Map();
+function coalesce(key, taskFn) {
+  if (inFlightRequests.has(key)) {
+    return inFlightRequests.get(key);
   }
+  const promise = (async () => {
+    try {
+      return await taskFn();
+    } finally {
+      inFlightRequests.delete(key);
+    }
+  })();
+  inFlightRequests.set(key, promise);
+  return promise;
+}
+
+async function getAdminStats() {
+  return coalesce('stats', async () => {
+    try {
+      const cached = getCached('stats');
+      if (cached) return cached;
+      // Fetch basic stats from Firestore
+      const usersSnapshot = await firestore.collection('users').get();
+      const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
+      const paymentsSnapshot = await firestore.collection('pendingPayments').get();
+      
+      const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => 
+        doc.data().status === 'active'
+      ).length;
+      
+      const totalRevenue = subscriptionsSnapshot.docs.reduce((sum, doc) => {
+        const data = doc.data();
+        return sum + (parseFloat(data.amount) || 0);
+      }, 0);
+      
+      const result = {
+        totalUsers: usersSnapshot.size,
+        totalSubscriptions: subscriptionsSnapshot.size,
+        activeSubscriptions,
+        totalPayments: paymentsSnapshot.size,
+        totalRevenue: totalRevenue.toFixed(2)
+      };
+      setCached('stats', result);
+      return result;
+    } catch (error) {
+      console.error('Error getting admin stats:', error);
+      const cached = getCached('stats');
+      if (cached) return cached;
+      return {
+        totalUsers: 0,
+        totalSubscriptions: 0,
+        activeSubscriptions: 0,
+        totalPayments: 0,
+        totalRevenue: '0.00',
+        quotaExceeded: true
+      };
+    }
+  });
 }
 
 async function getAdminSubscriptions() {
-  try {
-    const cached = getCached('subscriptions');
-    if (cached) return cached;
-    const snapshot = await firestore.collection('subscriptions').orderBy('createdAt', 'desc').limit(50).get();
-    const subscriptions = [];
-    
-    for (const doc of snapshot.docs) {
-      const data = doc.data();
-      subscriptions.push({
-        id: doc.id,
-        userId: data.userId,
-        serviceName: data.serviceName || data.service || 'Unknown',
-        duration: data.duration || data.durationName || 'Unknown',
-        amount: data.amount || 0,
-        status: data.status || 'unknown',
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-        endDate: data.endDate?.toDate?.()?.toISOString() || null
-      });
+  return coalesce('subscriptions', async () => {
+    try {
+      const cached = getCached('subscriptions');
+      if (cached) return cached;
+      const snapshot = await firestore.collection('subscriptions').orderBy('createdAt', 'desc').limit(50).get();
+      const subscriptions = [];
+      
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        subscriptions.push({
+          id: doc.id,
+          userId: data.userId,
+          serviceName: data.serviceName || data.service || 'Unknown',
+          duration: data.duration || data.durationName || 'Unknown',
+          amount: data.amount || 0,
+          status: data.status || 'unknown',
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          endDate: data.endDate?.toDate?.()?.toISOString() || null
+        });
+      }
+      setCached('subscriptions', subscriptions);
+      return subscriptions;
+    } catch (error) {
+      console.error('Error getting subscriptions:', error);
+      const cached = getCached('subscriptions');
+      return cached || [];
     }
-    setCached('subscriptions', subscriptions);
-    return subscriptions;
-  } catch (error) {
-    console.error('Error getting subscriptions:', error);
-    const cached = getCached('subscriptions');
-    return cached || [];
-  }
+  });
 }
 
 async function getAdminUsers() {
-  try {
-    const cached = getCached('users');
-    if (cached) return cached;
-    const snapshot = await firestore.collection('users').orderBy('createdAt', 'desc').limit(50).get();
-    const users = [];
-    
-    snapshot.docs.forEach(doc => {
-      const data = doc.data();
-      users.push({
-        id: doc.id,
-        firstName: data.firstName || '',
-        lastName: data.lastName || '',
-        username: data.username || '',
-        phone: data.phone || '',
-        language: data.language || 'en',
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-        phoneVerified: data.phoneVerified || false
+  return coalesce('users', async () => {
+    try {
+      const cached = getCached('users');
+      if (cached) return cached;
+      const snapshot = await firestore.collection('users').orderBy('createdAt', 'desc').limit(50).get();
+      const users = [];
+      
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        users.push({
+          id: doc.id,
+          firstName: data.firstName || '',
+          lastName: data.lastName || '',
+          username: data.username || '',
+          phone: data.phone || '',
+          language: data.language || 'en',
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          phoneVerified: data.phoneVerified || false
+        });
       });
-    });
-    setCached('users', users);
-    return users;
-  } catch (error) {
-    console.error('Error getting users:', error);
-    const cached = getCached('users');
-    return cached || [];
-  }
+      setCached('users', users);
+      return users;
+    } catch (error) {
+      console.error('Error getting users:', error);
+      const cached = getCached('users');
+      return cached || [];
+    }
+  });
 }
 
 async function getAdminPayments() {
-  try {
-    const cached = getCached('payments');
-    if (cached) return cached;
-    const snapshot = await firestore.collection('pendingPayments').orderBy('createdAt', 'desc').limit(50).get();
-    const payments = [];
-    
-    snapshot.docs.forEach(doc => {
-      const data = doc.data();
-      payments.push({
-        id: doc.id,
-        userId: data.userId,
-        amount: data.amount || 0,
-        service: data.service || 'Unknown',
-        duration: data.duration || 'Unknown',
-        status: data.status || 'pending',
-        paymentReference: data.paymentReference || '',
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
+  return coalesce('payments', async () => {
+    try {
+      const cached = getCached('payments');
+      if (cached) return cached;
+      const snapshot = await firestore.collection('pendingPayments').orderBy('createdAt', 'desc').limit(50).get();
+      const payments = [];
+      
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        payments.push({
+          id: doc.id,
+          userId: data.userId,
+          amount: data.amount || 0,
+          service: data.service || 'Unknown',
+          duration: data.duration || 'Unknown',
+          status: data.status || 'pending',
+          paymentReference: data.paymentReference || '',
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
+        });
       });
-    });
-    setCached('payments', payments);
-    return payments;
-  } catch (error) {
-    console.error('Error getting payments:', error);
-    const cached = getCached('payments');
-    return cached || [];
-  }
+      setCached('payments', payments);
+      return payments;
+    } catch (error) {
+      console.error('Error getting payments:', error);
+      const cached = getCached('payments');
+      return cached || [];
+    }
+  });
 }
 
 async function getAdminServices() {
-  try {
-    const cached = getCached('services');
-    if (cached) return cached;
-    const snapshot = await firestore.collection('services').get();
-    const servicesList = [];
-    
-    snapshot.docs.forEach(doc => {
-      const data = doc.data();
-      servicesList.push({
-        id: doc.id,
-        name: data.name || '',
-        description: data.description || '',
-        status: data.status || 'active',
-        plans: data.plans || [],
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
-      });
-    });
-    setCached('services', servicesList);
-    return servicesList;
-  } catch (error) {
-    console.error('Error getting services:', error);
-    const cached = getCached('services');
-    if (cached) return cached;
+  return coalesce('services', async () => {
     try {
-      const local = await loadServices();
-      const fallback = (local || []).map(s => ({
-        id: s.serviceID || s.id || s.name,
-        name: s.name || '',
-        description: s.description || '',
-        status: 'active',
-        plans: s.plans || [],
-        createdAt: new Date().toISOString()
-      }));
-      setCached('services', fallback);
-      return fallback;
-    } catch (e) {
-      return [];
+      const cached = getCached('services');
+      if (cached) return cached;
+      const snapshot = await firestore.collection('services').get();
+      const servicesList = [];
+      
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        servicesList.push({
+          id: doc.id,
+          name: data.name || '',
+          description: data.description || '',
+          status: data.status || 'active',
+          plans: data.plans || [],
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
+        });
+      });
+      setCached('services', servicesList);
+      return servicesList;
+    } catch (error) {
+      console.error('Error getting services:', error);
+      const cached = getCached('services');
+      if (cached) return cached;
+      try {
+        const local = await loadServices();
+        const fallback = (local || []).map(s => ({
+          id: s.serviceID || s.id || s.name,
+          name: s.name || '',
+          description: s.description || '',
+          status: 'active',
+          plans: s.plans || [],
+          createdAt: new Date().toISOString()
+        }));
+        setCached('services', fallback);
+        return fallback;
+      } catch (e) {
+        return [];
+      }
     }
-  }
+  });
 }
 
 // Get current directory for serving static files
