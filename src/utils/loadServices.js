@@ -1,8 +1,9 @@
 import { firestore, isFirebaseConnected } from './firestore.js';
+import { supabase as supabaseClient } from './supabaseClient.js';
 import fs from 'fs/promises';
 import path from 'path';
 
-// Fallback to local services if Firebase is not available
+// Fallback to local services if Firebase/Supabase is not available
 async function loadLocalServices() {
   try {
     const filePath = new URL('../services.json', import.meta.url);
@@ -18,6 +19,21 @@ async function loadLocalServices() {
 
 export async function loadServices() {
   try {
+    // Try Supabase first if configured
+    if (supabaseClient) {
+      const { data, error } = await supabaseClient.from('services').select('*');
+      if (!error && Array.isArray(data) && data.length > 0) {
+        console.log(`Loaded ${data.length} services from Supabase`);
+        return data.map(serviceData => ({
+          id: serviceData.id,
+          serviceID: serviceData.id,
+          ...serviceData,
+          price: serviceData.price || (serviceData.plans && serviceData.plans[0] ? serviceData.plans[0].price : 0),
+          billingCycle: serviceData.billingCycle || (serviceData.plans && serviceData.plans[0] ? serviceData.plans[0].billingCycle : 'Monthly')
+        }));
+      }
+    }
+
     // If Firebase is not connected, use local services
     if (!isFirebaseConnected) {
       console.log('Firestore not connected, using local services');

@@ -12,6 +12,7 @@ import { loadI18n, getUserLang, setUserLang, getErrorMessage, getTranslatedMessa
 import { loadServices } from "./utils/loadServices.js";
 import { startScheduler } from "./utils/scheduler.js";
 import { handleRenewalCallback, triggerExpirationCheck } from "./utils/expirationReminder.js";
+import { supabase as supabaseClient } from "./utils/supabaseClient.js";
 // Import firestore conditionally for development
 let firestore = null;
 try {
@@ -76,6 +77,8 @@ import {
 } from "./api/routes.js";
 import { requireAdmin } from './middleware/requireAdmin.js';
 import { getBackToMenuButton } from './utils/navigation.js';
+
+const useSupabase = !!supabaseClient && (process.env.DB_PROVIDER === 'supabase' || process.env.SUPABASE_URL);
 
 console.log("Starting bot initialization...");
 console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
@@ -509,23 +512,38 @@ async function getAdminStats() {
     try {
       const cached = getCached('stats');
       if (cached) return cached;
+      if (useSupabase) {
+        if (isInQuotaCooldown()) {
+          // cooldown applies only to Firestore; Supabase path can proceed
+        }
+        const [{ count: usersCount }, { count: subsCount }, { count: activeCount }, { count: paymentsCount }] = await Promise.all([
+          supabaseClient.from('users').select('*', { head: true, count: 'exact' }),
+          supabaseClient.from('subscriptions').select('*', { head: true, count: 'exact' }),
+          supabaseClient.from('subscriptions').select('*', { head: true, count: 'exact' }).eq('status', 'active'),
+          supabaseClient.from('pending_payments').select('*', { head: true, count: 'exact' })
+        ]);
+        const result = {
+          totalUsers: usersCount || 0,
+          totalSubscriptions: subsCount || 0,
+          activeSubscriptions: activeCount || 0,
+          totalPayments: paymentsCount || 0,
+          totalRevenue: '0.00'
+        };
+        setCached('stats', result);
+        return result;
+      }
       if (isInQuotaCooldown()) {
         return { totalUsers: 0, totalSubscriptions: 0, activeSubscriptions: 0, totalPayments: 0, totalRevenue: '0.00', quotaExceeded: true };
       }
-      // Fetch basic stats from Firestore
+      // Firestore path
       const usersSnapshot = await firestore.collection('users').get();
       const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
       const paymentsSnapshot = await firestore.collection('pendingPayments').get();
-      
-      const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => 
-        doc.data().status === 'active'
-      ).length;
-      
+      const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => doc.data().status === 'active').length;
       const totalRevenue = subscriptionsSnapshot.docs.reduce((sum, doc) => {
         const data = doc.data();
         return sum + (parseFloat(data.amount) || 0);
       }, 0);
-      
       const result = {
         totalUsers: usersSnapshot.size,
         totalSubscriptions: subscriptionsSnapshot.size,
@@ -540,14 +558,7 @@ async function getAdminStats() {
       markQuotaIfNeeded(error);
       const cached = getCached('stats');
       if (cached) return cached;
-      return {
-        totalUsers: 0,
-        totalSubscriptions: 0,
-        activeSubscriptions: 0,
-        totalPayments: 0,
-        totalRevenue: '0.00',
-        quotaExceeded: true
-      };
+      return { totalUsers: 0, totalSubscriptions: 0, activeSubscriptions: 0, totalPayments: 0, totalRevenue: '0.00', quotaExceeded: true };
     }
   });
 }
@@ -557,12 +568,31 @@ async function getAdminSubscriptions() {
     try {
       const cached = getCached('subscriptions');
       if (cached) return cached;
+      if (useSupabase) {
+        const { data, error } = await supabaseClient
+          .from('subscriptions')
+          .select('id, user_id, service_name, duration, amount, status, created_at, end_date')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        const normalized = (data || []).map(r => ({
+          id: r.id,
+          userId: r.user_id,
+          serviceName: r.service_name || 'Unknown',
+          duration: r.duration || 'Unknown',
+          amount: r.amount || 0,
+          status: r.status || 'unknown',
+          createdAt: new Date(r.created_at).toISOString(),
+          endDate: r.end_date ? new Date(r.end_date).toISOString() : null
+        }));
+        setCached('subscriptions', normalized);
+        return normalized;
+      }
       if (isInQuotaCooldown()) {
         return cached || [];
       }
       const snapshot = await firestore.collection('subscriptions').orderBy('createdAt', 'desc').limit(50).get();
       const subscriptions = [];
-      
       for (const doc of snapshot.docs) {
         const data = doc.data();
         subscriptions.push({
@@ -592,12 +622,31 @@ async function getAdminUsers() {
     try {
       const cached = getCached('users');
       if (cached) return cached;
+      if (useSupabase) {
+        const { data, error } = await supabaseClient
+          .from('users')
+          .select('id, first_name, last_name, username, phone, language, created_at, phone_verified')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        const users = (data || []).map(u => ({
+          id: u.id,
+          firstName: u.first_name || '',
+          lastName: u.last_name || '',
+          username: u.username || '',
+          phone: u.phone || '',
+          language: u.language || 'en',
+          createdAt: u.created_at ? new Date(u.created_at).toISOString() : new Date().toISOString(),
+          phoneVerified: !!u.phone_verified
+        }));
+        setCached('users', users);
+        return users;
+      }
       if (isInQuotaCooldown()) {
         return cached || [];
       }
       const snapshot = await firestore.collection('users').orderBy('createdAt', 'desc').limit(50).get();
       const users = [];
-      
       snapshot.docs.forEach(doc => {
         const data = doc.data();
         users.push({
@@ -627,12 +676,31 @@ async function getAdminPayments() {
     try {
       const cached = getCached('payments');
       if (cached) return cached;
+      if (useSupabase) {
+        const { data, error } = await supabaseClient
+          .from('pending_payments')
+          .select('id, user_id, amount, service, duration, status, payment_reference, created_at')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        const payments = (data || []).map(p => ({
+          id: p.id,
+          userId: p.user_id,
+          amount: p.amount || 0,
+          service: p.service || 'Unknown',
+          duration: p.duration || 'Unknown',
+          status: p.status || 'pending',
+          paymentReference: p.payment_reference || '',
+          createdAt: p.created_at ? new Date(p.created_at).toISOString() : new Date().toISOString()
+        }));
+        setCached('payments', payments);
+        return payments;
+      }
       if (isInQuotaCooldown()) {
         return cached || [];
       }
       const snapshot = await firestore.collection('pendingPayments').orderBy('createdAt', 'desc').limit(50).get();
       const payments = [];
-      
       snapshot.docs.forEach(doc => {
         const data = doc.data();
         payments.push({
@@ -662,8 +730,23 @@ async function getAdminServices() {
     try {
       const cached = getCached('services');
       if (cached) return cached;
+      if (useSupabase) {
+        const { data, error } = await supabaseClient
+          .from('services')
+          .select('id, name, description, status, plans, created_at');
+        if (error) throw error;
+        const servicesList = (data || []).map(s => ({
+          id: s.id,
+          name: s.name || '',
+          description: s.description || '',
+          status: s.status || 'active',
+          plans: s.plans || [],
+          createdAt: s.created_at ? new Date(s.created_at).toISOString() : new Date().toISOString()
+        }));
+        setCached('services', servicesList);
+        return servicesList;
+      }
       if (isInQuotaCooldown()) {
-        // Try local services fallback directly during cooldown
         try {
           const local = await loadServices();
           const fallback = (local || []).map(s => ({
@@ -682,7 +765,6 @@ async function getAdminServices() {
       }
       const snapshot = await firestore.collection('services').get();
       const servicesList = [];
-      
       snapshot.docs.forEach(doc => {
         const data = doc.data();
         servicesList.push({
@@ -719,6 +801,7 @@ async function getAdminServices() {
     }
   });
 }
+
 // Get current directory for serving static files
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

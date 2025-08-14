@@ -49,6 +49,16 @@ services:
         value: '60000'
       - key: ENABLE_FIRESTORE_LISTENER
         value: 'false'
+      - key: DB_PROVIDER
+        value: 'supabase'
+      - key: SUPABASE_URL
+        fromDatabase:
+          name: birrpay-secrets
+          property: SUPABASE_URL
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        fromDatabase:
+          name: birrpay-secrets
+          property: SUPABASE_SERVICE_ROLE_KEY
 
 databases:
   - name: birrpay-secrets
