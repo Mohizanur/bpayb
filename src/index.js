@@ -164,6 +164,198 @@ const server = http.createServer((req, res) => {
     return;
   }
   
+  // Serve debug HTML page
+  if (parsedUrl.pathname === '/debug' || parsedUrl.pathname === '/debug-login') {
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .error {
+            color: #dc3545;
+            margin-top: 10px;
+            display: none;
+        }
+        .success {
+            color: #28a745;
+            margin-top: 10px;
+            display: none;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            display: none;
+        }
+        .credentials-info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Login Credentials</h1>
+        
+        <div class="credentials-info">
+            <h3>📝 Expected Credentials:</h3>
+            <p><strong>Username:</strong> admin</p>
+            <p><strong>Password:</strong> admin123</p>
+            <p><em>Note: These are the default credentials. If you set environment variables, they will override these.</em></p>
+        </div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" value="admin" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" value="admin123" required>
+            </div>
+            
+            <button type="submit" id="loginBtn">🔐 Test Login</button>
+            <button type="button" id="debugBtn">🔍 Check Environment</button>
+        </form>
+        
+        <div id="error" class="error"></div>
+        <div id="success" class="success"></div>
+        <div id="debugInfo" class="debug-info"></div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const errorDiv = document.getElementById('error');
+            const successDiv = document.getElementById('success');
+            
+            // Clear previous messages
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            
+            // Disable button during request
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Testing...';
+            
+            try {
+                console.log('Attempting login with:', { username, password });
+                
+                const response = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const result = await response.json();
+                console.log('Login response:', result);
+                
+                if (result.success && result.token) {
+                    successDiv.textContent = '✅ Login successful! Token received.';
+                    successDiv.style.display = 'block';
+                } else {
+                    errorDiv.textContent = '❌ Login failed: ' + (result.message || 'Unknown error');
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                errorDiv.textContent = '❌ Network error: ' + error.message;
+                errorDiv.style.display = 'block';
+            } finally {
+                // Re-enable button
+                loginBtn.disabled = false;
+                loginBtn.textContent = '🔐 Test Login';
+            }
+        });
+        
+        document.getElementById('debugBtn').addEventListener('click', async function() {
+            const debugBtn = document.getElementById('debugBtn');
+            const debugInfo = document.getElementById('debugInfo');
+            
+            debugBtn.disabled = true;
+            debugBtn.textContent = 'Checking...';
+            
+            try {
+                const response = await fetch('/api/admin/debug');
+                const result = await response.json();
+                
+                debugInfo.textContent = JSON.stringify(result, null, 2);
+                debugInfo.style.display = 'block';
+                
+                console.log('Debug info:', result);
+            } catch (error) {
+                debugInfo.textContent = 'Error getting debug info: ' + error.message;
+                debugInfo.style.display = 'block';
+                console.error('Debug error:', error);
+            } finally {
+                debugBtn.disabled = false;
+                debugBtn.textContent = '🔍 Check Environment';
+            }
+        });
+    </script>
+</body>
+</html>
+    `);
+    return;
+  }
+  
   // Default response
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('BirrPay Bot is running');
