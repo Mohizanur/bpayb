@@ -373,8 +373,9 @@
                     try {
                         const parts = storedToken.split('.');
                         if (parts.length === 3) {
-                            // Basic JWT format validation
-                            const payload = JSON.parse(atob(parts[1]));
+                            // Basic JWT format validation with base64url decoding
+                            const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                            const payload = JSON.parse(decodeURIComponent(escape(atob(b64))));
                             const now = Math.floor(Date.now() / 1000);
                             
                             // Check if token is expired
@@ -408,9 +409,15 @@
             
             window.fetch = async function (input, init = {}) {
                 try {
-                    let url = typeof input === 'string' ? input : (input && input.url) || '';
+                    let urlString = typeof input === 'string' ? input : (input && input.url) || '';
+                    let pathname = '';
+                    try {
+                        pathname = new URL(urlString, window.location.origin).pathname;
+                    } catch (_) {
+                        pathname = urlString;
+                    }
                     // Only attach for protected admin API calls (not login)
-                    if (url.startsWith('/api/admin') && !url.startsWith('/api/admin/login')) {
+                    if (pathname.startsWith('/api/admin') && !pathname.startsWith('/api/admin/login')) {
                         const token = getAdminToken();
                         const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined) || {});
                         if (token && !headers.has('Authorization')) {
@@ -425,14 +432,14 @@
                         }
                         
                         // Handle authentication errors (avoid looping on login endpoint)
-                        if (response.status === 401 && !isHandlingAuth) {
-                            console.log('Authentication failed, clearing token and showing login');
-                            isHandlingAuth = true;
-                            clearAuthData();
-                            const container = document.querySelector('.container');
-                            if (container) container.style.display = 'none';
-                            showLoginModal();
-                            isHandlingAuth = false;
+                        if (response.status === 401) {
+                            console.log('Authentication failed (401), clearing token');
+                            localStorage.removeItem('adminToken');
+                            sessionStorage.removeItem('adminToken');
+                            try { document.cookie = 'adminToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'; } catch(_){ }
+                            if (!document.getElementById('login-modal')) {
+                                showLoginModal();
+                            }
                             throw new Error('Authentication failed');
                         }
                         
@@ -509,6 +516,7 @@
             console.log('Loading enhanced stats...');
             try {
                 const response = await fetch('/api/admin/stats');
+                if (response.status === 401) { throw new Error('Unauthorized'); }
                 const data = await response.json();
                 console.log('Stats received:', data);
                 
@@ -545,6 +553,9 @@
                 }
             } catch (error) {
                 console.error('Error loading stats:', error);
+                if (!document.getElementById('login-modal')) {
+                    showLoginModal();
+                }
                 showNotification('Failed to load dashboard data', 'error');
             }
         }
@@ -1458,10 +1469,7 @@
         }
 
         function getAdminToken() {
-            // Check localStorage first, then sessionStorage, then cookies
-            return localStorage.getItem('adminToken') || 
-                   sessionStorage.getItem('adminToken') || 
-                   getCookie('adminToken');
+            try { return window.getAdminToken(); } catch (e) { return localStorage.getItem('adminToken') || ''; }
         }
 
         function getCookie(name) {
