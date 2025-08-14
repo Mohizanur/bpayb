@@ -514,6 +514,10 @@
                 
                 if (data.success && data.stats) {
                     currentData.stats = data.stats;
+
+                    if (data.stats.quotaExceeded) {
+                        showNotification('Showing cached or fallback data due to quota limits', 'info');
+                    }
                     
                     // Update main dashboard stats
                     document.getElementById('total-users').textContent = data.stats.totalUsers || 0;
@@ -1029,6 +1033,7 @@
                     console.log(`Services count updated: ${servicesCount}`);
                 } else {
                     console.warn('Failed to load services count:', data);
+                    document.getElementById('services-count').textContent = currentData?.services?.length || '0';
                 }
             } catch (error) {
                 console.error('Error loading services count:', error);
