@@ -407,9 +407,9 @@
             window.fetch = async function (input, init = {}) {
                 try {
                     let url = typeof input === 'string' ? input : (input && input.url) || '';
-                    // Only attach for relative admin API calls
-                    if (url.startsWith('/api/admin')) {
-                        const token = getAdminToken(); // Use the function we defined earlier
+                    // Only attach for protected admin API calls (not login)
+                    if (url.startsWith('/api/admin') && !url.startsWith('/api/admin/login')) {
+                        const token = getAdminToken();
                         const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined) || {});
                         if (token && !headers.has('Authorization')) {
                             headers.set('Authorization', 'Bearer ' + token);
@@ -422,11 +422,13 @@
                             response = await originalFetch(new Request(input, { headers }), init);
                         }
                         
-                        // Handle authentication errors
+                        // Handle authentication errors (avoid looping on login endpoint)
                         if (response.status === 401) {
                             console.log('Authentication failed, clearing token and showing login');
                             localStorage.removeItem('adminToken');
-                            showLoginModal();
+                            if (!document.getElementById('login-modal')) {
+                                showLoginModal();
+                            }
                             throw new Error('Authentication failed');
                         }
                         
@@ -1383,37 +1385,32 @@
             console.log('DOM loaded, checking authentication...');
             
             // Check if user is authenticated
-            const token = getAdminToken();
-            if (!token) {
-                console.log('No authentication token found, showing login modal');
-                // Hide main content and show login modal
-                const container = document.querySelector('.container');
-                if (container) {
-                    container.style.display = 'none';
+                            const token = getAdminToken();
+                if (!token) {
+                    console.log('No authentication token found, showing login modal');
+                    const container = document.querySelector('.container');
+                    if (container) container.style.display = 'none';
+                    hideLoadingScreen();
+                    if (!document.getElementById('login-modal')) {
+                        showLoginModal();
+                    }
+                } else {
+                    console.log('Authentication token found, loading dashboard');
+                    const container = document.querySelector('.container');
+                    if (container) container.style.display = 'flex';
+                    hideLoadingScreen();
+                    loadRealStats();
                 }
-                hideLoadingScreen();
-                showLoginModal();
-            } else {
-                console.log('Authentication token found, loading dashboard');
-                // Show main content and load data
-                const container = document.querySelector('.container');
-                if (container) {
-                    container.style.display = 'flex';
-                }
-                hideLoadingScreen();
-                // Load real stats with authentication
-                loadRealStats();
-            }
         });
 
         function checkAuthenticationStatus() {
             const token = getAdminToken();
             if (!token) {
-                // No token, hide loading screen and show login modal
                 hideLoadingScreen();
-                showLoginModal();
+                if (!document.getElementById('login-modal')) {
+                    showLoginModal();
+                }
             } else {
-                // Token exists, verify it's valid
                 verifyTokenAndLoadDashboard();
             }
         }
