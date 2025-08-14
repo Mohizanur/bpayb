@@ -491,11 +491,27 @@ function coalesce(key, taskFn) {
   return promise;
 }
 
+// Quota cooldown to avoid hammering Firestore when RESOURCE_EXHAUSTED
+const FIRESTORE_READS_COOLDOWN_MS = parseInt(process.env.FIRESTORE_READS_COOLDOWN_MS || '900000', 10); // 15 minutes
+let lastQuotaErrorAt = 0;
+function isInQuotaCooldown() {
+  return Date.now() - lastQuotaErrorAt < FIRESTORE_READS_COOLDOWN_MS;
+}
+function markQuotaIfNeeded(error) {
+  const message = String(error?.message || '');
+  if (error?.code === 8 || /RESOURCE_EXHAUSTED|Quota exceeded/i.test(message)) {
+    lastQuotaErrorAt = Date.now();
+  }
+}
+
 async function getAdminStats() {
   return coalesce('stats', async () => {
     try {
       const cached = getCached('stats');
       if (cached) return cached;
+      if (isInQuotaCooldown()) {
+        return { totalUsers: 0, totalSubscriptions: 0, activeSubscriptions: 0, totalPayments: 0, totalRevenue: '0.00', quotaExceeded: true };
+      }
       // Fetch basic stats from Firestore
       const usersSnapshot = await firestore.collection('users').get();
       const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
@@ -521,6 +537,7 @@ async function getAdminStats() {
       return result;
     } catch (error) {
       console.error('Error getting admin stats:', error);
+      markQuotaIfNeeded(error);
       const cached = getCached('stats');
       if (cached) return cached;
       return {
@@ -540,6 +557,9 @@ async function getAdminSubscriptions() {
     try {
       const cached = getCached('subscriptions');
       if (cached) return cached;
+      if (isInQuotaCooldown()) {
+        return cached || [];
+      }
       const snapshot = await firestore.collection('subscriptions').orderBy('createdAt', 'desc').limit(50).get();
       const subscriptions = [];
       
@@ -560,6 +580,7 @@ async function getAdminSubscriptions() {
       return subscriptions;
     } catch (error) {
       console.error('Error getting subscriptions:', error);
+      markQuotaIfNeeded(error);
       const cached = getCached('subscriptions');
       return cached || [];
     }
@@ -571,6 +592,9 @@ async function getAdminUsers() {
     try {
       const cached = getCached('users');
       if (cached) return cached;
+      if (isInQuotaCooldown()) {
+        return cached || [];
+      }
       const snapshot = await firestore.collection('users').orderBy('createdAt', 'desc').limit(50).get();
       const users = [];
       
@@ -591,6 +615,7 @@ async function getAdminUsers() {
       return users;
     } catch (error) {
       console.error('Error getting users:', error);
+      markQuotaIfNeeded(error);
       const cached = getCached('users');
       return cached || [];
     }
@@ -602,6 +627,9 @@ async function getAdminPayments() {
     try {
       const cached = getCached('payments');
       if (cached) return cached;
+      if (isInQuotaCooldown()) {
+        return cached || [];
+      }
       const snapshot = await firestore.collection('pendingPayments').orderBy('createdAt', 'desc').limit(50).get();
       const payments = [];
       
@@ -622,6 +650,7 @@ async function getAdminPayments() {
       return payments;
     } catch (error) {
       console.error('Error getting payments:', error);
+      markQuotaIfNeeded(error);
       const cached = getCached('payments');
       return cached || [];
     }
@@ -633,6 +662,24 @@ async function getAdminServices() {
     try {
       const cached = getCached('services');
       if (cached) return cached;
+      if (isInQuotaCooldown()) {
+        // Try local services fallback directly during cooldown
+        try {
+          const local = await loadServices();
+          const fallback = (local || []).map(s => ({
+            id: s.serviceID || s.id || s.name,
+            name: s.name || '',
+            description: s.description || '',
+            status: 'active',
+            plans: s.plans || [],
+            createdAt: new Date().toISOString()
+          }));
+          setCached('services', fallback);
+          return fallback;
+        } catch (_) {
+          return cached || [];
+        }
+      }
       const snapshot = await firestore.collection('services').get();
       const servicesList = [];
       
@@ -651,6 +698,7 @@ async function getAdminServices() {
       return servicesList;
     } catch (error) {
       console.error('Error getting services:', error);
+      markQuotaIfNeeded(error);
       const cached = getCached('services');
       if (cached) return cached;
       try {
@@ -671,7 +719,6 @@ async function getAdminServices() {
     }
   });
 }
-
 // Get current directory for serving static files
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
