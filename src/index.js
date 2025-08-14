@@ -189,6 +189,7 @@ async function handleApiRequest(req, res, parsedUrl) {
   const validateAdminToken = (req) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('No Authorization header or invalid format');
       return false;
     }
     
@@ -199,15 +200,19 @@ async function handleApiRequest(req, res, parsedUrl) {
       const jwtSecret = process.env.JWT_SECRET || 'birrpay_default_secret_change_in_production';
       
       const decoded = jwt.verify(token, jwtSecret);
+      console.log('Token decoded successfully:', { username: decoded.username, role: decoded.role });
       
       // Check if token has admin role
       if (decoded.role !== 'admin') {
+        console.log('Token does not have admin role');
         return false;
       }
       
       // Token is valid and user is admin
+      console.log('Token validation successful');
       return true;
     } catch (error) {
+      console.log('Token validation failed:', error.message);
       return false;
     }
   };
@@ -215,6 +220,7 @@ async function handleApiRequest(req, res, parsedUrl) {
   try {
     // Admin login endpoint
     if (pathname === '/api/admin/login' && req.method === 'POST') {
+      console.log('Admin login attempt received');
       let body = '';
       req.on('data', chunk => {
         body += chunk.toString();
@@ -222,8 +228,13 @@ async function handleApiRequest(req, res, parsedUrl) {
       req.on('end', async () => {
         try {
           const { username, password } = JSON.parse(body);
+          console.log('Login attempt for username:', username);
+          
           const adminUsername = process.env.ADMIN_USERNAME || 'admin';
           const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+          
+          console.log('Expected username:', adminUsername);
+          console.log('Password match:', password === adminPassword);
           
           if (username === adminUsername && password === adminPassword) {
             // Generate proper JWT token
@@ -238,8 +249,14 @@ async function handleApiRequest(req, res, parsedUrl) {
             };
             
             const token = jwt.sign(payload, jwtSecret);
+            console.log('Login successful, token generated');
             
-            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.writeHead(200, { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'POST, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            });
             res.end(JSON.stringify({ 
               success: true, 
               token,
@@ -247,7 +264,13 @@ async function handleApiRequest(req, res, parsedUrl) {
               expiresIn: '24h'
             }));
           } else {
-            res.writeHead(401, { 'Content-Type': 'application/json' });
+            console.log('Login failed: invalid credentials');
+            res.writeHead(401, { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'POST, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            });
             res.end(JSON.stringify({ 
               success: false, 
               message: 'Invalid credentials' 
@@ -255,7 +278,12 @@ async function handleApiRequest(req, res, parsedUrl) {
           }
         } catch (error) {
           console.error('Login error:', error);
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+          });
           res.end(JSON.stringify({ 
             success: false, 
             message: 'Invalid request body' 
@@ -267,13 +295,26 @@ async function handleApiRequest(req, res, parsedUrl) {
     
     // Admin stats endpoint
     if (pathname === '/api/admin/stats' && req.method === 'GET') {
+      console.log('Admin stats request received');
       if (!validateAdminToken(req)) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
+        console.log('Admin stats: unauthorized access');
+        res.writeHead(401, { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        });
         res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
         return;
       }
+      console.log('Admin stats: authorized access, fetching stats');
       const stats = await getAdminStats();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.writeHead(200, { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      });
       res.end(JSON.stringify({ success: true, stats }));
       return;
     }

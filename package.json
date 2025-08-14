@@ -24,7 +24,7 @@
     "@fastify/static": "^6.10.0",
     "@google-cloud/firestore": "6.5.0",
     "cross-env": "^7.0.3",
-    "debug": "4.3.4",
+    "debug": "^4.3.4",
     "dotenv": "^16.3.1",
     "fastify": "^4.17.0",
     "firebase-admin": "^11.11.0",

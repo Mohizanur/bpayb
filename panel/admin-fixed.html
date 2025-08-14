@@ -404,6 +404,8 @@
 
             // Patch fetch to automatically attach Authorization header for /api/admin/*
             const originalFetch = window.fetch.bind(window);
+            let isHandlingAuth = false; // Prevent infinite loops
+            
             window.fetch = async function (input, init = {}) {
                 try {
                     let url = typeof input === 'string' ? input : (input && input.url) || '';
@@ -423,12 +425,14 @@
                         }
                         
                         // Handle authentication errors (avoid looping on login endpoint)
-                        if (response.status === 401) {
+                        if (response.status === 401 && !isHandlingAuth) {
                             console.log('Authentication failed, clearing token and showing login');
-                            localStorage.removeItem('adminToken');
-                            if (!document.getElementById('login-modal')) {
-                                showLoginModal();
-                            }
+                            isHandlingAuth = true;
+                            clearAuthData();
+                            const container = document.querySelector('.container');
+                            if (container) container.style.display = 'none';
+                            showLoginModal();
+                            isHandlingAuth = false;
                             throw new Error('Authentication failed');
                         }
                         
@@ -1385,33 +1389,66 @@
             console.log('DOM loaded, checking authentication...');
             
             // Check if user is authenticated
-                            const token = getAdminToken();
-                if (!token) {
-                    console.log('No authentication token found, showing login modal');
-                    const container = document.querySelector('.container');
-                    if (container) container.style.display = 'none';
-                    hideLoadingScreen();
-                    if (!document.getElementById('login-modal')) {
-                        showLoginModal();
+            const token = getAdminToken();
+            if (!token) {
+                console.log('No authentication token found, showing login modal');
+                const container = document.querySelector('.container');
+                if (container) container.style.display = 'none';
+                hideLoadingScreen();
+                showLoginModal();
+            } else {
+                console.log('Authentication token found, validating with server...');
+                validateTokenWithServer(token);
+            }
+        });
+
+        async function validateTokenWithServer(token) {
+            try {
+                const response = await fetch('/api/admin/stats', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
                     }
-                } else {
-                    console.log('Authentication token found, loading dashboard');
+                });
+                
+                if (response.ok) {
+                    console.log('Token is valid, loading dashboard');
                     const container = document.querySelector('.container');
                     if (container) container.style.display = 'flex';
                     hideLoadingScreen();
                     loadRealStats();
+                } else {
+                    console.log('Token is invalid, clearing and showing login');
+                    clearAuthData();
+                    const container = document.querySelector('.container');
+                    if (container) container.style.display = 'none';
+                    hideLoadingScreen();
+                    showLoginModal();
                 }
-        });
+            } catch (error) {
+                console.error('Error validating token:', error);
+                clearAuthData();
+                const container = document.querySelector('.container');
+                if (container) container.style.display = 'none';
+                hideLoadingScreen();
+                showLoginModal();
+            }
+        }
+
+        function clearAuthData() {
+            localStorage.removeItem('adminToken');
+            sessionStorage.removeItem('adminToken');
+            document.cookie = 'adminToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        }
 
         function checkAuthenticationStatus() {
             const token = getAdminToken();
             if (!token) {
                 hideLoadingScreen();
-                if (!document.getElementById('login-modal')) {
-                    showLoginModal();
-                }
+                showLoginModal();
             } else {
-                verifyTokenAndLoadDashboard();
+                validateTokenWithServer(token);
             }
         }
 
@@ -1430,6 +1467,11 @@
         }
 
         function showLoginModal() {
+            // Prevent duplicate modals
+            if (document.getElementById('login-modal')) {
+                return;
+            }
+            
             // Hide main content
             const container = document.querySelector('.container');
             if (container) {
@@ -1533,6 +1575,15 @@
                 const username = document.getElementById('username').value;
                 const password = document.getElementById('password').value;
                 const errorDiv = document.getElementById('login-error');
+                const submitButton = e.target.querySelector('button[type="submit"]');
+                
+                // Clear previous errors
+                errorDiv.style.display = 'none';
+                errorDiv.textContent = '';
+                
+                // Disable submit button during request
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>Logging in...';
                 
                 try {
                     const response = await fetch('/api/admin/login', {
@@ -1567,8 +1618,12 @@
                     }
                 } catch (error) {
                     console.error('Login error:', error);
-                    errorDiv.textContent = 'Login failed. Please try again.';
+                    errorDiv.textContent = 'Network error. Please check your connection and try again.';
                     errorDiv.style.display = 'block';
+                } finally {
+                    // Re-enable submit button
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>Login';
                 }
             });
         }
@@ -2320,7 +2375,9 @@
                 }
                 
                 // Show login modal instantly
-                showLoginModal();
+                if (!document.getElementById('login-modal')) {
+                    showLoginModal();
+                }
             }
         }
     </script>
