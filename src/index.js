@@ -218,6 +218,26 @@ async function handleApiRequest(req, res, parsedUrl) {
   };
 
   try {
+    // Debug endpoint to check environment variables
+    if (pathname === '/api/admin/debug' && req.method === 'GET') {
+      console.log('Debug endpoint called');
+      res.writeHead(200, { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      });
+      res.end(JSON.stringify({ 
+        success: true,
+        adminUsername: process.env.ADMIN_USERNAME || 'admin',
+        adminPasswordSet: !!process.env.ADMIN_PASSWORD,
+        jwtSecretSet: !!process.env.JWT_SECRET,
+        nodeEnv: process.env.NODE_ENV,
+        timestamp: new Date().toISOString()
+      }));
+      return;
+    }
+    
     // Admin login endpoint
     if (pathname === '/api/admin/login' && req.method === 'POST') {
       console.log('Admin login attempt received');
@@ -229,12 +249,18 @@ async function handleApiRequest(req, res, parsedUrl) {
         try {
           const { username, password } = JSON.parse(body);
           console.log('Login attempt for username:', username);
+          console.log('Password length:', password ? password.length : 0);
           
           const adminUsername = process.env.ADMIN_USERNAME || 'admin';
           const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
           
           console.log('Expected username:', adminUsername);
+          console.log('Expected password length:', adminPassword ? adminPassword.length : 0);
+          console.log('Username match:', username === adminUsername);
           console.log('Password match:', password === adminPassword);
+          console.log('Environment variables:');
+          console.log('- ADMIN_USERNAME:', process.env.ADMIN_USERNAME ? 'SET' : 'NOT SET');
+          console.log('- ADMIN_PASSWORD:', process.env.ADMIN_PASSWORD ? 'SET' : 'NOT SET');
           
           if (username === adminUsername && password === adminPassword) {
             // Generate proper JWT token
