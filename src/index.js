@@ -13,6 +13,7 @@ import { loadServices } from "./utils/loadServices.js";
 import { startScheduler } from "./utils/scheduler.js";
 import { handleRenewalCallback, triggerExpirationCheck } from "./utils/expirationReminder.js";
 import { supabase as supabaseClient } from "./utils/supabaseClient.js";
+import { isPlanetConfigured, query as mysqlQuery } from "./utils/planetClient.js";
 // Import firestore conditionally for development
 let firestore = null;
 try {
@@ -79,6 +80,7 @@ import { requireAdmin } from './middleware/requireAdmin.js';
 import { getBackToMenuButton } from './utils/navigation.js';
 
 const useSupabase = !!supabaseClient && (process.env.DB_PROVIDER === 'supabase' || process.env.SUPABASE_URL);
+const usePlanet = isPlanetConfigured();
 
 console.log("Starting bot initialization...");
 console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
@@ -512,6 +514,23 @@ async function getAdminStats() {
     try {
       const cached = getCached('stats');
       if (cached) return cached;
+      if (usePlanet) {
+        const [[{ totalUsers }]] = await Promise.all([
+          mysqlQuery('select count(*) as totalUsers from users')
+        ]);
+        const [[{ totalSubscriptions }]] = await Promise.all([
+          mysqlQuery('select count(*) as totalSubscriptions from subscriptions')
+        ]);
+        const [[{ activeSubscriptions }]] = await Promise.all([
+          mysqlQuery("select count(*) as activeSubscriptions from subscriptions where status='active'")
+        ]);
+        const [[{ totalPayments }]] = await Promise.all([
+          mysqlQuery('select count(*) as totalPayments from pending_payments')
+        ]);
+        const result = { totalUsers, totalSubscriptions, activeSubscriptions, totalPayments, totalRevenue: '0.00' };
+        setCached('stats', result);
+        return result;
+      }
       if (useSupabase) {
         if (isInQuotaCooldown()) {
           // cooldown applies only to Firestore; Supabase path can proceed
@@ -568,6 +587,21 @@ async function getAdminSubscriptions() {
     try {
       const cached = getCached('subscriptions');
       if (cached) return cached;
+      if (usePlanet) {
+        const rows = await mysqlQuery("select id, user_id as userId, service_name as serviceName, duration, amount, status, created_at as createdAt, end_date as endDate from subscriptions order by created_at desc limit 50");
+        const normalized = rows.map(r => ({
+          id: r.id,
+          userId: r.userId,
+          serviceName: r.serviceName || 'Unknown',
+          duration: r.duration || 'Unknown',
+          amount: Number(r.amount || 0),
+          status: r.status || 'unknown',
+          createdAt: new Date(r.createdAt).toISOString(),
+          endDate: r.endDate ? new Date(r.endDate).toISOString() : null
+        }));
+        setCached('subscriptions', normalized);
+        return normalized;
+      }
       if (useSupabase) {
         const { data, error } = await supabaseClient
           .from('subscriptions')
@@ -622,6 +656,16 @@ async function getAdminUsers() {
     try {
       const cached = getCached('users');
       if (cached) return cached;
+      if (usePlanet) {
+        const rows = await mysqlQuery("select id, first_name as firstName, last_name as lastName, username, phone, language, phone_verified as phoneVerified, created_at as createdAt from users order by created_at desc limit 50");
+        const users = rows.map(u => ({
+          ...u,
+          phoneVerified: !!u.phoneVerified,
+          createdAt: u.createdAt ? new Date(u.createdAt).toISOString() : new Date().toISOString()
+        }));
+        setCached('users', users);
+        return users;
+      }
       if (useSupabase) {
         const { data, error } = await supabaseClient
           .from('users')
@@ -676,6 +720,16 @@ async function getAdminPayments() {
     try {
       const cached = getCached('payments');
       if (cached) return cached;
+      if (usePlanet) {
+        const rows = await mysqlQuery("select id, user_id as userId, amount, service, duration, status, payment_reference as paymentReference, created_at as createdAt from pending_payments order by created_at desc limit 50");
+        const payments = rows.map(p => ({
+          ...p,
+          amount: Number(p.amount || 0),
+          createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString()
+        }));
+        setCached('payments', payments);
+        return payments;
+      }
       if (useSupabase) {
         const { data, error } = await supabaseClient
           .from('pending_payments')
@@ -730,6 +784,16 @@ async function getAdminServices() {
     try {
       const cached = getCached('services');
       if (cached) return cached;
+      if (usePlanet) {
+        const rows = await mysqlQuery("select id, name, description, status, plans, created_at as createdAt from services");
+        const servicesList = rows.map(s => ({
+          ...s,
+          plans: typeof s.plans === 'string' ? JSON.parse(s.plans) : (s.plans || []),
+          createdAt: s.createdAt ? new Date(s.createdAt).toISOString() : new Date().toISOString()
+        }));
+        setCached('services', servicesList);
+        return servicesList;
+      }
       if (useSupabase) {
         const { data, error } = await supabaseClient
           .from('services')
