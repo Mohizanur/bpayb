@@ -14,6 +14,7 @@ import { startScheduler } from "./utils/scheduler.js";
 import { handleRenewalCallback, triggerExpirationCheck } from "./utils/expirationReminder.js";
 import { supabase as supabaseClient } from "./utils/supabaseClient.js";
 import { isPlanetConfigured, query as mysqlQuery } from "./utils/planetClient.js";
+import { isCockroachConfigured, pgQuery } from "./utils/cockroachClient.js";
 // Import firestore conditionally for development
 let firestore = null;
 try {
@@ -81,6 +82,15 @@ import { getBackToMenuButton } from './utils/navigation.js';
 
 const useSupabase = !!supabaseClient && (process.env.DB_PROVIDER === 'supabase' || process.env.SUPABASE_URL);
 const usePlanet = isPlanetConfigured();
+const useCockroach = isCockroachConfigured();
+
+if (useCockroach) {
+  console.log('🗄️ Using CockroachDB as primary database');
+} else if (usePlanet) {
+  console.log('🗄️ Using PlanetScale (MySQL) as primary database');
+} else if (useSupabase) {
+  console.log('🗄️ Using Supabase (Postgres) as primary database');
+}
 
 console.log("Starting bot initialization...");
 console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
@@ -514,6 +524,23 @@ async function getAdminStats() {
     try {
       const cached = getCached('stats');
       if (cached) return cached;
+      if (useCockroach) {
+        const [u, s, a, p] = await Promise.all([
+          pgQuery('select count(*)::int as count from users'),
+          pgQuery('select count(*)::int as count from subscriptions'),
+          pgQuery("select count(*)::int as count from subscriptions where status='active'"),
+          pgQuery('select count(*)::int as count from pending_payments')
+        ]);
+        const result = {
+          totalUsers: u[0]?.count || 0,
+          totalSubscriptions: s[0]?.count || 0,
+          activeSubscriptions: a[0]?.count || 0,
+          totalPayments: p[0]?.count || 0,
+          totalRevenue: '0.00'
+        };
+        setCached('stats', result);
+        return result;
+      }
       if (usePlanet) {
         const [[{ totalUsers }]] = await Promise.all([
           mysqlQuery('select count(*) as totalUsers from users')
@@ -587,6 +614,17 @@ async function getAdminSubscriptions() {
     try {
       const cached = getCached('subscriptions');
       if (cached) return cached;
+      if (useCockroach) {
+        const rows = await pgQuery('select id, user_id as "userId", service_name as "serviceName", duration, amount, status, created_at as "createdAt", end_date as "endDate" from subscriptions order by created_at desc limit 50');
+        const normalized = rows.map(r => ({
+          ...r,
+          amount: Number(r.amount || 0),
+          createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
+          endDate: r.endDate ? new Date(r.endDate).toISOString() : null
+        }));
+        setCached('subscriptions', normalized);
+        return normalized;
+      }
       if (usePlanet) {
         const rows = await mysqlQuery("select id, user_id as userId, service_name as serviceName, duration, amount, status, created_at as createdAt, end_date as endDate from subscriptions order by created_at desc limit 50");
         const normalized = rows.map(r => ({
@@ -656,6 +694,16 @@ async function getAdminUsers() {
     try {
       const cached = getCached('users');
       if (cached) return cached;
+      if (useCockroach) {
+        const rows = await pgQuery('select id, first_name as "firstName", last_name as "lastName", username, phone, language, phone_verified as "phoneVerified", created_at as "createdAt" from users order by created_at desc limit 50');
+        const users = rows.map(u => ({
+          ...u,
+          phoneVerified: !!u.phoneVerified,
+          createdAt: u.createdAt ? new Date(u.createdAt).toISOString() : new Date().toISOString()
+        }));
+        setCached('users', users);
+        return users;
+      }
       if (usePlanet) {
         const rows = await mysqlQuery("select id, first_name as firstName, last_name as lastName, username, phone, language, phone_verified as phoneVerified, created_at as createdAt from users order by created_at desc limit 50");
         const users = rows.map(u => ({
@@ -720,6 +768,16 @@ async function getAdminPayments() {
     try {
       const cached = getCached('payments');
       if (cached) return cached;
+      if (useCockroach) {
+        const rows = await pgQuery('select id, user_id as "userId", amount, service, duration, status, payment_reference as "paymentReference", created_at as "createdAt" from pending_payments order by created_at desc limit 50');
+        const payments = rows.map(p => ({
+          ...p,
+          amount: Number(p.amount || 0),
+          createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString()
+        }));
+        setCached('payments', payments);
+        return payments;
+      }
       if (usePlanet) {
         const rows = await mysqlQuery("select id, user_id as userId, amount, service, duration, status, payment_reference as paymentReference, created_at as createdAt from pending_payments order by created_at desc limit 50");
         const payments = rows.map(p => ({
@@ -784,6 +842,16 @@ async function getAdminServices() {
     try {
       const cached = getCached('services');
       if (cached) return cached;
+      if (useCockroach) {
+        const rows = await pgQuery('select id, name, description, status, plans, created_at as "createdAt" from services');
+        const servicesList = rows.map(s => ({
+          ...s,
+          plans: typeof s.plans === 'string' ? JSON.parse(s.plans) : (s.plans || []),
+          createdAt: s.createdAt ? new Date(s.createdAt).toISOString() : new Date().toISOString()
+        }));
+        setCached('services', servicesList);
+        return servicesList;
+      }
       if (usePlanet) {
         const rows = await mysqlQuery("select id, name, description, status, plans, created_at as createdAt from services");
         const servicesList = rows.map(s => ({

@@ -49,9 +49,19 @@ services:
         value: '60000'
       - key: ENABLE_FIRESTORE_LISTENER
         value: 'false'
+
+      # DB selection: set one of planetscale / supabase / cockroach
       - key: DB_PROVIDER
-        value: 'planetscale'
+        value: 'cockroach'
+
+      # CockroachDB
       - key: DATABASE_URL
+        fromDatabase:
+          name: birrpay-secrets
+          property: COCKROACH_URL
+
+      # Optional PlanetScale
+      - key: PLANETSCALE_URL
         fromDatabase:
           name: birrpay-secrets
           property: PLANETSCALE_URL
