@@ -757,11 +757,54 @@ async function startApp() {
     });
 
     if (process.env.TELEGRAM_BOT_TOKEN) {
-      try {
-        await bot.launch();
-        console.log('✅ Telegram bot launched (polling)');
-      } catch (e) {
-        console.error('❌ Failed to start bot (polling):', e.message);
+      const isProduction = process.env.NODE_ENV === 'production';
+      
+      if (isProduction && process.env.RENDER_EXTERNAL_URL) {
+        // Production: Use webhooks
+        console.log('🎯 Production mode: Setting up webhooks...');
+        const webhookSuccess = await setupWebhook();
+        
+        if (webhookSuccess) {
+          console.log('✅ Telegram bot configured with webhooks');
+        } else {
+          console.error('❌ Failed to set up webhooks, falling back to polling');
+          try {
+            await bot.launch();
+            console.log('✅ Telegram bot launched (polling fallback)');
+          } catch (e) {
+            console.error('❌ Failed to start bot with polling fallback:', e.message);
+          }
+        }
+      } else {
+        // Development: Use polling
+        console.log('🔧 Development mode: Using polling...');
+        console.log('🔍 Bot token check:', process.env.TELEGRAM_BOT_TOKEN ? 'Present' : 'Missing');
+        console.log('🔍 About to call bot.launch()...');
+        
+        try {
+          // Add timeout to prevent hanging
+          const launchPromise = bot.launch();
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Bot launch timeout after 15 seconds')), 15000)
+          );
+          
+          await Promise.race([launchPromise, timeoutPromise]);
+          console.log('✅ Telegram bot launched (polling)');
+          console.log('🎯 Bot is ready to receive commands!');
+        } catch (e) {
+          console.error('❌ Bot launch failed or timed out:', e.message);
+          
+          // Force launch without timeout as final attempt
+          console.log('🔄 Attempting direct launch...');
+          setTimeout(async () => {
+            try {
+              await bot.launch();
+              console.log('✅ Telegram bot launched (direct)');
+            } catch (directError) {
+              console.error('❌ Direct launch also failed:', directError.message);
+            }
+          }, 1000);
+        }
       }
     } else {
       console.warn('⚠️ TELEGRAM_BOT_TOKEN not set; bot not started.');

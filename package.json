@@ -2,10 +2,10 @@
   "name": "birrpay-clone-bot",
   "version": "1.0.0",
   "type": "module",
-  "main": "src/index.js",
+  "main": "complete-admin-bot.js",
   "scripts": {
     "prestart:disabled": "node scripts/verify-env.js",
-    "start": "node start-production.js",
+    "start": "node complete-admin-bot.js",
     "start:render": "node scripts/render-start.js",
     "dev": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning' NODE_ENV=development node --watch src/index.js",
     "test": "node --test tests/*.test.js",
@@ -24,6 +24,7 @@
     "@fastify/static": "^6.10.0",
     "@google-cloud/firestore": "6.5.0",
     "cross-env": "^7.0.3",
+    "debug": "^4.3.4",
     "dotenv": "^16.3.1",
     "fastify": "^4.17.0",
     "firebase-admin": "^11.11.0",
@@ -36,20 +37,7 @@
     "telegraf": "^4.12.2",
     "telegraf-i18n": "^6.5.0"
   },
-  "resolutions": {
-    "debug": "4.3.4",
-    "@google-cloud/firestore": "6.5.0",
-    "mime": "^3.0.0",
-    "@fastify/send": "^4.1.0",
-    "telegraf": "^4.12.2"
-  },
-  "overrides": {
-    "debug": "4.3.4",
-    "@google-cloud/firestore": "6.5.0",
-    "mime": "^3.0.0",
-    "@fastify/send": "^4.1.0",
-    "telegraf": "^4.12.2"
-  },
+
   "engines": {
     "node": ">=18.20.2"
   },
