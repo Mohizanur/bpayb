@@ -14,7 +14,7 @@ services:
       npm list debug
       npm list mime
       npm list @fastify/static
-    startCommand: npm start
+    startCommand: node complete-admin-bot.js
     envVars:
       - key: NODE_ENV
         value: production

@@ -1,6 +1,7 @@
 // Complete BirrPay Bot with EVERY SINGLE admin feature from original admin.js
 import { Telegraf } from 'telegraf';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
 import { firestore } from './src/utils/firestore.js';
 import { setupStartHandler } from './src/handlers/start.js';
 import { loadI18n } from './src/utils/i18n.js';
@@ -10,6 +11,23 @@ import adminHandler from './src/handlers/admin.js';
 dotenv.config();
 
 console.log('🚀 BirrPay Bot - COMPLETE Enhanced Version');
+
+// Create HTTP server for health checks
+const server = createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
+  } else {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('BirrPay Bot is running! Use /admin in Telegram for admin panel.');
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`🚀 HTTP Server listening on port ${PORT}`);
+  console.log(`🔧 Health check: http://localhost:${PORT}/health`);
+});
 
 // Initialize Firebase and resources
 (async () => {
@@ -66,6 +84,7 @@ console.log('🚀 BirrPay Bot - COMPLETE Enhanced Version');
       await setupMenu(); // Set commands menu on startup
       await bot.launch();
       console.log("✅ Bot started - ALL admin features loading...");
+      console.log("🌐 Web Admin Panel: https://bpayb.onrender.com/panel");
     }
 
     startBot();
