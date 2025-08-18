@@ -14,6 +14,7 @@ services:
       npm list debug
       npm list mime
       npm list @fastify/static
+      echo "✅ Build completed - using complete-admin-bot.js"
     startCommand: node complete-admin-bot.js
     envVars:
       - key: NODE_ENV
