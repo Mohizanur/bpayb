@@ -28,15 +28,146 @@ const mimeTypes = {
   '.ico': 'image/x-icon'
 };
 
+// Helper function to parse request body
+function parseBody(req) {
+  return new Promise((resolve) => {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(body));
+      } catch {
+        resolve({});
+      }
+    });
+  });
+}
+
+// Helper function to send JSON response
+function sendJson(res, data, status = 200) {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(data));
+}
+
+// Mock admin data for demo purposes
+const mockAdminData = {
+  stats: {
+    totalUsers: 1250,
+    activeUsers: 890,
+    totalSubscriptions: 567,
+    activeSubscriptions: 423,
+    totalRevenue: 125000,
+    monthlyRevenue: 15000
+  },
+  users: [
+    { id: 1, username: 'user1', status: 'active', joinDate: '2024-01-15' },
+    { id: 2, username: 'user2', status: 'active', joinDate: '2024-01-20' }
+  ],
+  subscriptions: [
+    { id: 1, userId: 1, service: 'Netflix', status: 'active', price: 15 },
+    { id: 2, userId: 2, service: 'Spotify', status: 'active', price: 10 }
+  ],
+  payments: [
+    { id: 1, userId: 1, amount: 15, status: 'completed', date: '2024-01-15' },
+    { id: 2, userId: 2, amount: 10, status: 'completed', date: '2024-01-20' }
+  ],
+  services: [
+    { id: 1, name: 'Netflix', price: 15, status: 'active' },
+    { id: 2, name: 'Spotify', price: 10, status: 'active' }
+  ]
+};
+
 // Create HTTP server for health checks and admin panel
-const server = createServer((req, res) => {
+const server = createServer(async (req, res) => {
   const url = req.url;
+  
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
   
   // Health check endpoint
   if (url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
     return;
+  }
+  
+  // API endpoints
+  if (url.startsWith('/api/')) {
+    try {
+      // Admin login
+      if (url === '/api/admin/login' && req.method === 'POST') {
+        const body = await parseBody(req);
+        // Simple mock login - accept any credentials for demo
+        sendJson(res, { 
+          success: true, 
+          token: 'mock-admin-token',
+          user: { id: 1, username: 'admin' }
+        });
+        return;
+      }
+      
+      // Admin stats
+      if (url === '/api/admin/stats') {
+        sendJson(res, mockAdminData.stats);
+        return;
+      }
+      
+      // Users endpoint
+      if (url === '/api/users') {
+        sendJson(res, mockAdminData.users);
+        return;
+      }
+      
+      // Subscriptions endpoint
+      if (url === '/api/subscriptions') {
+        sendJson(res, mockAdminData.subscriptions);
+        return;
+      }
+      
+      // Payments endpoint
+      if (url === '/api/payments') {
+        sendJson(res, mockAdminData.payments);
+        return;
+      }
+      
+      // Services endpoint
+      if (url === '/api/services/manage') {
+        sendJson(res, mockAdminData.services);
+        return;
+      }
+      
+      // Admin services endpoint
+      if (url === '/api/admin/services') {
+        sendJson(res, mockAdminData.services);
+        return;
+      }
+      
+      // User suspend/activate endpoints
+      if (url.match(/\/api\/users\/\d+\/(suspend|activate)/)) {
+        sendJson(res, { success: true, message: 'User status updated' });
+        return;
+      }
+      
+      // Default API response
+      sendJson(res, { error: 'API endpoint not found' }, 404);
+      return;
+      
+    } catch (error) {
+      console.error('API Error:', error);
+      sendJson(res, { error: 'Internal server error' }, 500);
+      return;
+    }
   }
   
   // Admin panel route
