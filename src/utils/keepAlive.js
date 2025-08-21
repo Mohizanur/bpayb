@@ -1,92 +1,118 @@
-// Fallback logger if the logger module is not available
-const fallbackLogger = {
-  info: (...args) => console.log('[INFO]', ...args),
-  error: (...args) => console.error('[ERROR]', ...args),
-  warn: (...args) => console.warn('[WARN]', ...args),
-  debug: (...args) => process.env.NODE_ENV === 'development' && console.debug('[DEBUG]', ...args)
-};
+import https from 'https';
+import http from 'http';
 
-// Try to import the logger, use fallback if not available
-let logger = fallbackLogger;
-
-async function initLogger() {
-  try {
-    const loggerModule = await import('./logger.js');
-    logger = loggerModule.logger || fallbackLogger;
-  } catch (e) {
-    logger = fallbackLogger;
-    logger.warn('Using fallback logger. Could not import logger.js:', e.message);
-  }
-}
-
-// Initialize logger asynchronously
-initLogger();
-
-// Import fetch
-import nodeFetch from 'node-fetch';
-const fetch = nodeFetch.default || nodeFetch;
-
-const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes (less than 15min timeout)
-// Use public URL in production, localhost in development
-const PING_URL = process.env.SELF_PING_URL || 
-  (process.env.NODE_ENV === 'production' 
-    ? (process.env.WEB_APP_URL || process.env.RENDER_EXTERNAL_URL || `https://${process.env.RENDER_SERVICE_NAME || 'bpayb'}.onrender.com`)
-    : `http://localhost:${process.env.PORT || 10000}`);
-
-class KeepAlive {
+class KeepAliveManager {
   constructor() {
-    this.intervalId = null;
     this.isRunning = false;
-  }
-
-  async ping() {
-    try {
-      const response = await fetch(`${PING_URL}/api/health`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      logger.info('Keep-alive ping successful');
-    } catch (error) {
-      logger.error('Keep-alive ping failed:', error.message);
-      // Attempt to restart the server if ping fails
-      if (process.env.NODE_ENV === 'production') {
-        process.exit(1); // Let PM2 handle the restart
-      }
+    this.interval = null;
+    this.healthCheckUrl = process.env.HEALTH_CHECK_URL || 'http://localhost:3000/health';
+    
+    // Set keep-alive URL based on environment
+    if (process.env.NODE_ENV === 'production') {
+      this.keepAliveUrl = process.env.KEEP_ALIVE_URL || process.env.RENDER_EXTERNAL_URL || 'https://bpayb.onrender.com';
+    } else {
+      this.keepAliveUrl = 'http://localhost:3000'; // Local development
     }
+    
+    this.intervalMs = 14 * 60 * 1000; // 14 minutes (Render timeout is 15 minutes)
   }
 
   start() {
     if (this.isRunning) return;
     
-    logger.info('Starting keep-alive service...');
+    const env = process.env.NODE_ENV || 'development';
+    console.log(`🔄 Starting keep-alive system (${env} mode)...`);
+    console.log(`📍 Health check URL: ${this.healthCheckUrl}`);
+    console.log(`📍 Keep-alive URL: ${this.keepAliveUrl}`);
     this.isRunning = true;
     
-    // Initial ping
-    this.ping();
+    // Initial health check
+    this.performHealthCheck();
     
-    // Schedule regular pings
-    this.intervalId = setInterval(() => {
-      this.ping();
-    }, PING_INTERVAL);
+    // Set up periodic keep-alive
+    this.interval = setInterval(() => {
+      this.performKeepAlive();
+    }, this.intervalMs);
     
-    // Handle process termination
-    process.on('SIGINT', this.cleanup.bind(this));
-    process.on('SIGTERM', this.cleanup.bind(this));
+    // Also set up health check every 5 minutes
+    setInterval(() => {
+      this.performHealthCheck();
+    }, 5 * 60 * 1000);
   }
 
   stop() {
-    this.cleanup();
-  }
-
-  cleanup() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = null;
     }
     this.isRunning = false;
-    logger.info('Keep-alive service stopped');
+    console.log('🛑 Keep-alive system stopped');
+  }
+
+  async performHealthCheck() {
+    try {
+      const response = await this.makeRequest(this.healthCheckUrl);
+      if (response.status === 200) {
+        console.log('✅ Health check passed');
+      } else {
+        console.warn('⚠️ Health check failed:', response.status);
+      }
+    } catch (error) {
+      // Don't log errors in development if localhost is not accessible
+      if (process.env.NODE_ENV === 'development' && error.message.includes('ECONNREFUSED')) {
+        console.log('ℹ️ Health check skipped (local development)');
+      } else {
+        console.error('❌ Health check error:', error.message);
+      }
+    }
+  }
+
+  async performKeepAlive() {
+    try {
+      console.log('🔄 Performing keep-alive request...');
+      const response = await this.makeRequest(this.keepAliveUrl);
+      if (response.status === 200) {
+        console.log('✅ Keep-alive successful');
+      } else {
+        console.warn('⚠️ Keep-alive failed:', response.status);
+      }
+    } catch (error) {
+      // Don't log errors in development if localhost is not accessible
+      if (process.env.NODE_ENV === 'development' && error.message.includes('ECONNREFUSED')) {
+        console.log('ℹ️ Keep-alive skipped (local development)');
+      } else {
+        console.error('❌ Keep-alive error:', error.message);
+      }
+    }
+  }
+
+  makeRequest(url) {
+    return new Promise((resolve, reject) => {
+      const client = url.startsWith('https') ? https : http;
+      
+      const req = client.get(url, {
+        timeout: 10000, // 10 second timeout
+        headers: {
+          'User-Agent': 'BirrPay-Bot-KeepAlive/1.0'
+        }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          resolve({
+            status: res.statusCode,
+            data: data
+          });
+        });
+      });
+
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+    });
   }
 }
 
-const keepAlive = new KeepAlive();
-export default keepAlive;
+export const keepAliveManager = new KeepAliveManager();

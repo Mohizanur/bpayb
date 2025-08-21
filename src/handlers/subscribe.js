@@ -1,17 +1,13 @@
 /**
- * Import admin from 'firebase-admin';
- */
-
-import { firestore } from '../utils/firestore.js';
-
-// Use shared Firestore instance (real or mock based on environment/config)
-
-/**
  * Subscribe handler for the Telegram bot
  * @param {import('telegraf').Telegraf} bot - The Telegraf bot instance
  */
+
+import { firestore } from '../utils/firestore.js';
+import { cache } from '../utils/cache.js';
+
 function setupSubscribeHandler(bot) {
-  // Handle service selection with more flexible ID matching
+  // Handle service selection with more flexible ID matching and caching
   bot.action(/^select_service_([a-z0-9_-]+)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
@@ -20,15 +16,10 @@ function setupSubscribeHandler(bot) {
       // Show loading message
       await ctx.answerCbQuery();
       
-      // Get the service details from the context or database
-      let service;
+      // Get the service details using cache first
+      let service = cache.getServices()?.find(s => s.id === serviceId || s.serviceID === serviceId);
       
-      // First try to get from context
-      if (ctx.services) {
-        service = ctx.services.find(s => s.id === serviceId || s.serviceID === serviceId);
-      }
-      
-      // If not found in context, try to fetch from Firestore
+      // If not found in cache, try to fetch from Firestore
       if (!service) {
         try {
           const serviceDoc = await firestore.collection('services').doc(serviceId).get();
@@ -125,7 +116,20 @@ function setupSubscribeHandler(bot) {
       const lang = ctx.userLang || 'en';
       
       // Get the service details
-      const service = ctx.services?.find(s => s.id === serviceId);
+      let service = ctx.services?.find(s => s.id === serviceId || s.serviceID === serviceId);
+      
+      // If not found in context, try to fetch from Firestore
+      if (!service) {
+        try {
+          const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+          if (serviceDoc.exists) {
+            service = { id: serviceDoc.id, ...serviceDoc.data() };
+          }
+        } catch (error) {
+          console.error('Error fetching service from Firestore:', error);
+        }
+      }
+      
       if (!service) {
         await ctx.answerCbQuery(lang === 'am' ? 'አገልግሎት አልተገኘም' : 'Service not found');
         return;
@@ -179,7 +183,20 @@ function setupSubscribeHandler(bot) {
       const lang = ctx.userLang || 'en';
       
       // Get the service details
-      const service = ctx.services?.find(s => s.id === serviceId);
+      let service = ctx.services?.find(s => s.id === serviceId || s.serviceID === serviceId);
+      
+      // If not found in context, try to fetch from Firestore
+      if (!service) {
+        try {
+          const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+          if (serviceDoc.exists) {
+            service = { id: serviceDoc.id, ...serviceDoc.data() };
+          }
+        } catch (error) {
+          console.error('Error fetching service from Firestore:', error);
+        }
+      }
+      
       if (!service) {
         await ctx.answerCbQuery(lang === 'am' ? 'አገልግሎት አልተገኘም' : 'Service not found');
         return;
@@ -340,276 +357,6 @@ Your service will start after admin approves your payment.`;
       await ctx.answerCbQuery(lang === 'am' ? 'ስህተት ተፈጥሯል' : 'An error occurred');
     }
   });
-
-  // Handle photo messages (payment proof)
-  bot.on('photo', async (ctx) => {
-    try {
-      const userId = String(ctx.from.id);
-      const userState = await firestore.collection('userStates').doc(userId).get();
-      
-      if (!userState.exists || userState.data().state !== 'awaiting_payment_proof') {
-        return; // Not waiting for payment proof
-      }
-      
-      const paymentId = userState.data().paymentId;
-      const lang = ctx.userLang || 'en';
-      
-      // Get the highest resolution photo
-      const photo = ctx.message.photo[ctx.message.photo.length - 1];
-      const file = await ctx.telegram.getFile(photo.file_id);
-      const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
-      
-      // Get payment data to create subscription
-      const paymentDoc = await firestore.collection('pendingPayments').doc(paymentId).get();
-      const paymentData = paymentDoc.data();
-      
-      // Generate payment reference
-      const paymentReference = `REF-${Date.now().toString().slice(-8)}-${userId.slice(-4)}`;
-      
-      // Update payment with proof
-      await firestore.collection('pendingPayments').doc(paymentId).update({
-        paymentProof: fileUrl,
-        paymentReference: paymentReference,
-        proofSubmittedAt: new Date().toISOString(),
-        status: 'proof_submitted'
-      });
-      
-      // Create pending subscription
-      const subscriptionId = `sub_${Date.now()}_${userId}`;
-      const months = parseInt(paymentData.duration, 10);
-      const startDate = new Date();
-      const endDate = new Date();
-      endDate.setMonth(endDate.getMonth() + months);
-      
-      const subscriptionData = {
-        userId,
-        serviceId: paymentData.serviceId,
-        serviceName: paymentData.serviceName,
-        duration: paymentData.duration,
-        durationName: paymentData.durationName || `${paymentData.duration} Month${paymentData.duration > 1 ? 's' : ''}`,
-        amount: paymentData.price,
-        price: paymentData.price, // Keep for backward compatibility
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        status: 'pending',
-        paymentId,
-        paymentReference: paymentId,
-        paymentStatus: 'pending',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      await firestore.collection('subscriptions').doc(subscriptionId).set(subscriptionData);
-      
-      // Clear user state
-      await firestore.collection('userStates').doc(userId).delete();
-      
-      // Notify user
-      const userMessage = lang === 'am'
-        ? `✅ *የክፍያ ማስረጃዎ ተቀብለናል!*\n\n` +
-          `አስተናጋጁ ክፍያዎን እያረጋገጠ ነው። አገልግሎቱ ከተረጋገጠ በኋላ ወዲያው ይጀምራል።\n` +
-          `ለማንኛውም ጥያቄ የድጋፍ ቡድናችንን ያነጋግሩ።`
-        : `✅ *Payment Proof Received!*\n\n` +
-          `We've received your payment proof and our team is reviewing it.\n` +
-          `Your subscription will start as soon as we verify your payment.\n` +
-          `Please contact support if you have any questions.`;
-      
-      await ctx.reply(userMessage, { parse_mode: 'Markdown' });
-      
-      // Notify admin with the proof (reuse existing paymentData)
-      
-      const adminMessage = `🆕 *Payment Proof Submitted*\n\n` +
-        `👤 User: ${ctx.from.first_name} ${ctx.from.last_name || ''} (@${ctx.from.username || 'no_username'})\n` +
-        `🆔 User ID: ${userId}\n` +
-        `📱 Service: ${paymentData.serviceName}\n` +
-        `⏳ Duration: ${paymentData.duration}\n` +
-        `💰 Amount: ${paymentData.price.toLocaleString()} ETB\n\n` +
-        `Payment ID: ${paymentId}`;
-      
-      await ctx.telegram.sendPhoto(
-        process.env.ADMIN_TELEGRAM_ID,
-        { url: fileUrl },
-        {
-          caption: adminMessage,
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: '✅ Approve', callback_data: `approve_payment_${paymentId}` },
-                { text: '❌ Reject', callback_data: `reject_payment_${paymentId}` }
-              ]
-            ]
-          }
-        }
-      );
-      
-    } catch (error) {
-      console.error('Error processing payment proof:', error);
-      const lang = ctx.userLang || 'en';
-      await ctx.reply(
-        lang === 'am' 
-          ? 'ስህተት ተፈጥሯል። እባክዎ ቆይተው እንደገና ይሞክሩ።' 
-          : 'An error occurred. Please try again later.'
-      );
-    }
-  });
-
-  // Handle admin approval of payment
-  bot.action(/^approve_payment_(.+)$/i, async (ctx) => {
-    try {
-      const paymentId = ctx.match[1];
-      const adminId = String(ctx.from.id);
-      
-      // Verify admin
-      if (String(adminId) !== process.env.ADMIN_TELEGRAM_ID) {
-        await ctx.answerCbQuery('Unauthorized');
-        return;
-      }
-      
-      // Get payment data
-      const paymentRef = firestore.collection('pendingPayments').doc(paymentId);
-      const paymentDoc = await paymentRef.get();
-      
-      if (!paymentDoc.exists) {
-        await ctx.answerCbQuery('Payment not found');
-        return;
-      }
-      
-      const payment = paymentDoc.data();
-      const userId = payment.userId;
-      const months = parseInt(payment.duration, 10);
-      
-      // Find existing pending subscription
-      const subscriptionsQuery = await firestore.collection('subscriptions')
-        .where('paymentId', '==', paymentId)
-        .where('status', '==', 'pending')
-        .get();
-      
-      if (subscriptionsQuery.empty) {
-        await ctx.answerCbQuery('No pending subscription found');
-        return;
-      }
-      
-      // Update existing subscription to active
-      const subscriptionDoc = subscriptionsQuery.docs[0];
-      const subscriptionId = subscriptionDoc.id;
-      
-      // Calculate subscription dates
-      const startDate = new Date();
-      const endDate = new Date();
-      endDate.setMonth(endDate.getMonth() + months);
-      
-      await firestore.collection('subscriptions').doc(subscriptionId).update({
-        status: 'active',
-        paymentStatus: 'completed',
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        updatedAt: new Date().toISOString(),
-        approvedAt: new Date().toISOString(),
-        approvedBy: adminId
-      });
-      
-      // Update payment status
-      await paymentRef.update({
-        status: 'approved',
-        approvedAt: new Date().toISOString(),
-        approvedBy: adminId,
-        subscriptionId
-      });
-      
-      // Notify admin
-      await ctx.answerCbQuery('✅ Payment approved!');
-      await ctx.editMessageReplyMarkup({
-        inline_keyboard: [
-          [{ text: '✅ Approved', callback_data: 'approved' }]
-        ]
-      });
-      
-      // Notify user
-      const userLang = await getUserLanguage(userId);
-      const userMessage = userLang === 'am'
-        ? `✅ *ክፍያዎ ተረጋግሯል!*\n\n` +
-          `የ${payment.serviceName} የደንበኝነት ምዝገባዎ ተጠናቍሯል!\n` +
-          `ቆይታ: ${months} ${months === 1 ? 'ወር' : 'ወራት'}\n` +
-          `የሚያበቃበት ቀን: ${endDate.toLocaleDateString('en-ET')}\n\n` +
-          `አገልግሎቱን ለመጠቀም የእርስዎ መለያ ዝግጁ ነው። አመሰግናለን!`
-        : `✅ *Payment Verified!*\n\n` +
-          `Your ${payment.serviceName} subscription is now active!\n` +
-          `Duration: ${months} ${months === 1 ? 'Month' : 'Months'}\n` +
-          `Ends on: ${endDate.toLocaleDateString('en-US')}\n\n` +
-          `Your account is now ready to use. Thank you for subscribing!`;
-      
-      await ctx.telegram.sendMessage(userId, userMessage, { parse_mode: 'Markdown' });
-      
-    } catch (error) {
-      console.error('Error approving payment:', error);
-      await ctx.answerCbQuery('Error approving payment');
-    }
-  });
-  
-  // Handle admin rejection of payment
-  bot.action(/^reject_payment_(.+)$/i, async (ctx) => {
-    try {
-      const paymentId = ctx.match[1];
-      
-      // Verify admin
-      if (String(ctx.from.id) !== process.env.ADMIN_TELEGRAM_ID) {
-        await ctx.answerCbQuery('Unauthorized');
-        return;
-      }
-      
-      // Find and update existing pending subscription
-      const subscriptionsQuery = await firestore.collection('subscriptions')
-        .where('paymentId', '==', paymentId)
-        .where('status', '==', 'pending')
-        .get();
-      
-      if (!subscriptionsQuery.empty) {
-        const subscriptionDoc = subscriptionsQuery.docs[0];
-        await firestore.collection('subscriptions').doc(subscriptionDoc.id).update({
-          status: 'rejected',
-          paymentStatus: 'rejected',
-          rejectedAt: new Date().toISOString(),
-          rejectedBy: String(ctx.from.id),
-          updatedAt: new Date().toISOString()
-        });
-      }
-      
-      // Update payment status
-      await firestore.collection('pendingPayments').doc(paymentId).update({
-        status: 'rejected',
-        rejectedAt: new Date().toISOString(),
-        rejectedBy: String(ctx.from.id)
-      });
-      
-      await ctx.answerCbQuery('❌ Payment rejected');
-      await ctx.editMessageReplyMarkup({
-        inline_keyboard: [
-          [{ text: '❌ Rejected', callback_data: 'rejected' }]
-        ]
-      });
-      
-      // Get payment data to notify user
-      const payment = await firestore.collection('pendingPayments').doc(paymentId).get();
-      const paymentData = payment.data();
-      const userId = paymentData.userId;
-      
-      // Notify user
-      const userLang = await getUserLanguage(userId);
-      const userMessage = userLang === 'am'
-        ? `❌ *የክፍያ ማረጋገጫ አልተቀበለም*\n\n` +
-          `ያስገቡት የክፍያ ማስረጃ አልተቀበለም። እባክዎ የበለጠ ዝርዝር ለማግኘት የድጋፍ ቡድናችንን ያነጋግሩ።`
-        : `❌ *Payment Verification Failed*\n\n` +
-          `The payment proof you submitted was not accepted. ` +
-          `Please contact our support team for more details.`;
-      
-      await ctx.telegram.sendMessage(userId, userMessage, { parse_mode: 'Markdown' });
-      
-    } catch (error) {
-      console.error('Error rejecting payment:', error);
-      await ctx.answerCbQuery('Error rejecting payment');
-    }
-  });
   
   // Helper function to get user language
   async function getUserLanguage(userId) {
@@ -624,3 +371,5 @@ Your service will start after admin approves your payment.`;
 }
 
 export default setupSubscribeHandler;
+
+

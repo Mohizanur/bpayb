@@ -82,7 +82,7 @@ console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
 console.log("Bot token length:", process.env.TELEGRAM_BOT_TOKEN?.length || 0);
 console.log("Bot token starts with:", process.env.TELEGRAM_BOT_TOKEN?.substring(0, 10) || "N/A");
 
-// Create simple HTTP server with admin panel support
+// Create simple HTTP server for bot webhooks only
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
   
@@ -90,34 +90,6 @@ const server = http.createServer((req, res) => {
   if (parsedUrl.pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
-    return;
-  }
-  
-  // Admin panel endpoint
-  if (parsedUrl.pathname === '/panel') {
-    try {
-      const panelPath = path.join(process.cwd(), 'panel');
-      const adminHtmlPath = path.join(panelPath, 'admin-fixed.html');
-      
-      // Check if admin panel file exists
-      if (fs.existsSync(adminHtmlPath)) {
-        const html = fs.readFileSync(adminHtmlPath, 'utf8');
-        res.writeHead(200, { 
-          'Content-Type': 'text/html',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        });
-        res.end(html);
-      } else {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('Admin panel not found');
-      }
-    } catch (error) {
-      console.error('Error serving admin panel:', error);
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end('Internal Server Error');
-    }
     return;
   }
   
@@ -157,568 +129,10 @@ const server = http.createServer((req, res) => {
     }
   }
   
-  // API endpoints for admin panel
-  if (parsedUrl.pathname.startsWith('/api/')) {
-    // Handle API requests
-    handleApiRequest(req, res, parsedUrl);
-    return;
-  }
-  
-  // Serve debug HTML page
-  if (parsedUrl.pathname === '/debug' || parsedUrl.pathname === '/debug-login') {
-    res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end(`
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Debug Login</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input {
-            width: 100%;
-            width: 100%;
-        }
-    </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Debug Login</h1>
-    <p>This page is for debugging admin login flow.</p>
-  </div>
-</body>
-</html>`);
-    return;
-  }
-  
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('BirrPay Bot is running');
 });
 
-// Handle API requests for admin panel
-async function handleApiRequest(req, res, parsedUrl) {
-  const pathname = parsedUrl.pathname;
-  
-  // Set CORS headers for admin panel
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200);
-    res.end();
-    return;
-  }
-  
-  // Helper function to validate admin token
-  const validateAdminToken = (req) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('No Authorization header or invalid format');
-      return false;
-    }
-    
-    const token = authHeader.substring(7);
-    try {
-      // Proper JWT token validation
-      const jwt = require('jsonwebtoken');
-      const jwtSecret = process.env.JWT_SECRET || 'birrpay_default_secret_change_in_production';
-      
-      const decoded = jwt.verify(token, jwtSecret);
-      console.log('Token decoded successfully:', { username: decoded.username, role: decoded.role });
-      
-      // Check if token has admin role
-      if (decoded.role !== 'admin') {
-        console.log('Token does not have admin role');
-        return false;
-      }
-      
-      // Token is valid and user is admin
-      console.log('Token validation successful');
-      return true;
-    } catch (error) {
-      console.log('Token validation failed:', error.message);
-      return false;
-    }
-  };
-
-  try {
-    // Debug endpoint to check environment variables
-    if (pathname === '/api/admin/debug' && req.method === 'GET') {
-      console.log('Debug endpoint called');
-      res.writeHead(200, { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-      });
-      res.end(JSON.stringify({ 
-        success: true,
-        adminUsername: process.env.ADMIN_USERNAME || 'admin',
-        adminPasswordSet: !!process.env.ADMIN_PASSWORD,
-        jwtSecretSet: !!process.env.JWT_SECRET,
-        nodeEnv: process.env.NODE_ENV,
-        timestamp: new Date().toISOString()
-      }));
-      return;
-    }
-    
-    // Admin login endpoint
-    if (pathname === '/api/admin/login' && req.method === 'POST') {
-      console.log('Admin login attempt received');
-      let body = '';
-      req.on('data', chunk => {
-        body += chunk.toString();
-      });
-      req.on('end', async () => {
-        try {
-          const { username, password } = JSON.parse(body);
-          console.log('Login attempt for username:', username);
-          console.log('Password length:', password ? password.length : 0);
-          
-          const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-          const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-          
-          console.log('Expected username:', adminUsername);
-          console.log('Expected password length:', adminPassword ? adminPassword.length : 0);
-          console.log('Username match:', username === adminUsername);
-          console.log('Password match:', password === adminPassword);
-          console.log('Environment variables:');
-          console.log('- ADMIN_USERNAME:', process.env.ADMIN_USERNAME ? 'SET' : 'NOT SET');
-          console.log('- ADMIN_PASSWORD:', process.env.ADMIN_PASSWORD ? 'SET' : 'NOT SET');
-          
-          if (username === adminUsername && password === adminPassword) {
-            // Generate proper JWT token
-            const jwt = require('jsonwebtoken');
-            const jwtSecret = process.env.JWT_SECRET || 'birrpay_default_secret_change_in_production';
-            
-            const payload = {
-              username,
-              role: 'admin',
-              iat: Math.floor(Date.now() / 1000),
-              exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
-            };
-            
-            const token = jwt.sign(payload, jwtSecret);
-            console.log('Login successful, token generated');
-            
-            res.writeHead(200, { 
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Methods': 'POST, OPTIONS',
-              'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-            });
-            res.end(JSON.stringify({ 
-              success: true, 
-              token,
-              message: 'Login successful',
-              expiresIn: '24h'
-            }));
-          } else {
-            console.log('Login failed: invalid credentials');
-            res.writeHead(401, { 
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Methods': 'POST, OPTIONS',
-              'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-            });
-            res.end(JSON.stringify({ 
-              success: false, 
-              message: 'Invalid credentials' 
-            }));
-          }
-        } catch (error) {
-          console.error('Login error:', error);
-          res.writeHead(400, { 
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-          });
-          res.end(JSON.stringify({ 
-            success: false, 
-            message: 'Invalid request body' 
-          }));
-        }
-      });
-      return;
-    }
-    
-    // Admin stats endpoint
-    if (pathname === '/api/admin/stats' && req.method === 'GET') {
-      console.log('Admin stats request received');
-      if (!validateAdminToken(req)) {
-        console.log('Admin stats: unauthorized access');
-        res.writeHead(401, { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-        });
-        res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
-        return;
-      }
-      console.log('Admin stats: authorized access, fetching stats');
-      const stats = await getAdminStats();
-      res.writeHead(200, { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-      });
-      res.end(JSON.stringify({ success: true, stats }));
-      return;
-    }
-    
-    // Admin subscriptions endpoint
-    if (pathname === '/api/admin/subscriptions' && req.method === 'GET') {
-      if (!validateAdminToken(req)) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
-        return;
-      }
-      const subscriptions = await getAdminSubscriptions();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, subscriptions }));
-      return;
-    }
-    
-    // Admin users endpoint
-    if (pathname === '/api/admin/users' && req.method === 'GET') {
-      if (!validateAdminToken(req)) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
-        return;
-      }
-      const users = await getAdminUsers();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, users }));
-      return;
-    }
-    
-    // Admin payments endpoint
-    if (pathname === '/api/admin/payments' && req.method === 'GET') {
-      if (!validateAdminToken(req)) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
-        return;
-      }
-      const payments = await getAdminPayments();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, payments }));
-      return;
-    }
-    
-    // Admin services endpoint
-    if (pathname === '/api/admin/services' && req.method === 'GET') {
-      if (!validateAdminToken(req)) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
-        return;
-      }
-      const services = await getAdminServices();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, services }));
-      return;
-    }
-    
-    // Default 404 for unknown API endpoints
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'API endpoint not found' }));
-    
-  } catch (error) {
-    console.error('API Error:', error);
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Internal server error' }));
-  }
-}
-
-// Admin API functions
-const ADMIN_CACHE_TTL_MS = parseInt(process.env.ADMIN_CACHE_TTL_MS || '60000', 10);
-const adminCache = {
-  stats: { data: null, ts: 0 },
-  subscriptions: { data: null, ts: 0 },
-  users: { data: null, ts: 0 },
-  payments: { data: null, ts: 0 },
-  services: { data: null, ts: 0 },
-};
-function getCached(key) {
-  const entry = adminCache[key];
-  if (!entry || !entry.data) return null;
-  if (Date.now() - entry.ts < ADMIN_CACHE_TTL_MS) return entry.data;
-  return null;
-}
-function setCached(key, value) {
-  adminCache[key] = { data: value, ts: Date.now() };
-}
-
-// Coalesce concurrent requests to the same admin resource to reduce Firestore hits
-const inFlightRequests = new Map();
-function coalesce(key, taskFn) {
-  if (inFlightRequests.has(key)) {
-    return inFlightRequests.get(key);
-  }
-  const promise = (async () => {
-    try {
-      return await taskFn();
-    } finally {
-      inFlightRequests.delete(key);
-    }
-  })();
-  inFlightRequests.set(key, promise);
-  return promise;
-}
-
-// Quota cooldown to avoid hammering Firestore when RESOURCE_EXHAUSTED
-const FIRESTORE_READS_COOLDOWN_MS = parseInt(process.env.FIRESTORE_READS_COOLDOWN_MS || '900000', 10); // 15 minutes
-let lastQuotaErrorAt = 0;
-function isInQuotaCooldown() {
-  return Date.now() - lastQuotaErrorAt < FIRESTORE_READS_COOLDOWN_MS;
-}
-function markQuotaIfNeeded(error) {
-  const message = String(error?.message || '');
-  if (error?.code === 8 || /RESOURCE_EXHAUSTED|Quota exceeded/i.test(message)) {
-    lastQuotaErrorAt = Date.now();
-  }
-}
-
-async function getAdminStats() {
-  return coalesce('stats', async () => {
-    try {
-      const cached = getCached('stats');
-      if (cached) return cached;
-      if (isInQuotaCooldown()) {
-        return { totalUsers: 0, totalSubscriptions: 0, activeSubscriptions: 0, totalPayments: 0, totalRevenue: '0.00', quotaExceeded: true };
-      }
-      // Fetch basic stats from Firestore
-      const usersSnapshot = await firestore.collection('users').get();
-      const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
-      const paymentsSnapshot = await firestore.collection('pendingPayments').get();
-      
-      const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => 
-        doc.data().status === 'active'
-      ).length;
-      
-      const totalRevenue = subscriptionsSnapshot.docs.reduce((sum, doc) => {
-        const data = doc.data();
-        return sum + (parseFloat(data.amount) || 0);
-      }, 0);
-      
-      const result = {
-        totalUsers: usersSnapshot.size,
-        totalSubscriptions: subscriptionsSnapshot.size,
-        activeSubscriptions,
-        totalPayments: paymentsSnapshot.size,
-        totalRevenue: totalRevenue.toFixed(2)
-      };
-      setCached('stats', result);
-      return result;
-    } catch (error) {
-      console.error('Error getting admin stats:', error);
-      markQuotaIfNeeded(error);
-      const cached = getCached('stats');
-      if (cached) return cached;
-      return {
-        totalUsers: 0,
-        totalSubscriptions: 0,
-        activeSubscriptions: 0,
-        totalPayments: 0,
-        totalRevenue: '0.00',
-        quotaExceeded: true
-      };
-    }
-  });
-}
-
-async function getAdminSubscriptions() {
-  return coalesce('subscriptions', async () => {
-    try {
-      const cached = getCached('subscriptions');
-      if (cached) return cached;
-      if (isInQuotaCooldown()) {
-        return cached || [];
-      }
-      const snapshot = await firestore.collection('subscriptions').orderBy('createdAt', 'desc').limit(50).get();
-      const subscriptions = [];
-      
-      for (const doc of snapshot.docs) {
-        const data = doc.data();
-        subscriptions.push({
-          id: doc.id,
-          userId: data.userId,
-          serviceName: data.serviceName || data.service || 'Unknown',
-          duration: data.duration || data.durationName || 'Unknown',
-          amount: data.amount || 0,
-          status: data.status || 'unknown',
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-          endDate: data.endDate?.toDate?.()?.toISOString() || null
-        });
-      }
-      setCached('subscriptions', subscriptions);
-      return subscriptions;
-    } catch (error) {
-      console.error('Error getting subscriptions:', error);
-      markQuotaIfNeeded(error);
-      const cached = getCached('subscriptions');
-      return cached || [];
-    }
-  });
-}
-
-async function getAdminUsers() {
-  return coalesce('users', async () => {
-    try {
-      const cached = getCached('users');
-      if (cached) return cached;
-      if (isInQuotaCooldown()) {
-        return cached || [];
-      }
-      const snapshot = await firestore.collection('users').orderBy('createdAt', 'desc').limit(50).get();
-      const users = [];
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        users.push({
-          id: doc.id,
-          firstName: data.firstName || '',
-          lastName: data.lastName || '',
-          username: data.username || '',
-          phone: data.phone || '',
-          language: data.language || 'en',
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-          phoneVerified: data.phoneVerified || false
-        });
-      });
-      setCached('users', users);
-      return users;
-    } catch (error) {
-      console.error('Error getting users:', error);
-      markQuotaIfNeeded(error);
-      const cached = getCached('users');
-      return cached || [];
-    }
-  });
-}
-
-async function getAdminPayments() {
-  return coalesce('payments', async () => {
-    try {
-      const cached = getCached('payments');
-      if (cached) return cached;
-      if (isInQuotaCooldown()) {
-        return cached || [];
-      }
-      const snapshot = await firestore.collection('pendingPayments').orderBy('createdAt', 'desc').limit(50).get();
-      const payments = [];
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        payments.push({
-          id: doc.id,
-          userId: data.userId,
-          amount: data.amount || 0,
-          service: data.service || 'Unknown',
-          duration: data.duration || 'Unknown',
-          status: data.status || 'pending',
-          paymentReference: data.paymentReference || '',
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
-        });
-      });
-      setCached('payments', payments);
-      return payments;
-    } catch (error) {
-      console.error('Error getting payments:', error);
-      markQuotaIfNeeded(error);
-      const cached = getCached('payments');
-      return cached || [];
-    }
-  });
-}
-
-async function getAdminServices() {
-  return coalesce('services', async () => {
-    try {
-      const cached = getCached('services');
-      if (cached) return cached;
-      if (isInQuotaCooldown()) {
-        // Try local services fallback directly during cooldown
-        try {
-          const local = await loadServices();
-          const fallback = (local || []).map(s => ({
-            id: s.serviceID || s.id || s.name,
-            name: s.name || '',
-            description: s.description || '',
-            status: 'active',
-            plans: s.plans || [],
-            createdAt: new Date().toISOString()
-          }));
-          setCached('services', fallback);
-          return fallback;
-        } catch (_) {
-          return cached || [];
-        }
-      }
-      const snapshot = await firestore.collection('services').get();
-      const servicesList = [];
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        servicesList.push({
-          id: doc.id,
-          name: data.name || '',
-          description: data.description || '',
-          status: data.status || 'active',
-          plans: data.plans || [],
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
-        });
-      });
-      setCached('services', servicesList);
-      return servicesList;
-    } catch (error) {
-      console.error('Error getting services:', error);
-      markQuotaIfNeeded(error);
-      const cached = getCached('services');
-      if (cached) return cached;
-      try {
-        const local = await loadServices();
-        const fallback = (local || []).map(s => ({
-          id: s.serviceID || s.id || s.name,
-          name: s.name || '',
-          description: s.description || '',
-          status: 'active',
-          plans: s.plans || [],
-          createdAt: new Date().toISOString()
-        }));
-        setCached('services', fallback);
-        return fallback;
-      } catch (e) {
-        return [];
-      }
-    }
-  });
-}
 // Get current directory for serving static files
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -740,6 +154,70 @@ try {
   services = [];
 }
 
+// Helper function to set webhook with retry logic
+const setupWebhook = async (baseUrl, maxRetries = 3, delay = 5000) => {
+  try {
+    // Ensure the URL is properly formatted
+    const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const webhookUrl = `https://${cleanUrl}/telegram`;
+    
+    console.log(`🔗 Setting up webhook to: ${webhookUrl}`);
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Webhook setup attempt ${attempt}/${maxRetries}...`);
+        
+        // First, delete any existing webhook
+        console.log('ℹ️  Deleting existing webhook...');
+        await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+        
+        // Then set the new webhook
+        console.log('ℹ️  Setting new webhook...');
+        const setWebhookResult = await bot.telegram.setWebhook(webhookUrl, {
+          allowed_updates: ['message', 'callback_query', 'chat_member', 'chat_join_request'],
+          drop_pending_updates: true
+        });
+        
+        console.log('ℹ️  Webhook set result:', setWebhookResult);
+        
+        // Verify the webhook was set correctly
+        console.log('ℹ️  Verifying webhook...');
+        const webhookInfo = await bot.telegram.getWebhookInfo();
+        
+        console.log('📋 Webhook info:', {
+          url: webhookInfo.url,
+          has_custom_certificate: webhookInfo.has_custom_certificate,
+          pending_update_count: webhookInfo.pending_update_count,
+          last_error_date: webhookInfo.last_error_date ? new Date(webhookInfo.last_error_date * 1000).toISOString() : null,
+          last_error_message: webhookInfo.last_error_message
+        });
+        
+        if (webhookInfo.url === webhookUrl) {
+          console.log('✅ Webhook set successfully');
+          return true;
+        } else {
+          throw new Error(`Webhook URL mismatch. Expected: ${webhookUrl}, Got: ${webhookInfo.url}`);
+        }
+      } catch (error) {
+        console.error(`❌ Webhook setup attempt ${attempt} failed:`, error.message);
+        
+        if (attempt < maxRetries) {
+          const waitTime = delay / 1000;
+          console.log(`⏳ Retrying in ${waitTime} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          throw error; // Re-throw to be caught by the outer try-catch
+        }
+      }
+    }
+    
+    return false; // If we get here, all retries failed
+  } catch (error) {
+    console.error('❌ Fatal error in webhook setup:', error);
+    return false;
+  }
+};
+
 // Start the HTTP server and Telegram bot (polling)
 async function startApp() {
   try {
@@ -748,10 +226,7 @@ async function startApp() {
       server.listen(port, '0.0.0.0', (err) => {
         if (err) return reject(err);
         console.log(`🚀 Server listening on port ${port}`);
-        const adminUrl = process.env.RENDER_EXTERNAL_URL
-          ? `${process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '')}/panel`
-          : `http://localhost:${port}/panel`;
-        console.log(`🔧 Admin Panel: ${adminUrl}`);
+        console.log(`🤖 Telegram Bot is ready!`);
         resolve();
       });
     });
@@ -762,18 +237,36 @@ async function startApp() {
       if (isProduction && process.env.RENDER_EXTERNAL_URL) {
         // Production: Use webhooks
         console.log('🎯 Production mode: Setting up webhooks...');
-        const webhookSuccess = await setupWebhook();
         
-        if (webhookSuccess) {
-          console.log('✅ Telegram bot configured with webhooks');
-        } else {
-          console.error('❌ Failed to set up webhooks, falling back to polling');
-          try {
+        // Try to get the Render URL from environment variables
+        const renderUrl = process.env.WEB_APP_URL ||
+                          process.env.RENDER_EXTERNAL_URL || 
+                          `https://${process.env.RENDER_SERVICE_NAME || 'bpayb'}.onrender.com`;
+        
+        if (!renderUrl) {
+          console.error('❌ No Render URL found in environment variables');
+          await bot.launch();
+          console.log('✅ Telegram bot launched (polling fallback)');
+          return;
+        }
+        
+        console.log(`🌐 Using Render URL: ${renderUrl}`);
+        
+        try {
+          const webhookSuccess = await setupWebhook(renderUrl);
+          
+          if (webhookSuccess) {
+            console.log('✅ Telegram bot configured with webhooks');
+          } else {
+            console.error('❌ Failed to set up webhooks, falling back to polling');
             await bot.launch();
             console.log('✅ Telegram bot launched (polling fallback)');
-          } catch (e) {
-            console.error('❌ Failed to start bot with polling fallback:', e.message);
           }
+        } catch (error) {
+          console.error('❌ Error setting up webhook:', error.message);
+          console.log('📱 Telegram Bot: Falling back to polling mode due to error');
+          await bot.launch();
+          console.log('✅ Telegram bot launched (polling fallback)');
         }
       } else {
         // Development: Use polling
@@ -806,6 +299,98 @@ async function startApp() {
           }, 1000);
         }
       }
+
+      // CRITICAL: Register ALL handlers AFTER bot launch
+      console.log("🚀 REGISTERING ALL HANDLERS...");
+      
+      try {
+        // Register admin handler first so /admin works and inline buttons are available
+        adminHandler(bot);
+        console.log("✅ Admin handler registered");
+      } catch (e) {
+        console.error("❌ Failed to register admin handler:", e.message);
+      }
+
+      try {
+        // Register all other handlers
+        setupStartHandler(bot);
+        console.log("✅ Start handler registered");
+      } catch (e) {
+        console.error("❌ Failed to register start handler:", e.message);
+      }
+
+      try {
+        setupSubscribeHandler(bot);
+        console.log("✅ Subscribe handler registered");
+      } catch (e) {
+        console.error("❌ Failed to register subscribe handler:", e.message);
+      }
+
+      try {
+        supportHandler(bot);
+        console.log("✅ Support handler registered");
+      } catch (e) {
+        console.error("❌ Failed to register support handler:", e.message);
+      }
+
+      try {
+        langHandler(bot);
+        console.log("✅ Language handler registered");
+      } catch (e) {
+        console.error("❌ Failed to register language handler:", e.message);
+      }
+
+      try {
+        faqHandler(bot);
+        console.log("✅ FAQ handler registered");
+      } catch (e) {
+        console.error("❌ Failed to register FAQ handler:", e.message);
+      }
+
+      try {
+        mySubscriptionsHandler(bot);
+        console.log("✅ My subscriptions handler registered");
+      } catch (e) {
+        console.error("❌ Failed to register my subscriptions handler:", e.message);
+      }
+
+      try {
+        cancelSubscriptionHandler(bot);
+        console.log("✅ Cancel subscription handler registered");
+      } catch (e) {
+        console.error("❌ Failed to register cancel subscription handler:", e.message);
+      }
+
+      try {
+        helpHandler(bot);
+        console.log("✅ Help handler registered");
+      } catch (e) {
+        console.error("❌ Failed to register help handler:", e.message);
+      }
+
+      try {
+        screenshotUploadHandler(bot);
+        console.log("✅ Screenshot upload handler registered");
+      } catch (e) {
+        console.error("❌ Failed to register screenshot upload handler:", e.message);
+      }
+
+      try {
+        registerAdminPaymentHandlers(bot);
+        console.log("✅ Admin payment handlers registered");
+      } catch (e) {
+        console.error("❌ Failed to register admin payment handlers:", e.message);
+      }
+
+      try {
+        firestoreListener(bot);
+        console.log("✅ Firestore listener registered");
+      } catch (e) {
+        console.error("❌ Failed to register firestore listener:", e.message);
+      }
+
+      console.log("🎯 All handlers registered successfully!");
+
     } else {
       console.warn('⚠️ TELEGRAM_BOT_TOKEN not set; bot not started.');
     }
@@ -824,3 +409,5 @@ async function startApp() {
 }
 
 startApp();
+
+

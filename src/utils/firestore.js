@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { performanceMonitor } from './performanceMonitor.js';
 
 let firestore = null;
 let isFirebaseConnected = false;
@@ -224,6 +225,75 @@ function createMockFirestore() {
   return api;
 }
 
+// Create tracked Firestore wrapper
+function createTrackedFirestore(db) {
+  const trackedDb = {
+    collection: (collectionName) => {
+      const col = db.collection(collectionName);
+      return {
+        doc: (docId) => {
+          const docRef = col.doc(docId);
+          return {
+            get: async () => {
+              performanceMonitor.trackFirestoreOperation('read');
+              return await docRef.get();
+            },
+            set: async (data, options) => {
+              performanceMonitor.trackFirestoreOperation('write');
+              return await docRef.set(data, options);
+            },
+            update: async (data) => {
+              performanceMonitor.trackFirestoreOperation('write');
+              return await docRef.update(data);
+            },
+            delete: async () => {
+              performanceMonitor.trackFirestoreOperation('delete');
+              return await docRef.delete();
+            }
+          };
+        },
+        get: async () => {
+          performanceMonitor.trackFirestoreOperation('read');
+          return await col.get();
+        },
+        add: async (data) => {
+          performanceMonitor.trackFirestoreOperation('write');
+          return await col.add(data);
+        },
+        where: (field, operator, value) => {
+          const query = col.where(field, operator, value);
+          return {
+            get: async () => {
+              performanceMonitor.trackFirestoreOperation('read');
+              return await query.get();
+            },
+            limit: (limitValue) => {
+              const limitedQuery = query.limit(limitValue);
+              return {
+                get: async () => {
+                  performanceMonitor.trackFirestoreOperation('read');
+                  return await limitedQuery.get();
+                }
+              };
+            }
+          };
+        },
+        limit: (limitValue) => {
+          const limitedCol = col.limit(limitValue);
+          return {
+            get: async () => {
+              performanceMonitor.trackFirestoreOperation('read');
+              return await limitedCol.get();
+            }
+          };
+        }
+      };
+    }
+  };
+  
+  return trackedDb;
+}
+
 // Test Firebase connection
 async function testFirebaseConnection(dbInstance) {
   try {
@@ -438,9 +508,13 @@ let firestoreManager = null;
 try {
   console.log("🚀 Initializing Firebase connection...");
   const db = await initializeFirebase();
-  firestore = db;
-  firestoreManager = new FirestoreManager(db);
-  console.log("✅ Firebase integration completed successfully");
+  
+  // Wrap with performance tracking
+  const trackedDb = createTrackedFirestore(db);
+  
+  firestore = trackedDb;
+  firestoreManager = new FirestoreManager(trackedDb);
+  console.log("✅ Firebase integration completed successfully with performance tracking");
 } catch (error) {
   // We should not reach here since initializeFirebase falls back to mock
   console.error("💥 Unexpected error during Firebase initialization:", error.message);

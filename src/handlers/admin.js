@@ -1,5 +1,6 @@
 import { firestore } from "../utils/firestore.js";
 import { getSupportMessages } from "../utils/database.js";
+import path from 'path';
 
 // Utility function to escape Markdown special characters
 const escapeMarkdown = (text) => {
@@ -42,6 +43,24 @@ const ignoreCallbackError = (error) => {
     return; // Ignore these specific errors
   }
   console.error('Callback query error:', error);
+};
+
+// Utility function to handle callback queries with timeout protection
+const handleCallbackWithTimeout = async (ctx, handler) => {
+  try {
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+    // Then execute the actual handler
+    await handler(ctx);
+  } catch (error) {
+    console.error('Error in callback handler:', error);
+    // Try to answer with error if callback hasn't been answered yet
+    try {
+      await ctx.answerCbQuery('❌ Error occurred');
+    } catch (e) {
+      // Ignore if callback already answered
+    }
+  }
 };
 
 // Helper function for error logging
@@ -503,7 +522,12 @@ export default function adminHandler(bot) {
       return;
     }
     
-    const userId = ctx.match[1];
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        const userId = ctx.match[1];
     
     try {
       // Show ban reason input
@@ -592,7 +616,12 @@ export default function adminHandler(bot) {
       return;
     }
     
-    const userId = ctx.match[1];
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        const userId = ctx.match[1];
     
     try {
       // Import unbanUser function
@@ -704,10 +733,18 @@ export default function adminHandler(bot) {
 
   // Handle /admin command
   bot.command('admin', async (ctx) => {
-    if (!(await isAuthorizedAdmin(ctx))) {
+    console.log("🔑 ADMIN.JS: Admin command received from user:", ctx.from.id);
+    
+    const isAdmin = await isAuthorizedAdmin(ctx);
+    console.log("🔑 ADMIN.JS: Admin check result:", isAdmin);
+    
+    if (!isAdmin) {
+      console.log("❌ ADMIN.JS: Unauthorized admin access attempt from user:", ctx.from.id);
       await ctx.reply("❌ **Access Denied**\n\nThis command is restricted to authorized administrators only.\n\n🔒 All access attempts are logged for security.");
       return;
     }
+    
+    console.log("✅ ADMIN.JS: Admin authorized, loading admin panel");
 
     // Log admin access
     await logAdminAction('admin_panel_access', ctx.from.id, {
@@ -776,7 +813,9 @@ export default function adminHandler(bot) {
       const keyboard = {
         inline_keyboard: [
           [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
-          [{ text: '🎯 Custom Plans', callback_data: 'admin_custom_plans' }, { text: '💳 Payment Methods', callback_data: 'admin_payments' }],
+          [{ text: '🛍️ Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
+          [{ text: '💳 Payment Methods', callback_data: 'admin_payments' }],
+          [{ text: '📊 Performance', callback_data: 'admin_performance' }],
           [{ text: '💬 Broadcast Message', callback_data: 'admin_broadcast' }],
           [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
         ]
@@ -1032,7 +1071,12 @@ export default function adminHandler(bot) {
       return;
     }
     
+    
+    
+    // Answer callback immediately to prevent timeout
     await ctx.answerCbQuery();
+
+        await ctx.answerCbQuery();
     await showUsersList(ctx, 0);
   });
 
@@ -1043,7 +1087,12 @@ export default function adminHandler(bot) {
       return;
     }
     
-    const direction = ctx.match[1];
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        const direction = ctx.match[1];
     let page = parseInt(ctx.match[2]);
     const filter = ctx.match[3];
     
@@ -1064,7 +1113,12 @@ export default function adminHandler(bot) {
       return;
     }
     
-    const filter = ctx.match[1];
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        const filter = ctx.match[1];
     const page = parseInt(ctx.match[2]) || 0;
     
     await ctx.answerCbQuery(`Showing ${filter} users...`);
@@ -1082,7 +1136,12 @@ export default function adminHandler(bot) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;
     }
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       const [userId, returnPage = '0', returnFilter = 'all'] = ctx.match.slice(1);
       await ctx.answerCbQuery('Loading user details...');
       
@@ -1271,7 +1330,12 @@ export default function adminHandler(bot) {
       return;
     }
     
-    const [userId, page, filter] = ctx.match.slice(1);
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        const [userId, page, filter] = ctx.match.slice(1);
     
     try {
       await firestore.collection('users').doc(userId).update({
@@ -1365,7 +1429,12 @@ export default function adminHandler(bot) {
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       // Get all pending payments
       const pendingSnapshot = await firestore
         .collection('pendingPayments')
@@ -1506,7 +1575,12 @@ export default function adminHandler(bot) {
       return;
     }
 
-    const index = parseInt(ctx.match[1]);
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        const index = parseInt(ctx.match[1]);
     
     try {
       // Re-fetch pending payments to ensure current data
@@ -1562,7 +1636,12 @@ export default function adminHandler(bot) {
       return;
     }
 
-    // Re-run the admin command logic to show updated stats
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        // Re-run the admin command logic to show updated stats
     try {
       // Load real-time statistics
       const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, pendingPaymentsSnapshot, servicesSnapshot] = await Promise.all([
@@ -1622,7 +1701,9 @@ export default function adminHandler(bot) {
       const keyboard = {
         inline_keyboard: [
           [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
+          [{ text: '🛍️ Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
           [{ text: '💳 Payment Methods', callback_data: 'admin_payments' }],
+          [{ text: '📊 Performance', callback_data: 'admin_performance' }],
           [{ text: '💬 Broadcast Message', callback_data: 'admin_broadcast' }],
           [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
         ]
@@ -1648,7 +1729,12 @@ export default function adminHandler(bot) {
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       // Get comprehensive statistics
       const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, servicesSnapshot] = await Promise.all([
         firestore.collection('users').get(),
@@ -1813,7 +1899,12 @@ ${new Date().toLocaleString('en-US', {
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       // Get user count for broadcast preview
       const usersSnapshot = await firestore.collection('users').get();
       const activeUsers = usersSnapshot.docs.filter(doc => {
@@ -1861,7 +1952,12 @@ Send a message to all active users of the bot.
       return;
     }
 
-    await ctx.editMessageText(
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        await ctx.editMessageText(
       "📝 **Send Broadcast Content**\n\nSend your broadcast content in the next message. All message types are supported!\n\n📋 **Supported Types:**\n• 📝 **Text** - Regular text messages\n• 🖼️ **Photos** - Images with optional captions\n• 🎥 **Videos** - Video files with optional captions\n• 📄 **Documents** - PDF, Word, Excel, etc.\n• 🎵 **Audio** - Music and audio files\n• 🎤 **Voice** - Voice messages\n• 🎬 **Animations** - GIFs and animations\n• 😀 **Stickers** - Telegram stickers\n• 📹 **Video Notes** - Round video messages\n\n💡 **Tips:**\n• Use *bold* and _italic_ in text/captions\n• Keep captions clear and concise\n• Large files may take longer to broadcast",
       {
         parse_mode: 'Markdown',
@@ -2084,7 +2180,12 @@ ${message.length > 100 ? message.substring(0, 100) + '...' : message}`;
       return;
     }
 
-    // Re-run the admin command logic to show updated stats
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        // Re-run the admin command logic to show updated stats
     try {
       // Load real-time statistics
       const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, pendingPaymentsSnapshot, servicesSnapshot] = await Promise.all([
@@ -2144,7 +2245,9 @@ ${message.length > 100 ? message.substring(0, 100) + '...' : message}`;
       const keyboard = {
         inline_keyboard: [
           [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
+          [{ text: '🛍️ Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
           [{ text: '💳 Payment Methods', callback_data: 'admin_payments' }],
+          [{ text: '📊 Performance', callback_data: 'admin_performance' }],
           [{ text: '💬 Broadcast Message', callback_data: 'admin_broadcast' }],
           [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
         ]
@@ -2169,7 +2272,12 @@ ${message.length > 100 ? message.substring(0, 100) + '...' : message}`;
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
       
       // Get custom plan requests that need pricing
@@ -2227,7 +2335,12 @@ ${message.length > 100 ? message.substring(0, 100) + '...' : message}`;
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       // Get custom plan requests that need pricing
       const customRequestsSnapshot = await firestore.collection('customPlanRequests')
         .where('status', '==', 'pending')
@@ -2312,7 +2425,12 @@ Users can request custom plans by selecting a service and clicking "🎯 Custom 
       return;
     }
 
-    // Re-run the admin command logic to show updated stats
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        // Re-run the admin command logic to show updated stats
     try {
       // Load real-time statistics
       const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, pendingPaymentsSnapshot, servicesSnapshot] = await Promise.all([
@@ -2374,7 +2492,9 @@ Users can request custom plans by selecting a service and clicking "🎯 Custom 
       const keyboard = {
         inline_keyboard: [
           [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
+          [{ text: '🛍️ Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
           [{ text: '💳 Payment Methods', callback_data: 'admin_payments' }],
+          [{ text: '📊 Performance', callback_data: 'admin_performance' }],
           [{ text: '💬 Broadcast Message', callback_data: 'admin_broadcast' }],
           [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
         ]
@@ -2399,7 +2519,12 @@ Users can request custom plans by selecting a service and clicking "🎯 Custom 
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       // Get all active subscriptions with user data
       // Note: Removed orderBy to avoid composite index requirement
       const subscriptionsSnapshot = await firestore.collection('subscriptions')
@@ -2581,7 +2706,12 @@ ${error.message}`, {
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       // Get current payment methods from Firestore
       const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
       let paymentMethods = [];
@@ -2692,7 +2822,12 @@ ${methodsList}
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
       const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
 
@@ -2738,7 +2873,12 @@ Select a payment method to enable/disable:
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       const methodId = ctx.match[1];
       const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
       const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
@@ -2782,7 +2922,12 @@ Select a payment method to enable/disable:
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
       const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
 
@@ -2828,7 +2973,12 @@ Select a payment method to edit:
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       const methodId = ctx.match[1];
       const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
       const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
@@ -2877,7 +3027,12 @@ ${method.icon || '💳'} **${method.name}**
       return;
     }
 
-    const message = `➕ **Add New Payment Method** ➕
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        const message = `➕ **Add New Payment Method** ➕
 
 To add a new payment method, please send the details in this format:
 
@@ -3012,7 +3167,12 @@ The new payment method is now available to users during subscription and renewal
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       const methodId = ctx.match[1];
       
       await ctx.editMessageText(`✏️ **Edit Account Number**
@@ -3049,7 +3209,12 @@ Type \`cancel\` to cancel the operation.`, {
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       const methodId = ctx.match[1];
       
       await ctx.editMessageText(`✏️ **Edit Instructions (English)**
@@ -3086,7 +3251,12 @@ Type \`cancel\` to cancel the operation.`, {
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       const methodId = ctx.match[1];
       
       await ctx.editMessageText(`✏️ **Edit Instructions (Amharic)**
@@ -3123,7 +3293,12 @@ Type \`cancel\` to cancel the operation.`, {
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       const methodId = ctx.match[1];
       
       await ctx.editMessageText(`✏️ **Edit Icon**
@@ -3162,7 +3337,15 @@ Type \`cancel\` to cancel the operation.`, {
       return;
     }
 
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
     try {
+      // Show loading message first
+      await ctx.editMessageText('🎯 **Loading Custom Plan Management...**', {
+        parse_mode: 'Markdown'
+      });
+
       // Get pending custom plan requests (simplified query to avoid index requirement)
       const customPlansSnapshot = await firestore.collection('customPlanRequests')
         .where('status', '==', 'pending')
@@ -3197,10 +3380,16 @@ Type \`cancel\` to cancel the operation.`, {
         reply_markup: { inline_keyboard: keyboard },
         parse_mode: 'Markdown'
       });
-      await ctx.answerCbQuery();
     } catch (error) {
       console.error('Error in admin_custom_plans:', error);
-      await ctx.answerCbQuery('❌ Error loading custom plans');
+      await ctx.editMessageText('❌ Error loading custom plans. Please try again.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Try Again', callback_data: 'admin_custom_plans' }],
+            [{ text: '⬅️ Back to Admin', callback_data: 'admin_panel' }]
+          ]
+        }
+      });
     }
   });
 
@@ -3211,7 +3400,15 @@ Type \`cancel\` to cancel the operation.`, {
       return;
     }
 
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
     try {
+      // Show loading message first
+      await ctx.editMessageText('📋 **Loading Custom Plan Requests...**', {
+        parse_mode: 'Markdown'
+      });
+
       const customPlansSnapshot = await firestore.collection('customPlanRequests')
         .where('status', '==', 'pending')
         .limit(10)
@@ -3230,7 +3427,6 @@ New requests will appear here when users submit them.`, {
           },
           parse_mode: 'Markdown'
         });
-        await ctx.answerCbQuery();
         return;
       }
 
@@ -3261,10 +3457,16 @@ New requests will appear here when users submit them.`, {
         reply_markup: { inline_keyboard: keyboard },
         parse_mode: 'Markdown'
       });
-      await ctx.answerCbQuery();
     } catch (error) {
       console.error('Error viewing custom requests:', error);
-      await ctx.answerCbQuery('❌ Error loading requests');
+      await ctx.editMessageText('❌ Error loading requests. Please try again.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Try Again', callback_data: 'view_custom_requests' }],
+            [{ text: '⬅️ Back', callback_data: 'admin_custom_plans' }]
+          ]
+        }
+      });
     }
   });
 
@@ -3275,12 +3477,26 @@ New requests will appear here when users submit them.`, {
       return;
     }
 
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
     try {
+      // Show loading message first
+      await ctx.editMessageText('📋 **Loading Request Details...**', {
+        parse_mode: 'Markdown'
+      });
+
       const requestId = ctx.match[1];
       const requestDoc = await firestore.collection('customPlanRequests').doc(requestId).get();
 
       if (!requestDoc.exists) {
-        await ctx.answerCbQuery('❌ Request not found');
+        await ctx.editMessageText('❌ Request not found. It may have been deleted.', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⬅️ Back to Requests', callback_data: 'view_custom_requests' }]
+            ]
+          }
+        });
         return;
       }
 
@@ -3331,7 +3547,12 @@ Enter the price and duration for this custom plan.`;
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       const requestId = ctx.match[1];
 
       await ctx.editMessageText(`💰 **Set Custom Plan Pricing**
@@ -3376,7 +3597,12 @@ Type \`cancel\` to cancel.`, {
       return;
     }
 
-    try {
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
       const requestId = ctx.match[1];
       const requestDoc = await firestore.collection('customPlanRequests').doc(requestId).get();
 
@@ -3687,4 +3913,1379 @@ ${subscriptionData.rejectedAt ? `• **Rejected:** ${subscriptionData.rejectedAt
     }
   });
 
+  // Handle admin_add_service action
+  bot.action('admin_add_service', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
+      const message = `➕ **Add New Service** ➕
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 **Instructions:**
+1. Click "Start Adding Service" below
+2. You'll be prompted to enter service details step by step:
+   • Service name
+   • Service description  
+   • Service ID (unique identifier)
+   • Plans and pricing
+   • Logo URL (optional)
+
+🎯 **Service Details Required:**
+• **Name:** Display name for the service
+• **Description:** Brief description of what the service offers
+• **Service ID:** Unique identifier (e.g., "netflix", "spotify")
+• **Plans:** Duration and pricing options
+• **Logo:** URL to service logo (optional)
+
+💡 **Example Plan Format:**
+• 1 Month: ETB 350
+• 3 Months: ETB 1000  
+• 6 Months: ETB 1900
+• 12 Months: ETB 3600`;
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🚀 Start Adding Service', callback_data: 'start_add_service' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        }
+      });
+
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error loading add service:', error);
+      await ctx.answerCbQuery('❌ Error loading add service');
+    }
+  });
+
+  // Handle start_add_service action
+  bot.action('start_add_service', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
+      // Initialize service creation state
+      global.serviceCreationState = global.serviceCreationState || {};
+      global.serviceCreationState[ctx.from.id] = {
+        step: 'service_name',
+        serviceData: {}
+      };
+
+      await ctx.editMessageText(
+        "📝 **Step 1: Service Name**\n\nPlease send the name of the service (e.g., 'Netflix', 'Spotify Premium'):",
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '❌ Cancel', callback_data: 'admin_add_service' }]
+            ]
+          }
+        }
+      );
+
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error starting service creation:', error);
+      await ctx.answerCbQuery('❌ Error starting service creation');
+    }
+  });
+
+  // Handle service creation message flow
+  const handleServiceCreationMessage = async (ctx, next) => {
+    try {
+      const userId = ctx.from?.id;
+      if (userId && global.serviceCreationState && global.serviceCreationState[userId]) {
+        if (!(await isAuthorizedAdmin(ctx))) {
+          delete global.serviceCreationState[userId];
+          return next();
+        }
+
+        const state = global.serviceCreationState[userId];
+        const messageText = ctx.message.text;
+
+        switch (state.step) {
+          case 'service_name':
+            state.serviceData.name = messageText;
+            state.step = 'service_description';
+            
+            await ctx.reply(
+              "📝 **Step 2: Service Description**\n\nPlease send a brief description of the service (e.g., 'Stream movies, TV shows and more'):",
+              {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '❌ Cancel', callback_data: 'admin_add_service' }]
+                  ]
+                }
+              }
+            );
+            break;
+
+          case 'service_description':
+            state.serviceData.description = messageText;
+            state.step = 'service_id';
+            
+            await ctx.reply(
+              "📝 **Step 3: Service ID**\n\nPlease send a unique identifier for the service (e.g., 'netflix', 'spotify'):\n\n💡 This should be lowercase, no spaces, unique identifier",
+              {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '❌ Cancel', callback_data: 'admin_add_service' }]
+                  ]
+                }
+              }
+            );
+            break;
+
+          case 'service_id':
+            state.serviceData.serviceID = messageText.toLowerCase().replace(/\s+/g, '');
+            state.step = 'logo_url';
+            
+            await ctx.reply(
+              "📝 **Step 4: Logo URL (Optional)**\n\nPlease send the URL to the service logo, or send 'skip' to skip this step:\n\n💡 Example: https://example.com/logo.png",
+              {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '⏭️ Skip Logo', callback_data: 'skip_logo' }],
+                    [{ text: '❌ Cancel', callback_data: 'admin_add_service' }]
+                  ]
+                }
+              }
+            );
+            break;
+
+          case 'logo_url':
+            if (messageText.toLowerCase() !== 'skip') {
+              state.serviceData.logoUrl = messageText;
+            }
+            state.step = 'plans';
+            
+            await ctx.reply(
+              "📝 **Step 5: Service Plans**\n\nPlease send the plans in this format:\n\n1 Month: 350\n3 Months: 1000\n6 Months: 1900\n12 Months: 3600\n\n💡 One plan per line, format: 'Duration: Price'",
+              {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '❌ Cancel', callback_data: 'admin_add_service' }]
+                  ]
+                }
+              }
+            );
+            break;
+
+          case 'plans':
+            // Parse plans from message
+            const planLines = messageText.split('\n').filter(line => line.trim());
+            const plans = [];
+            
+            for (const line of planLines) {
+              const match = line.match(/(\d+)\s*(?:month|months?|m):\s*(\d+)/i);
+              if (match) {
+                const duration = parseInt(match[1]);
+                const price = parseInt(match[2]);
+                const billingCycle = duration === 1 ? 'Monthly' : `${duration} Months`;
+                
+                plans.push({
+                  duration,
+                  price,
+                  billingCycle
+                });
+              }
+            }
+
+            if (plans.length === 0) {
+              await ctx.reply(
+                "❌ **Invalid Plan Format**\n\nPlease use the format:\n1 Month: 350\n3 Months: 1000\n\nTry again:",
+                {
+                  parse_mode: 'Markdown',
+                  reply_markup: {
+                    inline_keyboard: [
+                      [{ text: '❌ Cancel', callback_data: 'admin_add_service' }]
+                    ]
+                  }
+                }
+              );
+              return;
+            }
+
+            state.serviceData.plans = plans;
+            state.serviceData.approvalRequiredFlag = true;
+            state.step = 'confirm';
+
+            // Show confirmation
+            const confirmMessage = `✅ **Service Details Confirmation** ✅
+
+📋 **Service Information:**
+• **Name:** ${state.serviceData.name}
+• **Description:** ${state.serviceData.description}
+• **Service ID:** ${state.serviceData.serviceID}
+• **Logo URL:** ${state.serviceData.logoUrl || 'Not set'}
+
+💰 **Plans:**
+${plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).join('\n')}
+
+📊 **Total Plans:** ${plans.length}
+
+Is this information correct?`;
+
+            await ctx.reply(confirmMessage, {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '✅ Confirm & Save', callback_data: 'confirm_service' }],
+                  [{ text: '❌ Cancel', callback_data: 'admin_add_service' }]
+                ]
+              }
+            });
+            break;
+        }
+
+        // Delete the user's message for cleaner flow
+        try {
+          await ctx.deleteMessage();
+        } catch (e) {
+          // Ignore delete errors
+        }
+
+        return;
+      }
+    } catch (error) {
+      console.error('Error in service creation message handler:', error);
+    }
+    return next();
+  };
+
+  // Register the message handler for service creation
+  bot.on('text', handleServiceCreationMessage);
+
+  // Handle skip logo
+  bot.action('skip_logo', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
+      const userId = ctx.from.id;
+      const state = global.serviceCreationState[userId];
+      
+      if (state && state.step === 'logo_url') {
+        state.step = 'plans';
+        
+        await ctx.editMessageText(
+          "📝 **Step 5: Service Plans**\n\nPlease send the plans in this format:\n\n1 Month: 350\n3 Months: 1000\n6 Months: 1900\n12 Months: 3600\n\n💡 One plan per line, format: 'Duration: Price'",
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '❌ Cancel', callback_data: 'admin_add_service' }]
+              ]
+            }
+          }
+        );
+      }
+
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error skipping logo:', error);
+      await ctx.answerCbQuery('❌ Error skipping logo');
+    }
+  });
+
+  // Handle confirm service
+  bot.action('confirm_service', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
+      const userId = ctx.from.id;
+      const state = global.serviceCreationState[userId];
+      
+      if (!state || !state.serviceData) {
+        await ctx.answerCbQuery('❌ No service data found');
+        return;
+      }
+
+      // Save service to Firestore
+      const serviceData = {
+        ...state.serviceData,
+        createdAt: new Date(),
+        createdBy: userId.toString(),
+        status: 'active'
+      };
+
+      await firestore.collection('services').doc(serviceData.serviceID).set(serviceData);
+
+      // Also save to local services.json for backup
+      try {
+        const fs = await import('fs');
+        const { fileURLToPath } = await import('url');
+        const { dirname, join } = await import('path');
+        
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = dirname(__filename);
+        const servicesPath = join(__dirname, '..', 'services.json');
+        let services = [];
+        
+        if (fs.existsSync(servicesPath)) {
+          services = JSON.parse(fs.readFileSync(servicesPath, 'utf8'));
+        }
+        
+        // Check if service already exists
+        const existingIndex = services.findIndex(s => s.serviceID === serviceData.serviceID);
+        if (existingIndex >= 0) {
+          services[existingIndex] = serviceData;
+        } else {
+          services.push(serviceData);
+        }
+        
+        fs.writeFileSync(servicesPath, JSON.stringify(services, null, 2));
+      } catch (fileError) {
+        console.error('Error saving to services.json:', fileError);
+      }
+
+      // Log the action
+      await logAdminAction('service_added', userId, {
+        serviceName: serviceData.name,
+        serviceID: serviceData.serviceID,
+        plansCount: serviceData.plans.length
+      });
+
+      // Clean up state
+      delete global.serviceCreationState[userId];
+
+      const successMessage = `✅ **Service Added Successfully!** ✅
+
+🎉 **Service Details:**
+• **Name:** ${serviceData.name}
+• **Service ID:** ${serviceData.serviceID}
+• **Plans:** ${serviceData.plans.length} plans added
+• **Status:** Active
+
+📊 **Available Plans:**
+${serviceData.plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).join('\n')}
+
+🔄 **Next Steps:**
+• The service is now available for users
+• Users can subscribe to this service immediately
+• You can manage it from the admin panel`;
+
+      await ctx.editMessageText(successMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '➕ Add Another Service', callback_data: 'admin_add_service' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        }
+      });
+
+      await ctx.answerCbQuery('✅ Service added successfully!');
+    } catch (error) {
+      console.error('Error confirming service:', error);
+      await ctx.answerCbQuery('❌ Error saving service');
+      
+      // Clean up state on error
+      const userId = ctx.from.id;
+      delete global.serviceCreationState[userId];
+    }
+  });
+
+  // Handle manage services
+  bot.action('admin_manage_services', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
+      const servicesSnapshot = await firestore.collection('services').get();
+      
+      if (servicesSnapshot.empty) {
+        await ctx.editMessageText('❌ **No Services Found**\n\nNo services are currently available to manage.', {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '➕ Add First Service', callback_data: 'admin_add_service' }],
+              [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+            ]
+          }
+        });
+        await ctx.answerCbQuery();
+        return;
+      }
+
+      let servicesList = `🛍️ **Service Management**\n\n📦 **Available Services:**\n`;
+      servicesList += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+      
+      const keyboard = [];
+      
+      servicesSnapshot.docs.forEach((doc, index) => {
+        const serviceData = doc.data();
+        servicesList += `${index + 1}. **${serviceData.name || doc.id}**\n`;
+        servicesList += `   📝 Description: ${serviceData.description || 'No description'}\n`;
+        servicesList += `   🏷️ ID: \`${doc.id}\`\n`;
+        servicesList += `   💰 Plans: ${serviceData.plans?.length || 0} plans\n`;
+        servicesList += `   📊 Status: ${serviceData.status || 'active'}\n\n`;
+        
+        // Add service management buttons
+        console.log(`📝 Adding edit button for service: "${doc.id}" (${serviceData.name})`);
+        keyboard.push([
+          { 
+            text: `✏️ Edit ${serviceData.name || doc.id}`, 
+            callback_data: `editservice_${doc.id}` 
+          }
+        ]);
+        keyboard.push([
+          { 
+            text: `🗑️ Delete ${serviceData.name || doc.id}`, 
+            callback_data: `delete_service_${doc.id}` 
+          }
+        ]);
+      });
+      
+      // Add navigation buttons
+      keyboard.push([
+        { text: '➕ Add New Service', callback_data: 'admin_add_service' },
+        { text: '🔄 Refresh', callback_data: 'admin_manage_services' }
+      ]);
+      keyboard.push([
+        { text: '🔙 Back to Admin', callback_data: 'back_to_admin' }
+      ]);
+      
+      await ctx.editMessageText(servicesList, {
+        reply_markup: {
+          inline_keyboard: keyboard
+        },
+        parse_mode: 'Markdown'
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in admin_manage_services:', error);
+      await ctx.answerCbQuery('❌ Error loading services');
+    }
+  });
+
+  // Handle edit service
+  bot.action(/^editservice_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
+      const serviceId = ctx.match[1];
+      console.log(`🔍 Opening edit menu for service ID: "${serviceId}"`);
+      
+      const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+      
+      if (!serviceDoc.exists) {
+        console.error(`❌ Service not found in Firestore: "${serviceId}"`);
+        
+        // Try to list all services to debug
+        const allServices = await firestore.collection('services').get();
+        console.log('Available services:', allServices.docs.map(doc => `"${doc.id}"`));
+        
+        await ctx.answerCbQuery('❌ Service not found');
+        return;
+      }
+
+      const serviceData = serviceDoc.data();
+      
+      const editMessage = `✏️ **Edit Service: ${serviceData.name}**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 **Current Details:**
+• **Name:** ${serviceData.name}
+• **Description:** ${serviceData.description || 'No description'}
+• **Service ID:** \`${serviceId}\`
+• **Status:** ${serviceData.status || 'active'}
+• **Plans:** ${serviceData.plans?.length || 0} plans
+
+💰 **Current Plans:**
+${serviceData.plans?.map((plan, index) => `${index + 1}. ${plan.billingCycle}: ETB ${plan.price}`).join('\n') || 'No plans configured'}
+
+🎯 **What would you like to edit?**`;
+
+      const keyboard = [
+        [{ text: '✏️ Edit Name', callback_data: `editname_${serviceId}` }],
+        [{ text: '📝 Edit Description', callback_data: `editdesc_${serviceId}` }],
+        [{ text: '💰 Edit Plans', callback_data: `editplans_${serviceId}` }],
+        [{ text: '🖼️ Edit Logo', callback_data: `editlogo_${serviceId}` }],
+        [{ text: '🔄 Toggle Status', callback_data: `togglestatus_${serviceId}` }],
+        [{ text: '🔙 Back to Services', callback_data: 'admin_manage_services' }]
+      ];
+
+      console.log(`🔧 Generated keyboard for service "${serviceId}":`);
+      keyboard.forEach(row => {
+        row.forEach(button => {
+          console.log(`  - ${button.text}: "${button.callback_data}"`);
+        });
+      });
+
+      await ctx.editMessageText(editMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in edit_service:', error);
+      await ctx.answerCbQuery('❌ Error loading service details');
+    }
+  });
+
+  // Handle delete service
+  bot.action(/^delete_service_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
+      const serviceId = ctx.match[1];
+      const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+      
+      if (!serviceDoc.exists) {
+        await ctx.answerCbQuery('❌ Service not found');
+        return;
+      }
+
+      const serviceData = serviceDoc.data();
+      
+      const confirmMessage = `🗑️ **Delete Service Confirmation**
+
+⚠️ **Warning:** This action cannot be undone!
+
+📋 **Service to Delete:**
+• **Name:** ${serviceData.name}
+• **Service ID:** \`${serviceId}\`
+• **Plans:** ${serviceData.plans?.length || 0} plans
+• **Active Subscriptions:** Will be affected
+
+🔍 **Impact:**
+• Service will be removed from user selection
+• Existing subscriptions will remain but service won't be available for new subscriptions
+• All service data will be permanently deleted
+
+Are you sure you want to delete this service?`;
+
+      const keyboard = [
+        [{ text: '❌ Cancel', callback_data: 'admin_manage_services' }],
+        [{ text: '🗑️ Yes, Delete Service', callback_data: `confirm_delete_service_${serviceId}` }]
+      ];
+
+      await ctx.editMessageText(confirmMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in delete_service:', error);
+      await ctx.answerCbQuery('❌ Error loading service details');
+    }
+  });
+
+  // Handle confirm delete service
+  bot.action(/^confirm_delete_service_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
+      const serviceId = ctx.match[1];
+      const userId = ctx.from.id;
+      
+      // Delete the service from Firestore
+      await firestore.collection('services').doc(serviceId).delete();
+      
+      // Log the action
+      await logAdminAction('service_deleted', userId, {
+        serviceID: serviceId
+      });
+
+      const successMessage = `✅ **Service Deleted Successfully!**
+
+🗑️ **Deleted Service:** \`${serviceId}\`
+
+📊 **Next Steps:**
+• Service has been removed from the platform
+• Users can no longer subscribe to this service
+• Existing subscriptions remain unaffected
+• You can add a new service anytime`;
+
+      await ctx.editMessageText(successMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '➕ Add New Service', callback_data: 'admin_add_service' }],
+            [{ text: '🛍️ Manage Services', callback_data: 'admin_manage_services' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        }
+      });
+      await ctx.answerCbQuery('✅ Service deleted successfully!');
+    } catch (error) {
+      console.error('Error in confirm_delete_service:', error);
+      await ctx.answerCbQuery('❌ Error deleting service');
+    }
+  });
+
+  // Handle edit service name
+  bot.action(/^editname_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
+      console.log(`🔍 Raw callback data: "${ctx.callbackQuery.data}"`);
+      const serviceId = ctx.match[1];
+      console.log(`🔍 Editing service name for ID: "${serviceId}"`);
+      
+      const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+      
+      if (!serviceDoc.exists) {
+        console.error(`❌ Service not found in Firestore: "${serviceId}"`);
+        
+        // Try to list all services to debug
+        const allServices = await firestore.collection('services').get();
+        console.log('Available services:', allServices.docs.map(doc => `"${doc.id}"`));
+        
+        await ctx.answerCbQuery('❌ Service not found');
+        return;
+      }
+
+      const serviceData = serviceDoc.data();
+      
+      // Set up state for editing
+      if (!global.serviceEditState) global.serviceEditState = {};
+      global.serviceEditState[ctx.from.id] = {
+        serviceId,
+        field: 'name',
+        currentValue: serviceData.name
+      };
+
+      const message = `✏️ **Edit Service Name**
+
+Current name: **${serviceData.name}**
+
+Please send the new name for this service:`;
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Cancel', callback_data: `editservice_${serviceId}` }]
+          ]
+        }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in edit_service_name:', error);
+      await ctx.answerCbQuery('❌ Error loading service');
+    }
+  });
+
+  // Handle edit service description
+  bot.action(/^editdesc_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
+      const serviceId = ctx.match[1];
+      const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+      
+      if (!serviceDoc.exists) {
+        await ctx.answerCbQuery('❌ Service not found');
+        return;
+      }
+
+      const serviceData = serviceDoc.data();
+      
+      // Set up state for editing
+      if (!global.serviceEditState) global.serviceEditState = {};
+      global.serviceEditState[ctx.from.id] = {
+        serviceId,
+        field: 'description',
+        currentValue: serviceData.description || ''
+      };
+
+      const message = `📝 **Edit Service Description**
+
+Current description: ${serviceData.description || 'No description'}
+
+Please send the new description for this service:`;
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Cancel', callback_data: `editservice_${serviceId}` }]
+          ]
+        }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in edit_service_desc:', error);
+      await ctx.answerCbQuery('❌ Error loading service');
+    }
+  });
+
+  // Handle edit service plans
+  bot.action(/^editplans_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
+      const serviceId = ctx.match[1];
+      const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+      
+      if (!serviceDoc.exists) {
+        await ctx.answerCbQuery('❌ Service not found');
+        return;
+      }
+
+      const serviceData = serviceDoc.data();
+      
+      // Set up state for editing
+      if (!global.serviceEditState) global.serviceEditState = {};
+      global.serviceEditState[ctx.from.id] = {
+        serviceId,
+        field: 'plans',
+        currentValue: serviceData.plans || []
+      };
+
+      const currentPlans = serviceData.plans?.map(plan => 
+        `${plan.duration} ${plan.duration === 1 ? 'Month' : 'Months'}: ETB ${plan.price}`
+      ).join('\n') || 'No plans configured';
+
+      const message = `💰 **Edit Service Plans**
+
+Current plans:
+${currentPlans}
+
+Please send the new plans in the format:
+1 Month: 350
+3 Months: 1000
+6 Months: 1900
+12 Months: 3600`;
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Cancel', callback_data: `editservice_${serviceId}` }]
+          ]
+        }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in edit_service_plans:', error);
+      await ctx.answerCbQuery('❌ Error loading service');
+    }
+  });
+
+  // Handle toggle service status
+  bot.action(/^togglestatus_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
+      const serviceId = ctx.match[1];
+      const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+      
+      if (!serviceDoc.exists) {
+        await ctx.answerCbQuery('❌ Service not found');
+        return;
+      }
+
+      const serviceData = serviceDoc.data();
+      const currentStatus = serviceData.status || 'active';
+      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+      
+      // Update the service status
+      await firestore.collection('services').doc(serviceId).update({
+        status: newStatus,
+        updatedAt: new Date()
+      });
+
+      // Log the action
+      await logAdminAction('service_status_updated', ctx.from.id, {
+        serviceID: serviceId,
+        oldStatus: currentStatus,
+        newStatus: newStatus
+      });
+
+      const message = `✅ **Service Status Updated**
+
+Service: **${serviceData.name}**
+Status changed from **${currentStatus}** to **${newStatus}**
+
+${newStatus === 'active' ? '✅ Service is now available for users' : '❌ Service is now hidden from users'}`;
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Service', callback_data: `editservice_${serviceId}` }],
+            [{ text: '🛍️ Manage Services', callback_data: 'admin_manage_services' }]
+          ]
+        }
+      });
+      await ctx.answerCbQuery(`✅ Status updated to ${newStatus}`);
+    } catch (error) {
+      console.error('Error in toggle_service_status:', error);
+      await ctx.answerCbQuery('❌ Error updating service status');
+    }
+  });
+
+  // Handle edit service logo
+  bot.action(/^editlogo_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+    try {
+      const serviceId = ctx.match[1];
+      console.log('Edit logo for serviceId:', serviceId);
+
+      // Get current service
+      const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+      if (!serviceDoc.exists) {
+        await ctx.answerCbQuery('❌ Service not found');
+        return;
+      }
+
+      const service = serviceDoc.data();
+      const currentLogo = service.logo || 'No logo set';
+
+      // Set edit state
+      if (!global.serviceEditState) global.serviceEditState = {};
+      global.serviceEditState[ctx.from.id] = {
+        serviceId,
+        field: 'logo',
+        currentValue: currentLogo
+      };
+
+      const message = `🖼️ **Edit Service Logo**
+
+Service: **${service.name || serviceId}**
+Current Logo: ${currentLogo}
+
+Please send the new logo URL or emoji for this service.
+
+Examples:
+• 🌐 https://example.com/logo.png
+• 🎮 (emoji)
+• 🎯 (emoji)
+
+To cancel, click the Cancel button below.`;
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Cancel', callback_data: `editservice_${serviceId}` }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error setting up logo edit:', error);
+      await ctx.answerCbQuery('❌ Error setting up logo edit');
+    }
+  });
+
+  // Handle performance metrics
+  bot.action('admin_performance', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    
+    
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
+
+        try {
+      const { performanceMonitor } = await import('../utils/performanceMonitor.js');
+      const metrics = performanceMonitor.getMetrics();
+      const recommendations = performanceMonitor.getEfficiencyRecommendations();
+
+      const performanceMessage = `📊 **Bot Performance Metrics**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️ **Uptime:** ${metrics.uptime.hours}h ${metrics.uptime.minutes}m
+
+📈 **Request Statistics:**
+• Total Requests: ${metrics.requests.total}
+• Success Rate: ${metrics.efficiency.successRate}
+• Cache Hit Rate: ${metrics.efficiency.cacheHitRate}
+• Avg Response Time: ${metrics.efficiency.averageResponseTime}
+
+🔥 **Firestore Usage:**
+• Reads: ${metrics.firestore.reads}
+• Writes: ${metrics.firestore.writes}
+• Deletes: ${metrics.firestore.deletes}
+• Estimated Cost: ${metrics.costAnalysis.estimatedFirestoreCost}
+• Reads/Min: ${metrics.costAnalysis.readsPerMinute}
+• Writes/Min: ${metrics.costAnalysis.writesPerMinute}
+
+🧠 **Memory Usage:**
+• Current: ${(metrics.memory.usage / 1024 / 1024).toFixed(2)} MB
+• Peak: ${(metrics.memory.peak / 1024 / 1024).toFixed(2)} MB
+
+❌ **Errors:** ${metrics.errors.total}
+
+🎯 **Efficiency Score:** ${calculateEfficiencyScore(metrics)}%`;
+
+      const keyboard = [];
+      
+      if (recommendations.length > 0) {
+        keyboard.push([{ text: '💡 View Recommendations', callback_data: 'admin_recommendations' }]);
+      }
+      
+      keyboard.push([
+        { text: '🔄 Refresh Metrics', callback_data: 'admin_performance' },
+        { text: '📊 Cache Stats', callback_data: 'admin_cache_stats' }
+      ]);
+      keyboard.push([
+        { text: '🔙 Back to Admin', callback_data: 'back_to_admin' }
+      ]);
+
+      await ctx.editMessageText(performanceMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in admin_performance:', error);
+      await ctx.answerCbQuery('❌ Error loading performance metrics');
+    }
+  });
+
+  // Calculate efficiency score
+  function calculateEfficiencyScore(metrics) {
+    let score = 100;
+    
+    // Deduct points for low cache hit rate
+    const cacheHitRate = parseFloat(metrics.efficiency.cacheHitRate);
+    if (cacheHitRate < 50) score -= 20;
+    else if (cacheHitRate < 80) score -= 10;
+    
+    // Deduct points for high response time
+    const avgResponseTime = parseFloat(metrics.efficiency.averageResponseTime);
+    if (avgResponseTime > 2000) score -= 20;
+    else if (avgResponseTime > 1000) score -= 10;
+    
+    // Deduct points for high error rate
+    const errorRate = metrics.errors.total / metrics.requests.total;
+    if (errorRate > 0.1) score -= 30;
+    else if (errorRate > 0.05) score -= 15;
+    
+    // Deduct points for high Firestore usage
+    const readsPerMinute = parseFloat(metrics.costAnalysis.readsPerMinute);
+    if (readsPerMinute > 200) score -= 15;
+    else if (readsPerMinute > 100) score -= 10;
+    
+    return Math.max(0, Math.round(score));
+  }
+
+  // Handle text messages for service editing
+  bot.on('text', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      return; // Not an admin, ignore
+    }
+
+    const userId = ctx.from.id;
+    const editState = global.serviceEditState?.[userId];
+    
+    if (!editState) {
+      return; // Not in edit mode, ignore
+    }
+
+    try {
+      const { serviceId, field, currentValue } = editState;
+      const newValue = ctx.message.text.trim();
+      
+      if (!newValue) {
+        await ctx.reply('❌ Please provide a valid value.');
+        return;
+      }
+
+      let updateData = {};
+      
+      switch (field) {
+        case 'name':
+          updateData.name = newValue;
+          break;
+        case 'description':
+          updateData.description = newValue;
+          break;
+        case 'plans':
+          // Parse plans from text
+          const planLines = newValue.split('\n').filter(line => line.trim());
+          const plans = [];
+          
+          for (const line of planLines) {
+            const match = line.match(/(\d+)\s*(?:month|months?|m):\s*(\d+)/i);
+            if (match) {
+              const duration = parseInt(match[1]);
+              const price = parseInt(match[2]);
+              const billingCycle = duration === 1 ? 'Monthly' : `${duration} Months`;
+              
+              plans.push({
+                duration,
+                price,
+                billingCycle
+              });
+            }
+          }
+
+          if (plans.length === 0) {
+            await ctx.reply('❌ Invalid plan format. Please use: 1 Month: 350, 3 Months: 1000, etc.');
+            return;
+          }
+          
+          updateData.plans = plans;
+          break;
+        case 'logo':
+          updateData.logo = newValue;
+          break;
+        default:
+          await ctx.reply('❌ Unknown field to edit.');
+          return;
+      }
+
+      // Add timestamp
+      updateData.updatedAt = new Date();
+
+      // Update the service in Firestore
+      await firestore.collection('services').doc(serviceId).update(updateData);
+
+      // Log the action
+      await logAdminAction('service_updated', userId, {
+        serviceID: serviceId,
+        field: field,
+        oldValue: currentValue,
+        newValue: newValue
+      });
+
+      // Clear edit state
+      delete global.serviceEditState[userId];
+
+      const successMessage = `✅ **Service Updated Successfully!**
+
+Field: **${field}**
+Service: **${serviceId}**
+
+${field === 'plans' ? `Updated ${plans.length} plans` : `Changed from "${currentValue}" to "${newValue}"`}`;
+
+      await ctx.reply(successMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🛍️ Manage Services', callback_data: 'admin_manage_services' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error updating service:', error);
+      await ctx.reply('❌ Error updating service. Please try again.');
+      
+      // Clear edit state on error
+      delete global.serviceEditState[userId];
+    }
+  });
+
+  // Handle admin_menu (Main Menu button)
+  bot.action('admin_menu', async (ctx) => {
+    await handleCallbackWithTimeout(ctx, async () => {
+      if (!(await isAuthorizedAdmin(ctx))) {
+        await ctx.answerCbQuery("❌ Access denied.");
+        return;
+      }
+
+      await logAdminAction('admin_menu_access', ctx.from.id);
+
+      const message = `🏠 **Admin Main Menu**
+
+Welcome back! What would you like to manage today?`;
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
+            [{ text: '🛍️ Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
+            [{ text: '💳 Payment Methods', callback_data: 'admin_payments' }],
+            [{ text: '📊 Performance', callback_data: 'admin_performance' }],
+            [{ text: '💬 Broadcast Message', callback_data: 'admin_broadcast' }],
+            [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
+          ]
+        }
+      });
+    });
+  });
+
+  // Handle admin_panel (Back to Admin Panel button)
+  bot.action('admin_panel', async (ctx) => {
+    await handleCallbackWithTimeout(ctx, async () => {
+      if (!(await isAuthorizedAdmin(ctx))) {
+        await ctx.answerCbQuery("❌ Access denied.");
+        return;
+      }
+
+      await logAdminAction('admin_panel_access', ctx.from.id);
+
+      const message = `🏠 **Admin Panel**
+
+Welcome to the admin panel! What would you like to manage?`;
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
+            [{ text: '🛍️ Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
+            [{ text: '💳 Payment Methods', callback_data: 'admin_payments' }],
+            [{ text: '📊 Performance', callback_data: 'admin_performance' }],
+            [{ text: '💬 Broadcast Message', callback_data: 'admin_broadcast' }],
+            [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
+          ]
+        }
+      });
+    });
+  });
+
+  // Handle admin_recommendations (View Recommendations button)
+  bot.action('admin_recommendations', async (ctx) => {
+    await handleCallbackWithTimeout(ctx, async () => {
+      if (!(await isAuthorizedAdmin(ctx))) {
+        await ctx.answerCbQuery("❌ Access denied.");
+        return;
+      }
+
+      await logAdminAction('admin_recommendations_view', ctx.from.id);
+
+      try {
+        // Get performance metrics
+        const performanceMonitor = global.performanceMonitor;
+        let recommendations = [];
+
+        if (performanceMonitor) {
+          const metrics = performanceMonitor.getMetrics();
+          const efficiency = performanceMonitor.getEfficiencyRecommendations();
+          recommendations = efficiency.recommendations || [];
+        }
+
+        if (recommendations.length === 0) {
+          recommendations = [
+            "✅ System is running optimally",
+            "💡 Consider enabling caching for better performance",
+            "📊 Monitor Firestore usage regularly",
+            "🔄 Regular health checks are active"
+          ];
+        }
+
+        const recommendationsText = recommendations.map(rec => `• ${rec}`).join('\n');
+
+        const message = `💡 **Performance Recommendations**
+
+${recommendationsText}
+
+*Based on current system metrics and best practices*`;
+
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '📊 Back to Performance', callback_data: 'admin_performance' }],
+              [{ text: '🔄 Refresh Recommendations', callback_data: 'admin_recommendations' }],
+              [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+            ]
+          }
+        });
+      } catch (error) {
+        console.error('Error getting recommendations:', error);
+        await ctx.editMessageText('❌ Error loading recommendations. Please try again.', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '📊 Back to Performance', callback_data: 'admin_performance' }],
+              [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+            ]
+          }
+        });
+      }
+    });
+  });
+
+  // Handle admin_cache_stats (Cache Stats button)
+  bot.action('admin_cache_stats', async (ctx) => {
+    await handleCallbackWithTimeout(ctx, async () => {
+      if (!(await isAuthorizedAdmin(ctx))) {
+        await ctx.answerCbQuery("❌ Access denied.");
+        return;
+      }
+
+      await logAdminAction('admin_cache_stats_view', ctx.from.id);
+
+      try {
+        // Get cache statistics
+        const cache = global.cache;
+        let cacheStats = {
+          services: { size: 0, hits: 0, misses: 0 },
+          users: { size: 0, hits: 0, misses: 0 },
+          stats: { size: 0, hits: 0, misses: 0 }
+        };
+
+        if (cache && typeof cache.getStats === 'function') {
+          cacheStats = cache.getStats();
+        }
+
+        const totalSize = cacheStats.services.size + cacheStats.users.size + cacheStats.stats.size;
+        const totalHits = cacheStats.services.hits + cacheStats.users.hits + cacheStats.stats.hits;
+        const totalMisses = cacheStats.services.misses + cacheStats.users.misses + cacheStats.stats.misses;
+        const hitRate = totalHits + totalMisses > 0 ? ((totalHits / (totalHits + totalMisses)) * 100).toFixed(1) : 0;
+
+        const message = `📊 **Cache Statistics**
+
+🗂️ **Cache Size:**
+• Services: ${cacheStats.services.size} items
+• Users: ${cacheStats.users.size} items  
+• Stats: ${cacheStats.stats.size} items
+• **Total: ${totalSize} items**
+
+🎯 **Performance:**
+• Total Hits: ${totalHits}
+• Total Misses: ${totalMisses}
+• **Hit Rate: ${hitRate}%**
+
+💾 **Memory Usage:**
+• Services Cache: ${(cacheStats.services.size * 0.1).toFixed(1)} KB (estimated)
+• Users Cache: ${(cacheStats.users.size * 0.05).toFixed(1)} KB (estimated)
+• Stats Cache: ${(cacheStats.stats.size * 0.02).toFixed(1)} KB (estimated)`;
+
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔄 Refresh Cache Stats', callback_data: 'admin_cache_stats' }],
+              [{ text: '📊 Back to Performance', callback_data: 'admin_performance' }],
+              [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+            ]
+          }
+        });
+      } catch (error) {
+        console.error('Error getting cache stats:', error);
+        await ctx.editMessageText('❌ Error loading cache statistics. Please try again.', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '📊 Back to Performance', callback_data: 'admin_performance' }],
+              [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+            ]
+          }
+        });
+      }
+    });
+  });
+
+  // Handle noop (do nothing) for buttons that shouldn't trigger actions
+  bot.action('noop', async (ctx) => {
+    await ctx.answerCbQuery();
+  });
 }

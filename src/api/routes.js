@@ -313,7 +313,7 @@ export const adminRoutes = (fastify) => {
       
       if (username === adminUsername && password === adminPassword) {
         // Generate proper JWT token
-        const jwt = require('jsonwebtoken');
+        const jwt = await import('jsonwebtoken');
         const jwtSecret = process.env.JWT_SECRET || 'birrpay_default_secret_change_in_production';
         
         const payload = {
@@ -323,7 +323,7 @@ export const adminRoutes = (fastify) => {
           exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
         };
         
-        const token = jwt.sign(payload, jwtSecret);
+        const token = jwt.default.sign(payload, jwtSecret);
         
         return { 
           success: true, 
@@ -381,7 +381,156 @@ export const adminRoutes = (fastify) => {
       });
     }
   });
-  
+
+  // Verify endpoint (alias for validate)
+  fastify.get('/api/admin/verify', { preHandler: requireAdmin }, async (req, reply) => {
+    try {
+      // If we reach here, token is valid (middleware validated it)
+      return { 
+        success: true, 
+        valid: true,
+        user: req.admin || { role: 'admin' }
+      };
+    } catch (error) {
+      console.error('Token verification error:', error);
+      return reply.status(401).send({ 
+        success: false, 
+        valid: false,
+        message: 'Invalid token' 
+      });
+    }
+  });
+
+  // Activity endpoint for recent activity
+  fastify.get('/api/admin/activity', { preHandler: requireAdmin }, async (req, reply) => {
+    try {
+      const [users, payments, subscriptions] = await Promise.all([
+        getAllUsers(),
+        getAllPayments(),
+        getAllSubscriptions()
+      ]);
+
+      // Get recent activities
+      const activities = [];
+      
+      // Recent user registrations
+      const recentUsers = users
+        .sort((a, b) => new Date(b.createdAt || b.joinDate) - new Date(a.createdAt || a.joinDate))
+        .slice(0, 5);
+      
+      recentUsers.forEach(user => {
+        activities.push({
+          type: 'user_registration',
+          message: `New user registered: ${user.firstName || user.username}`,
+          timestamp: user.createdAt || user.joinDate,
+          data: { userId: user.userId, username: user.username }
+        });
+      });
+
+      // Recent payments
+      const recentPayments = payments
+        .sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date))
+        .slice(0, 5);
+      
+      recentPayments.forEach(payment => {
+        activities.push({
+          type: 'payment',
+          message: `Payment received: ETB ${payment.amount} for ${payment.serviceName || 'service'}`,
+          timestamp: payment.createdAt || payment.date,
+          data: { paymentId: payment.id, amount: payment.amount, service: payment.serviceName }
+        });
+      });
+
+      // Recent subscriptions
+      const recentSubscriptions = subscriptions
+        .sort((a, b) => new Date(b.createdAt || b.startDate) - new Date(a.createdAt || a.startDate))
+        .slice(0, 5);
+      
+      recentSubscriptions.forEach(sub => {
+        activities.push({
+          type: 'subscription',
+          message: `New subscription: ${sub.userName} subscribed to ${sub.serviceName}`,
+          timestamp: sub.createdAt || sub.startDate,
+          data: { subscriptionId: sub.id, userName: sub.userName, serviceName: sub.serviceName }
+        });
+      });
+
+      // Sort all activities by timestamp
+      activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      
+      return { success: true, activities: activities.slice(0, 10) };
+    } catch (error) {
+      console.error('Error getting admin activity:', error);
+      return reply.status(500).send({ error: error.message });
+    }
+  });
+
+  // Services endpoint
+  fastify.get('/api/admin/services', { preHandler: requireAdmin }, async (req, reply) => {
+    try {
+      const services = await getServices();
+      return { success: true, services };
+    } catch (error) {
+      console.error('Error getting admin services:', error);
+      return reply.status(500).send({ error: error.message });
+    }
+  });
+
+  // User management endpoints
+  fastify.post('/api/admin/users/:id/toggle-status', { preHandler: requireAdmin }, async (req, reply) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      
+      const result = await updateUser(id, { status });
+      
+      if (!result.success) {
+        return reply.status(400).send({ error: result.error });
+      }
+      
+      return { success: true, message: 'User status updated successfully' };
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      return reply.status(500).send({ error: error.message });
+    }
+  });
+
+  // Subscription management endpoints
+  fastify.post('/api/admin/subscriptions/:id/cancel', { preHandler: requireAdmin }, async (req, reply) => {
+    try {
+      const { id } = req.params;
+      
+      const result = await updateSubscription(id, { status: 'cancelled' });
+      
+      if (!result.success) {
+        return reply.status(400).send({ error: result.error });
+      }
+      
+      return { success: true, message: 'Subscription cancelled successfully' };
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      return reply.status(500).send({ error: error.message });
+    }
+  });
+
+  // Payment management endpoints
+  fastify.post('/api/admin/payments/:id/refund', { preHandler: requireAdmin }, async (req, reply) => {
+    try {
+      const { id } = req.params;
+      
+      const result = await updatePaymentStatus(id, 'refunded');
+      
+      if (!result.success) {
+        return reply.status(400).send({ error: result.error });
+      }
+      
+      return { success: true, message: 'Payment refunded successfully' };
+    } catch (error) {
+      console.error('Error refunding payment:', error);
+      return reply.status(500).send({ error: error.message });
+    }
+  });
+
   // Aliases to support frontend paths expecting /api/admin/*
   // Users
   fastify.get('/api/admin/users', { preHandler: requireAdmin }, async (req, reply) => {

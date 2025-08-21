@@ -17,6 +17,9 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Serve admin panel static files
+app.use('/panel', express.static(path.join(__dirname, 'panel')));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ 
@@ -34,6 +37,16 @@ app.get('/', (req, res) => {
         status: 'running',
         timestamp: new Date().toISOString()
     });
+});
+
+// Admin panel route
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'panel', 'admin-new.html'));
+});
+
+// Admin panel route (alternative)
+app.get('/panel', (req, res) => {
+    res.sendFile(path.join(__dirname, 'panel', 'admin-new.html'));
 });
 
 // Serve index.html for root path
@@ -62,4 +75,6 @@ startBot();
 const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Admin Panel: http://localhost:${PORT}/admin`);
+    console.log(`Admin Panel (alt): http://localhost:${PORT}/panel`);
 });

@@ -1,55 +1,36 @@
 services:
   - type: web
-    name: birrpay-bot
+    name: bpayb
     env: node
     plan: free
-    nodeVersion: 20.11.1
-    buildCommand: |
-      rm -rf node_modules package-lock.json
-      npm cache clean --force
-      npm cache verify
-      npm install --legacy-peer-deps --force
-      npm install debug@4.3.4 mime@3.0.0 --save-exact
-      npm rebuild
-      npm list debug
-      npm list mime
-      npm list @fastify/static
-      echo "✅ Build completed - using complete-admin-bot.js"
+    buildCommand: npm install
     startCommand: node complete-admin-bot.js
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: NODE_OPTIONS
-        value: --no-warnings=ExperimentalWarning --unhandled-rejections=strict
-      - key: DEBUG
-        value: '*,-follow-redirects,-telegraf:client*'
-      - key: NPM_CONFIG_PRODUCTION
-        value: "false"
     healthCheckPath: /health
-    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: '3000'
-      - key: NODE_OPTIONS
-        value: --no-warnings=ExperimentalWarning --unhandled-rejections=strict
-      - key: TELEGRAM_BOT_TOKEN
-        fromDatabase:
-          name: birrpay-secrets
-          property: TELEGRAM_BOT_TOKEN
-      - key: FIREBASE_CONFIG
-        fromDatabase:
-          name: birrpay-secrets
-          property: FIREBASE_CONFIG
-      - key: ADMIN_USER_IDS
-        fromDatabase:
-          name: birrpay-secrets
-          property: ADMIN_USER_IDS
-      - key: ADMIN_CACHE_TTL_MS
-        value: '60000'
-      - key: ENABLE_FIRESTORE_LISTENER
-        value: 'false'
+        value: 3000
+      - key: ADMIN_TELEGRAM_ID
+        value: "5186537254"
+      - key: KEEP_ALIVE_URL
+        value: https://bpayb.onrender.com
+      - key: HEALTH_CHECK_URL
+        value: http://localhost:3000/health
+      - key: MAX_ERRORS_BEFORE_RECOVERY
+        value: 10
+      - key: ERROR_WINDOW_MS
+        value: 300000
+      - key: RECOVERY_WAIT_MS
+        value: 30000
+      - key: ENABLE_PERFORMANCE_MONITORING
+        value: true
+      - key: ENABLE_ERROR_LOGGING
+        value: true
+      - key: ENABLE_HEALTH_CHECKS
+        value: true
+    autoDeploy: true
+    numInstances: 1
 
 databases:
   - name: birrpay-secrets
