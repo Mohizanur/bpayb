@@ -38,7 +38,18 @@ export const getInlineKeyboard = (buttons = [], lang = 'en') => {
 export const showMainMenu = async (ctx, isNewUser = false) => {
   try {
     const lang = ctx.userLang || 'en';
-    const { message, keyboard } = getMainMenuContent(lang, isNewUser);
+    
+    // Check if user is admin
+    let isAdmin = false;
+    try {
+      // Import the admin check function
+      const { isAuthorizedAdmin } = await import('../handlers/admin.js');
+      isAdmin = await isAuthorizedAdmin(ctx);
+    } catch (error) {
+      console.log('Could not check admin status:', error.message);
+    }
+    
+    const { message, keyboard } = getMainMenuContent(lang, isNewUser, isAdmin);
     
     // Try to edit the existing message if it's a callback query
     if (ctx.updateType === 'callback_query') {

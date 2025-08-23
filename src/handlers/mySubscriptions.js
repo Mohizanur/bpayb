@@ -23,7 +23,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
         
         const keyboard = [
           [{ text: lang === 'am' ? '📱 አገልግሎቶች ይምረጡ' : '📱 Select Services', callback_data: 'services' }],
-          [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }]
+          [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_menu' }]
         ];
         
         await ctx.editMessageText(message, {
@@ -92,7 +92,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
       ]);
       
       keyboard.push([
-        { text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }
+        { text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_menu' }
       ]);
       
       try {
@@ -314,7 +314,7 @@ Your subscription has been cancelled successfully. Contact support for more info
       
       const keyboard = [
         [{ text: lang === 'am' ? '📊 የእኔ ምዝገባዎች' : '📊 My Subscriptions', callback_data: 'my_subs' }],
-        [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_start' }]
+        [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_menu' }]
       ];
       
       await ctx.editMessageText(message, {

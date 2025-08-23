@@ -19,6 +19,273 @@ import langHandler from './src/handlers/lang.js';
 import helpHandler from './src/handlers/help.js';
 import mySubscriptionsHandler from './src/handlers/mySubscriptions.js';
 import { translate, t, getUserLanguage } from './src/utils/translations.js';
+
+// Enhanced translation helper with user language persistence
+const getUserLanguageWithPersistence = async (ctx) => {
+  try {
+    const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+    const userData = userDoc.data() || {};
+    return userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+  } catch (error) {
+    console.error('Error getting user language:', error);
+    return ctx.from?.language_code === 'am' ? 'am' : 'en';
+  }
+};
+
+// Comprehensive translation function
+const translateMessage = (key, lang = 'en') => {
+  const translations = {
+    // Phone verification
+    'phone_verification_required': {
+      en: '📱 Phone Verification Required\n\nTo use BirrPay services, you need to verify your phone number.\n\nPlease verify your phone number by clicking the button below.',
+      am: '📱 የተልፍዎን መረጃ አስፈላጊ\n\nየBirrPay አገልግሎቶችን ለመጠቀም የተልፍዎን መረጃ አስፈላጊ።\n\nእባክዎ ከታች ያለውን ቁልፍ በመጫን የስልክ ቁጥርዎን ያረጋግጡ።'
+    },
+    'verify_my_number': {
+      en: '📱 Verify My Number',
+      am: '📱 ስልክ ቁጥሬን ለማረጋገጥ'
+    },
+    'share_contact': {
+      en: '📱 Share Contact',
+      am: '📱 እውቂያ ማጋራት'
+    },
+    'type_manually': {
+      en: '✍️ Type Manually',
+      am: '✍️ በእጅ መፃፍ'
+    },
+    'invalid_phone_format': {
+      en: '⚠️ Please use a valid phone number format (+1234567890)',
+      am: '⚠️ እባክዎ ትክክለኛ የስልክ ቁጥር ይጠቀሙ (+1234567890)'
+    },
+    'phone_verified_success': {
+      en: '✅ Your phone number has been verified! You can now use our services.',
+      am: '✅ የስልክ ቁጥርዎ ተረጋግጧል! አሁን አገልግሎቶችን መጠቀም ይችላሉ።'
+    },
+    
+    // Welcome messages
+    'welcome_title': {
+      en: '🎉 Welcome to BirrPay!',
+      am: '🎉 እንኳን ወደ BirrPay በደህና መጡ!'
+    },
+    'welcome_subtitle': {
+      en: '🌟 **Ethiopia\'s #1 Subscription Platform**',
+      am: '🌟 **የኢትዮጵያ #1 የሳብስክሪፕሽን ፕላትፎርም**'
+    },
+    'welcome_description': {
+      en: 'Ethiopia\'s Premier Subscription Hub.\n\nPlease use the button below to subscribe to services.',
+      am: 'የኢትዮጵያ ዋና የማስተካል አገልግሎት።\n\nአገልግሎቶችን ለመመዝገብ እባክዎ ከታች ያለውን አዝራር ይጠቀሙ።'
+    },
+    
+    // Menu buttons
+    'view_services': {
+      en: '🛍️ View Services',
+      am: '🛍️ አገልግሎቶችን ይመልከቱ'
+    },
+    'my_subscriptions': {
+      en: '📊 My Subscriptions',
+      am: '📊 የእኔ መዋቅሮች'
+    },
+    'help': {
+      en: '❓ Help',
+      am: '❓ እርዳታ'
+    },
+    'support': {
+      en: '📞 Support',
+      am: '📞 ድጋፍ'
+    },
+    'language': {
+      en: '🌐 Language',
+      am: '🌐 ቋንቋ'
+    },
+    'admin_panel': {
+      en: '🔧 Admin Panel',
+      am: '🔧 አስተዳደሪ ፓነል'
+    },
+    'back_to_menu': {
+      en: '🏠 Back to Menu',
+      am: '🏠 ወደ ምናሌ ተመለስ'
+    },
+    
+    // Language settings
+    'language_settings': {
+      en: '🌐 **Language Settings**\n\nCurrent language: {current}\n\nPlease select your preferred language:',
+      am: '🌐 **የቋንቋ ማስተካከያ**\n\nአሁን ያለው ቋንቋዎ: {current}\n\nእባክዎ የሚፈልጉትን ቋንቋ ይምረጡ:'
+    },
+    'english': {
+      en: '🇺🇸 English',
+      am: '🇺🇸 English'
+    },
+    'amharic': {
+      en: '🇪🇹 Amharic',
+      am: '🇪🇹 አማርኛ'
+    },
+    'language_switched_en': {
+      en: '✅ **Language Updated!**\n\n🇺🇸 Your language has been switched to English.\n\nYou can now use all bot features in English.',
+      am: '✅ **Language Updated!**\n\n🇺🇸 Your language has been switched to English.\n\nYou can now use all bot features in English.'
+    },
+    'language_switched_am': {
+      en: '✅ **ቋንቋ ተሻሽሏል!**\n\n🇪🇹 ቋንቋዎ ወደ አማርኛ ተቀይሯል።\n\nአሁን ሁሉንም የቦት ባህሪያት በአማርኛ መጠቀም ይችላሉ።',
+      am: '✅ **ቋንቋ ተሻሽሏል!**\n\n🇪🇹 ቋንቋዎ ወደ አማርኛ ተቀይሯል።\n\nአሁን ሁሉንም የቦት ባህሪያት በአማርኛ መጠቀም ይችላሉ።'
+    },
+    
+    // Pagination
+    'pagination_info': {
+      en: '📄 Page {current} of {total}',
+      am: '📄 ገጽ {current} ከ {total}'
+    },
+    'previous_page': {
+      en: '⬅️ Previous',
+      am: '⬅️ ቀዳሚ'
+    },
+    'next_page': {
+      en: 'Next ➡️',
+      am: 'ቀጣይ ➡️'
+    },
+    'back_to_admin': {
+      en: '🔙 Back to Admin',
+      am: '🔙 ወደ አስተዳደሪ ተመለስ'
+    },
+    'services_title': {
+      en: '🛍️ **Service Management**',
+      am: '🛍️ **የአገልግሎት አስተዳደር**'
+    },
+    'no_services': {
+      en: 'No services found.',
+      am: 'ምንም አገልግሎት አልተገኘም።'
+    },
+    
+    // Error messages
+    'error_generic': {
+      en: '❌ An error occurred. Please try again.',
+      am: '❌ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+    },
+    'error_verification': {
+      en: '❌ Error occurred during verification. Please try again.',
+      am: '❌ በማረጋገጫ ሂደት ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+    },
+    
+    // Admin panel messages
+    'access_denied': {
+      en: '❌ **Access Denied**\n\nThis command is restricted to authorized administrators only.',
+      am: '❌ **መድረስ ተከልክሏል**\n\nይህ ትዕዛዝ ለሚፈቀዱ አስተዳደሪዎች ብቻ የተወሰነ ነው።'
+    },
+    'welcome_admin': {
+      en: '👋 **Welcome back, Administrator!**',
+      am: '👋 **እንኳን ደስ አለዎት፣ አስተዳደሪ!**'
+    },
+    'admin_dashboard': {
+      en: '🌟 **BirrPay Admin Dashboard** 🌟',
+      am: '🌟 **የBirrPay አስተዳደሪ ዳሽቦርድ** 🌟'
+    },
+    'real_time_analytics': {
+      en: '📊 **Real-Time Analytics**',
+      am: '📊 **የቅጽበት ትንተና**'
+    },
+    'total_users': {
+      en: '👥 **Users:** {count} total',
+      am: '👥 **ተጠቃሚዎች:** {count} ጠቅላላ'
+    },
+    'verified_users': {
+      en: '✅ **Verified:** {count} users',
+      am: '✅ **ተረጋግጧል:** {count} ተጠቃሚዎች'
+    },
+    'active_subscriptions': {
+      en: '📱 **Subscriptions:** {count} active',
+      am: '📱 **የደንበኝነት ምዝገቦች:** {count} ንቁ'
+    },
+    'total_payments': {
+      en: '💳 **Payments:** {count} total',
+      am: '💳 **ክፍያዎች:** {count} ጠቅላላ'
+    },
+    'available_services': {
+      en: '🛍️ **Services:** {count} available',
+      am: '🛍️ **አገልግሎቶች:** {count} ይገኛሉ'
+    },
+    'web_admin_panel': {
+      en: '🌐 **Web Admin Panel:** [Open Dashboard](https://bpayb.onrender.com/panel)',
+      am: '🌐 **ድህረ ገጽ አስተዳደሪ ፓነል:** [ዳሽቦርድ ክፈት](https://bpayb.onrender.com/panel)'
+    },
+    'management_center': {
+      en: '🎯 **Management Center:**',
+      am: '🎯 **የአስተዳደር ማዕከል:**'
+    },
+    // Admin buttons
+    'users': {
+      en: '👥 Users',
+      am: '👥 ተጠቃሚዎች'
+    },
+    'subscriptions': {
+      en: '📊 Subscriptions',
+      am: '📊 የደንበኝነት ምዝገቦች'
+    },
+    'manage_services': {
+      en: '🛍️ Manage Services',
+      am: '🛍️ አገልግሎቶችን አስተዳድር'
+    },
+    'add_service': {
+      en: '➕ Add Service',
+      am: '➕ አገልግሎት አክል'
+    },
+    'payment_methods': {
+      en: '💳 Payment Methods',
+      am: '💳 የክፍያ ዘዴዎች'
+    },
+    'performance': {
+      en: '📊 Performance',
+      am: '📊 አدነገጃ'
+    },
+    'broadcast_message': {
+      en: '💬 Broadcast Message',
+      am: '💬 የስርጭት መልእክት'
+    },
+    'refresh_panel': {
+      en: '🔄 Refresh Panel',
+      am: '🔄 ፓነል አድስ'
+    },
+    // Admin error messages
+    'error_loading_admin': {
+      en: '❌ Error loading admin panel. Please try again.',
+      am: '❌ የአስተዳደሪ ፓነል መጫን ስህተት። እባክዎ እንደገና ይሞክሩ።'
+    },
+    'error_changing_language': {
+      en: '❌ Error changing language',
+      am: '❌ ቋንቋ መለወጥ ስህተት'
+    },
+    'error_loading_services': {
+      en: '❌ Error loading services',
+      am: '❌ አገልግሎቶችን መጫን ስህተት'
+    },
+    'error_loading_page': {
+      en: '❌ Error loading page',
+      am: '❌ ገጽ መጫን ስህተት'
+    },
+    'error_returning_menu': {
+      en: '❌ Error returning to menu',
+      am: '❌ ወደ ምናሌ መመለስ ስህተት'
+    },
+    'error_language_settings': {
+      en: '❌ Error loading language settings',
+      am: '❌ የቋንቋ ቅንብሮችን መጫን ስህተት'
+    },
+    // Service management
+    'service_price': {
+      en: '💰 Price: {price}',
+      am: '💰 ዋጋ: {price}'
+    },
+    'service_id': {
+      en: '📝 ID: `{id}`',
+      am: '📝 መለያ: `{id}`'
+    }
+
+  };
+  
+  const translation = translations[key];
+  if (!translation) {
+    console.warn(`Translation key not found: ${key}`);
+    return key;
+  }
+  
+  return translation[lang] || translation.en || key;
+};
 import { performanceMonitor } from './src/utils/performanceMonitor.js';
 
 // Helper function for admin security check
@@ -32,11 +299,20 @@ const isAuthorizedAdmin = async (ctx) => {
       return true;
     }
     
-    // Check against Firestore config
+    // Check against Firestore config (old method)
     const adminDoc = await firestore.collection('config').doc('admins').get();
     if (adminDoc.exists) {
       const admins = adminDoc.data().userIds || [];
       if (admins.includes(userId)) {
+        return true;
+      }
+    }
+    
+    // Check against user document (new method)
+    const userDoc = await firestore.collection('users').doc(userId).get();
+    if (userDoc.exists) {
+      const userData = userDoc.data();
+      if (userData.isAdmin === true) {
         return true;
       }
     }
@@ -49,9 +325,375 @@ const isAuthorizedAdmin = async (ctx) => {
   }
 };
 
+// Phone verification middleware - Check if user is verified before allowing access
+const phoneVerificationMiddleware = async (ctx, next) => {
+  try {
+    // Skip verification check for admin and verification commands
+    const isAdmin = await isAuthorizedAdmin(ctx);
+    const isVerificationCommand = ctx.message?.text?.startsWith('/verify') || ctx.callbackQuery?.data?.startsWith('verify_');
+    const isStartCommand = ctx.message?.text === '/start';
+    const isContactMessage = ctx.message?.contact;
+    const isManualPhoneInput = ctx.message?.text === '✍️ በእጅ መፃፍ' || ctx.message?.text === '✍️ Type Manually';
+    const isVerificationCodeInput = ctx.message?.text && /^\d{6}$/.test(ctx.message.text.trim());
+    
+    if (isAdmin || isVerificationCommand || isStartCommand || isContactMessage || isManualPhoneInput || isVerificationCodeInput) {
+      return next();
+    }
+    
+    // Check if user is verified
+    try {
+      const userId = String(ctx.from.id);
+      const userDoc = await firestore.collection('users').doc(userId).get();
+      let userData = userDoc.data();
+      
+      // If user doesn't exist, create a new user record
+      if (!userDoc.exists) {
+        userData = {
+          telegramId: userId,
+          firstName: ctx.from.first_name,
+          lastName: ctx.from.last_name || '',
+          username: ctx.from.username || '',
+          language: ctx.from.language_code || 'en',
+          phoneVerified: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        await firestore.collection('users').doc(userId).set(userData);
+      }
+      
+      // If user exists but doesn't have phoneVerified field, set it to false
+      if (userData && typeof userData.phoneVerified === 'undefined') {
+        userData.phoneVerified = false;
+        await firestore.collection('users').doc(userId).update({
+          phoneVerified: false,
+          updatedAt: new Date()
+        });
+      }
+      
+      if (!userData.phoneVerified) {
+        const lang = userData.language || (ctx.from.language_code === 'am' ? 'am' : 'en');
+        const verificationMsg = lang === 'am'
+          ? '📱 የተልፍዎን መረጃ አስፈላጊ\n\nየBirrPay አገልግሎቶችን ለመጠቀም የተልፍዎን መረጃ አስፈላጊ።\n\nእባክዎ ከታች ያለውን ቁልፍ በመጫን የስልክ ቁጥርዎን ያረጋግጡ።'
+          : '📱 Phone Verification Required\n\nTo use BirrPay services, you need to verify your phone number.\n\nPlease verify your phone number by clicking the button below.';
+        
+        // Remove any existing reply markup first
+        try {
+          await ctx.answerCbQuery();
+        } catch (e) { /* Ignore if not a callback query */ }
+        
+        await ctx.reply(verificationMsg, {
+          reply_markup: {
+            inline_keyboard: [[
+              { 
+                text: lang === 'am' ? '📱 ስልክ ቁጥሬን ለማረጋገጥ' : '📱 Verify My Number', 
+                callback_data: 'verify_phone' 
+              }
+            ]]
+          }
+        });
+        return;
+      }
+      
+      // User is verified, continue
+      return next();
+      
+    } catch (dbError) {
+      console.error('Database error in verification middleware:', dbError);
+      // Continue without verification if database is unavailable
+      return next();
+    }
+    
+  } catch (error) {
+    console.error('⚠️ PHONE VERIFICATION MIDDLEWARE ERROR:', error);
+    return next();
+  }
+};
+
+// Phone verification handlers
+const setupPhoneVerification = (bot) => {
+  // Phone verification button handler
+  bot.action('verify_phone', async (ctx) => {
+    try {
+      // Get user's saved language preference
+      const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+      const userData = userDoc.data() || {};
+      const lang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+      const requestMsg = lang === 'am'
+        ? '📱 የተልፍዎን ማረጋገጫ\n\nእባክዎ የተልፍዎን መረጃ ለማረጋገጥ ከታች ያለውን ቁልፍ በመጫን እውቂያዎን ያጋሩ።\n\nአስፈላጊ: ይህ የሚያስፈልገው የእርስዎን ስልክ ቁጥር ለማረጋገጥ ብቻ ነው።'
+        : '📱 Phone Verification\n\nPlease tap the button below to share your contact for verification.\n\nNote: This is only used to verify your phone number.';
+      
+      await ctx.answerCbQuery();
+      
+      // Create reply keyboard with only contact sharing option
+      const keyboard = {
+        keyboard: [
+          [
+            {
+              text: lang === 'am' ? '📱 እውቂያ ማጋራት' : '📱 Share Contact',
+              request_contact: true
+            }
+          ]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true
+      };
+      
+      await ctx.reply(requestMsg, {
+        reply_markup: keyboard,
+        parse_mode: 'Markdown'
+      });
+      
+      // Set user state to expect phone number
+      await firestore.collection('users').doc(String(ctx.from.id)).set({
+        telegramId: ctx.from.id,
+        firstName: ctx.from.first_name,
+        lastName: ctx.from.last_name || '',
+        username: ctx.from.username || '',
+        language: lang,
+        awaitingPhone: true,
+        hasCompletedOnboarding: false,
+        phoneVerified: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }, { merge: true });
+      
+    } catch (error) {
+      console.error('Error in verify_phone:', error);
+      await ctx.answerCbQuery('Error occurred');
+    }
+  });
+
+  // Handle contact sharing for phone verification
+  bot.on('contact', async (ctx) => {
+    try {
+      const userId = String(ctx.from.id);
+      const userDoc = await firestore.collection('users').doc(userId).get();
+      const userData = userDoc.data() || {};
+      const lang = userData.language || (ctx.from.language_code === 'am' ? 'am' : 'en');
+      
+      const phoneNumber = ctx.message.contact.phone_number;
+      
+      // Ensure phone number has + prefix
+      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : '+' + phoneNumber;
+      
+      // Validate international phone number format (basic validation)
+      const phoneRegex = /^\+[1-9]\d{1,14}$/;
+      
+      if (!phoneRegex.test(formattedPhone)) {
+        const errorMsg = lang === 'am'
+          ? '⚠️ እባክዎ ትክክለኛ የስልክ ቁጥር ይጠቀሙ (+1234567890)'
+          : '⚠️ Please use a valid phone number format (+1234567890)';
+        await ctx.reply(errorMsg);
+        return;
+      }
+      
+      // Create user update data
+      const updateData = {
+        phoneNumber: formattedPhone,
+        phoneVerified: true,
+        awaitingPhone: false,
+        awaitingCode: false,
+        updatedAt: new Date(),
+        // Set initial values if they don't exist
+        firstName: ctx.from.first_name,
+        lastName: ctx.from.last_name || '',
+        username: ctx.from.username || '',
+        language: lang
+      };
+      
+      // If this is a new user, set created timestamp
+      if (!userDoc.exists) {
+        updateData.createdAt = new Date();
+        updateData.telegramId = userId;
+      }
+      
+      // Update user with verified phone using update() to ensure atomic updates
+      await firestore.collection('users').doc(userId).set(updateData, { merge: true });
+      
+      // Clear any existing reply markup
+      try {
+        await ctx.answerCbQuery();
+      } catch (e) { /* Ignore if not a callback query */ }
+      
+      // Prepare welcome message matching /start command
+      const welcomeTitle = lang === "am" 
+        ? "🎉 እንኳን ወደ BirrPay ደህና መጡ!"
+        : "🎉 Welcome to BirrPay!";
+      
+      const welcomeSubtitle = lang === "am"
+        ? "🌟 **የኢትዮጵያ #1 የሳብስክሪፕሽን ፕላትፎርም**"
+        : "🌟 **Ethiopia's #1 Subscription Platform**";
+        
+      const successMessage = lang === 'am'
+        ? `${welcomeTitle}\n\n${welcomeSubtitle}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n✅ **ስልክ ቁጥርዎ ተረጋግጧል!**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${formattedPhone} በተሳካ ሁኔታ ተረጋግጧል። አሁን የBirrPay አገልግሎቶችን መጠቀም ይችላሉ።\n\n✨ **ምን ማድረግ ይችላሉ:**\n• Netflix, Amazon Prime, Spotify እና ሌሎችንም ያግኙ\n• በብር በቀላሉ ይክፈሉ\n• ሁሉንም ሳብስክሪፕሽኖችዎን በአንድ ቦታ ያስተዳድሩ\n• 24/7 የደንበኞች ድጋፍ ያግኙ\n\n🔒 **100% ደህንነቱ የተጠበቀ** | 🇪🇹 **የአካባቢ ድጋፍ** | ⚡ **ፈጣን እና ቀላል**`
+        : `${welcomeTitle}\n\n${welcomeSubtitle}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n✅ **Phone Number Verified!**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${formattedPhone} has been successfully verified. You can now use all BirrPay services.\n\n✨ **What You Can Do:**\n• Access Netflix, Amazon Prime, Spotify, and more\n• Pay easily using Ethiopian Birr\n• Manage all subscriptions from one place\n• Get 24/7 customer support\n\n🔒 **100% Secure** | 🇪🇹 **Local Support** | ⚡ **Fast & Easy**`;
+
+      // Menu buttons matching /start command
+      const menuButtons = [
+        [
+          { 
+            text: lang === "am" ? "🚀 እንጀምር!" : "🚀 Let's Get Started!",
+            callback_data: "view_services"
+          }
+        ],
+        [
+          { 
+            text: lang === "am" ? "📊 የእኔ መዋቅሮች" : "📊 My Subscriptions",
+            callback_data: "my_subscriptions"
+          }
+        ],
+        [
+          { 
+            text: lang === "am" ? "❓ እርዳታ" : "❓ Help",
+            callback_data: "help"
+          },
+          { 
+            text: lang === "am" ? "📞 ድጋፍ" : "📞 Support",
+            callback_data: "support"
+          }
+        ],
+        [
+          { 
+            text: lang === "am" ? "🌐 ቋንቋ" : "🌐 Language",
+            callback_data: "language_settings"
+          }
+        ]
+      ];
+
+      // Send the welcome message with main menu
+      await ctx.reply(successMessage, {
+        reply_markup: {
+          inline_keyboard: menuButtons
+        },
+        parse_mode: 'Markdown'
+      });
+      
+      // Remove the keyboard
+      await ctx.reply(lang === 'am' ? '✅ የስልክ ቁጥርዎ ተረጋግጧል! አሁን አገልግሎቶችን መጠቀም ይችላሉ።' : '✅ Your phone number has been verified! You can now use our services.', {
+        reply_markup: { remove_keyboard: true }
+      });
+      
+    } catch (error) {
+      console.error('Error in contact handler:', error);
+      await ctx.reply('❌ Error occurred during verification. Please try again.');
+    }
+  });
+
+  // Manual phone input handler
+  bot.hears(['✍️ በእጅ መፃፍ', '✍️ Type Manually'], async (ctx) => {
+    try {
+      // Get user's saved language preference
+      const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+      const userData = userDoc.data() || {};
+      const lang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+      const message = lang === 'am'
+        ? '📱 እባክዎ የስልክ ቁጥርዎን ያስገቡ (+1234567890):'
+        : '📱 Please enter your phone number (+1234567890):';
+      
+      await ctx.reply(message, {
+        reply_markup: {
+          keyboard: [
+            [{ text: lang === 'am' ? '🔙 ወደ ኋላ' : '🔙 Back' }]
+          ],
+          resize_keyboard: true
+        }
+      });
+      
+      // Set user state to expect manual phone input
+      await firestore.collection('users').doc(String(ctx.from.id)).set({
+        awaitingManualPhone: true,
+        updatedAt: new Date()
+      }, { merge: true });
+      
+    } catch (error) {
+      console.error('Error in manual phone input:', error);
+      await ctx.reply('❌ Error occurred. Please try again.');
+    }
+  });
+
+  // Handle manual phone number input
+  bot.hears(/^\+[1-9]\d{1,14}$/, async (ctx) => {
+    try {
+      const userId = String(ctx.from.id);
+      const userDoc = await firestore.collection('users').doc(userId).get();
+      const userData = userDoc.data() || {};
+      const lang = userData.language || (ctx.from.language_code === 'am' ? 'am' : 'en');
+      
+      const phoneNumber = ctx.message.text;
+      
+      // Update user with verified phone
+      await firestore.collection('users').doc(userId).set({
+        phoneNumber: phoneNumber,
+        phoneVerified: true,
+        awaitingManualPhone: false,
+        updatedAt: new Date()
+      }, { merge: true });
+      
+      const successMsg = lang === 'am'
+        ? `✅ የስልክ ቁጥርዎ ${phoneNumber} ተረጋግጧል!`
+        : `✅ Your phone number ${phoneNumber} has been verified!`;
+      
+      await ctx.reply(successMsg, {
+        reply_markup: { remove_keyboard: true }
+      });
+      
+      // Send welcome message
+      const welcomeMsg = lang === 'am'
+        ? '🎉 እንኳን ወደ BirrPay ደህና መጡ! አሁን አገልግሎቶችን መጠቀም ይችላሉ።'
+        : '🎉 Welcome to BirrPay! You can now use our services.';
+      
+      await ctx.reply(welcomeMsg);
+      
+    } catch (error) {
+      console.error('Error in manual phone verification:', error);
+      await ctx.reply('❌ Error occurred during verification. Please try again.');
+    }
+  });
+
+  // Back button handler
+  bot.hears(['🔙 ወደ ኋላ', '🔙 Back'], async (ctx) => {
+    try {
+      // Get user's saved language preference
+      const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+      const userData = userDoc.data() || {};
+      const lang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+      const message = lang === 'am'
+        ? '📱 የስልክ ቁጥርዎን ለማረጋገጥ እባክዎ እውቂያዎን ያጋሩ:'
+        : '📱 To verify your phone number, please share your contact:';
+      
+      const keyboard = {
+        keyboard: [
+          [
+            {
+              text: lang === 'am' ? '📱 እውቂያ ማጋራት' : '📱 Share Contact',
+              request_contact: true
+            }
+          ],
+          [
+            {
+              text: lang === 'am' ? '✍️ በእጅ መፃፍ' : '✍️ Type Manually'
+            }
+          ]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true
+      };
+      
+      await ctx.reply(message, {
+        reply_markup: keyboard,
+        parse_mode: 'Markdown'
+      });
+      
+    } catch (error) {
+      console.error('Error in back button handler:', error);
+      await ctx.reply('❌ Error occurred. Please try again.');
+    }
+  });
+};
+
 dotenv.config();
 
-console.log('🚀 BirrPay Bot - COMPLETE Enhanced Version');
+console.log('🚀 BirrPay Bot - COMPLETE Enhanced Version with Phone Verification');
 
 // MIME types for static files
 const mimeTypes = {
@@ -90,34 +732,6 @@ function sendJson(res, data, status = 200) {
   res.end(JSON.stringify(data));
 }
 
-// Mock admin data for demo purposes
-const mockAdminData = {
-  stats: {
-    totalUsers: 1250,
-    activeUsers: 890,
-    totalSubscriptions: 567,
-    activeSubscriptions: 423,
-    totalRevenue: 125000,
-    monthlyRevenue: 15000
-  },
-  users: [
-    { id: 1, username: 'user1', status: 'active', joinDate: '2024-01-15' },
-    { id: 2, username: 'user2', status: 'active', joinDate: '2024-01-20' }
-  ],
-  subscriptions: [
-    { id: 1, userId: 1, service: 'Netflix', status: 'active', price: 15 },
-    { id: 2, userId: 2, service: 'Spotify', status: 'active', price: 10 }
-  ],
-  payments: [
-    { id: 1, userId: 1, amount: 15, status: 'completed', date: '2024-01-15' },
-    { id: 2, userId: 2, amount: 10, status: 'completed', date: '2024-01-20' }
-  ],
-  services: [
-    { id: 1, name: 'Netflix', price: 15, status: 'active' },
-    { id: 2, name: 'Spotify', price: 10, status: 'active' }
-  ]
-};
-
 // Create HTTP server for health checks and admin panel
 const server = createServer(async (req, res) => {
   const url = req.url;
@@ -135,353 +749,49 @@ const server = createServer(async (req, res) => {
   }
   
   // Health check endpoint
-  if (url === '/health') {
+  if (url === '/health' || url === '/health/' || url === '/') {
     try {
-      // Basic health status
+      // Check if bot is running
+      const botStatus = bot ? 'running' : 'stopped';
+      
+      // Basic health check
       const healthStatus = {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         version: '2.0.0',
-        environment: process.env.NODE_ENV || 'development'
-      };
-
-      // Try to get advanced metrics if systems are available
-      try {
-        const healthChecks = await resilienceManager.performHealthChecks();
-        const performanceMetrics = performanceMonitor.getMetrics();
-        const cacheStats = cache.getStats();
-        
-        healthStatus.healthChecks = healthChecks;
-        healthStatus.performance = {
-          requests: performanceMetrics.requests.total,
-          successRate: performanceMetrics.efficiency.successRate,
-          averageResponseTime: performanceMetrics.efficiency.averageResponseTime,
-          firestoreReads: performanceMetrics.firestore.reads,
-          firestoreWrites: performanceMetrics.firestore.writes
-        };
-        healthStatus.cache = {
-          services: cacheStats.services,
-          users: cacheStats.users,
-          stats: cacheStats.stats
-        };
-        healthStatus.resilience = resilienceManager.getStatus();
-        
-        // Determine overall health status
-        const failedChecks = Object.values(healthChecks).filter(check => check.status === 'unhealthy').length;
-        if (failedChecks > 0) {
-          healthStatus.status = 'degraded';
+        environment: process.env.NODE_ENV || 'development',
+        phoneVerification: 'enabled',
+        botStatus: botStatus,
+        server: 'birrpay-bot',
+        endpoints: {
+          health: '/health',
+          status: '/status',
+          panel: '/panel'
         }
-      } catch (metricsError) {
-        // If advanced metrics fail, still return basic health
-        healthStatus.status = 'healthy';
-        healthStatus.note = 'Advanced metrics unavailable';
-        console.log('Health check: Using basic status (advanced metrics failed)');
-      }
+      };
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(healthStatus));
+      console.log('✅ Health check passed');
     } catch (error) {
+      console.error('❌ Health check error:', error.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ 
         status: 'unhealthy', 
         error: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        server: 'birrpay-bot'
       }));
     }
     return;
   }
-  
-  // API endpoints
-  if (url.startsWith('/api/')) {
-    try {
-      // Admin login
-      if (url === '/api/admin/login' && req.method === 'POST') {
-        const body = await parseBody(req);
-        // Simple mock login - accept any credentials for demo
-        sendJson(res, { 
-          success: true, 
-          token: 'mock-admin-token',
-          user: { id: 1, username: 'admin' }
-        });
-        return;
-      }
-      
-      // Admin stats - Get real data from Firebase
-      if (url === '/api/admin/stats') {
-        try {
-          // Add timeout to prevent hanging
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Firebase timeout')), 5000)
-          );
-          
-          const statsPromise = Promise.all([
-            firestore.collection('users').get(),
-            firestore.collection('subscriptions').get(),
-            firestore.collection('payments').get()
-          ]);
-          
-          const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot] = await Promise.race([
-            statsPromise,
-            timeoutPromise
-          ]);
-          
-          const totalUsers = usersSnapshot.size;
-          const activeUsers = usersSnapshot.docs.filter(doc => doc.data().status === 'active').length;
-          const totalSubscriptions = subscriptionsSnapshot.size;
-          const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => doc.data().status === 'active').length;
-          
-          // Calculate total revenue
-          let totalRevenue = 0;
-          paymentsSnapshot.forEach(doc => {
-            const payment = doc.data();
-            if (payment.status === 'completed') {
-              totalRevenue += payment.amount || 0;
-            }
-          });
-          
-          // Calculate monthly revenue (last 30 days)
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          let monthlyRevenue = 0;
-          paymentsSnapshot.forEach(doc => {
-            const payment = doc.data();
-            if (payment.status === 'completed' && payment.date) {
-              const paymentDate = new Date(payment.date);
-              if (paymentDate >= thirtyDaysAgo) {
-                monthlyRevenue += payment.amount || 0;
-              }
-            }
-          });
-          
-          sendJson(res, {
-            totalUsers,
-            activeUsers,
-            totalSubscriptions,
-            activeSubscriptions,
-            totalRevenue,
-            monthlyRevenue
-          });
-        } catch (error) {
-          console.error('Error fetching stats:', error);
-          // Return mock data if Firebase fails
-          sendJson(res, {
-            totalUsers: 2,
-            activeUsers: 1,
-            totalSubscriptions: 17,
-            activeSubscriptions: 4,
-            totalRevenue: 0,
-            monthlyRevenue: 0
-          });
-        }
-        return;
-      }
-      
-      // Dynamic admin endpoints for tabs - Get real data from Firebase
-      if (url.match(/^\/api\/admin\/(users|subscriptions|payments|services)$/)) {
-        const tabName = url.split('/').pop();
-        try {
-          // Add timeout to prevent hanging
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Firebase timeout')), 5000)
-          );
-          
-          let dataPromise;
-          switch (tabName) {
-            case 'users':
-              dataPromise = firestore.collection('users').get();
-              break;
-            case 'subscriptions':
-              dataPromise = firestore.collection('subscriptions').get();
-              break;
-            case 'payments':
-              dataPromise = firestore.collection('payments').get();
-              break;
-            case 'services':
-              dataPromise = firestore.collection('services').get();
-              break;
-            default:
-              sendJson(res, { error: 'Tab not found' }, 404);
-              return;
-          }
-          
-          const snapshot = await Promise.race([dataPromise, timeoutPromise]);
-          const data = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          sendJson(res, data);
-          
-        } catch (error) {
-          console.error(`Error fetching ${tabName}:`, error);
-          // Fallback to mock data
-          switch (tabName) {
-            case 'users':
-              sendJson(res, [
-                { id: '1', username: 'user1', status: 'active', joinDate: '2024-01-15' },
-                { id: '2', username: 'user2', status: 'active', joinDate: '2024-01-20' }
-              ]);
-              break;
-            case 'subscriptions':
-              sendJson(res, [
-                { id: '1', userId: 1, service: 'Netflix', status: 'active', price: 15 },
-                { id: '2', userId: 2, service: 'Spotify', status: 'active', price: 10 }
-              ]);
-              break;
-            case 'payments':
-              sendJson(res, [
-                { id: '1', userId: 1, amount: 15, status: 'completed', date: '2024-01-15' },
-                { id: '2', userId: 2, amount: 10, status: 'completed', date: '2024-01-20' }
-              ]);
-              break;
-            case 'services':
-              sendJson(res, [
-                { id: '1', name: 'Netflix', price: 15, status: 'active' },
-                { id: '2', name: 'Spotify', price: 10, status: 'active' }
-              ]);
-              break;
-          }
-        }
-        return;
-      }
-      
-      // Users endpoint
-      if (url === '/api/users') {
-        try {
-          const usersSnapshot = await firestore.collection('users').get();
-          const users = usersSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          sendJson(res, users);
-        } catch (error) {
-          console.error('Error fetching users:', error);
-          sendJson(res, mockAdminData.users);
-        }
-        return;
-      }
-      
-      // Subscriptions endpoint
-      if (url === '/api/subscriptions') {
-        try {
-          const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
-          const subscriptions = subscriptionsSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          sendJson(res, subscriptions);
-        } catch (error) {
-          console.error('Error fetching subscriptions:', error);
-          sendJson(res, mockAdminData.subscriptions);
-        }
-        return;
-      }
-      
-      // Payments endpoint
-      if (url === '/api/payments') {
-        try {
-          const paymentsSnapshot = await firestore.collection('payments').get();
-          const payments = paymentsSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          sendJson(res, payments);
-        } catch (error) {
-          console.error('Error fetching payments:', error);
-          sendJson(res, mockAdminData.payments);
-        }
-        return;
-      }
-      
-      // Services endpoint
-      if (url === '/api/services/manage') {
-        try {
-          const servicesSnapshot = await firestore.collection('services').get();
-          const services = servicesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          sendJson(res, services);
-        } catch (error) {
-          console.error('Error fetching services:', error);
-          sendJson(res, mockAdminData.services);
-        }
-        return;
-      }
-      
-      // Admin services endpoint
-      if (url === '/api/admin/services') {
-        try {
-          const servicesSnapshot = await firestore.collection('services').get();
-          const services = servicesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          sendJson(res, services);
-        } catch (error) {
-          console.error('Error fetching services:', error);
-          sendJson(res, mockAdminData.services);
-        }
-        return;
-      }
-      
-      // User suspend/activate endpoints
-      if (url.match(/\/api\/users\/\d+\/(suspend|activate)/)) {
-        sendJson(res, { success: true, message: 'User status updated' });
-        return;
-      }
-      
-      // Default API response
-      sendJson(res, { error: 'API endpoint not found' }, 404);
-      return;
-      
-    } catch (error) {
-      console.error('API Error:', error);
-      sendJson(res, { error: 'Internal server error' }, 500);
-      return;
-    }
-  }
-  
-                // Admin panel route
-                if (url === '/panel' || url === '/panel/') {
-    try {
-      const adminHtml = readFileSync('./panel/admin-new.html', 'utf8');
-                  res.writeHead(200, { 
-                    'Content-Type': 'text/html; charset=utf-8',
-                    'Cache-Control': 'no-cache'
-                  });
-                  res.end(adminHtml);
-                  return;
-                } catch (error) {
-                  console.error('Error reading admin panel:', error);
-                  res.writeHead(500, { 'Content-Type': 'text/plain' });
-                  res.end('Admin panel not available');
-                  return;
-                }
-              }
-  
-  // Serve static files from panel directory
-  if (url.startsWith('/panel/')) {
-    let filePath = url.substring(7); // Remove '/panel/' prefix
-    // Remove query parameters
-    if (filePath.includes('?')) {
-      filePath = filePath.split('?')[0];
-    }
-    const fullPath = join('./panel', filePath);
-    
-    if (existsSync(fullPath)) {
-      try {
-        const content = readFileSync(fullPath);
-        const ext = extname(fullPath);
-        const contentType = mimeTypes[ext] || 'application/octet-stream';
-        
-        res.writeHead(200, { 'Content-Type': contentType });
-        res.end(content);
-        return;
-      } catch (error) {
-        console.error('Error serving static file:', error);
-      }
-    }
+
+  // Simple status endpoint for Render
+  if (url === '/status') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('OK');
+    return;
   }
   
   // Default response
@@ -502,7 +812,7 @@ const server = createServer(async (req, res) => {
     <body>
         <div class="container">
             <h1>🚀 BirrPay Bot</h1>
-            <p>The bot is running successfully!</p>
+            <p>The bot is running successfully with phone verification enabled!</p>
             <a href="/panel" class="btn">🌐 Open Admin Panel</a>
             <p style="margin-top: 30px; color: #94a3b8;">
                 Use <code>/admin</code> command in Telegram for admin access
@@ -518,6 +828,19 @@ server.listen(PORT, () => {
   console.log(`🚀 HTTP Server listening on port ${PORT}`);
   console.log(`🔧 Health check: http://localhost:${PORT}/health`);
   console.log(`🌐 Admin Panel: http://localhost:${PORT}/panel`);
+  console.log(`📱 Phone verification: ENABLED`);
+}).on('error', (error) => {
+  console.error('❌ Server startup error:', error);
+  process.exit(1);
+});
+
+// Add error handling for uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 // Initialize Firebase and resources
@@ -542,15 +865,21 @@ server.listen(PORT, () => {
     // Register admin command FIRST to avoid conflicts
     bot.command('admin', async (ctx) => {
       console.log("🔑 ADMIN COMMAND triggered from user:", ctx.from.id);
-      const isAdmin = await isAuthorizedAdmin(ctx);
-      console.log("🔑 Admin check result:", isAdmin);
-      
-      if (!isAdmin) {
-        await ctx.reply("❌ **Access Denied**\n\nThis command is restricted to authorized administrators only.");
-        return;
-      }
       
       try {
+        // Get user's language preference first
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        const lang = userData.language || 'en';
+        
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        console.log("🔑 Admin check result:", isAdmin);
+        
+        if (!isAdmin) {
+          await ctx.reply(translateMessage('access_denied', lang));
+          return;
+        }
+        
         // Load real-time statistics
         const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, servicesSnapshot] = await Promise.all([
           firestore.collection('users').get(),
@@ -561,6 +890,7 @@ server.listen(PORT, () => {
 
         // Calculate statistics
         const totalUsers = usersSnapshot.size;
+        const verifiedUsers = usersSnapshot.docs.filter(doc => doc.data().phoneVerified).length;
         const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
           const subData = doc.data();
           return subData.status === 'active';
@@ -568,32 +898,33 @@ server.listen(PORT, () => {
         const totalPayments = paymentsSnapshot.size;
         const totalServices = servicesSnapshot.size;
 
-        const adminMessage = `🌟 **BirrPay Admin Dashboard** 🌟
+        const adminMessage = `${translateMessage('admin_dashboard', lang)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-👋 **Welcome back, Administrator!**
+${translateMessage('welcome_admin', lang)}
 
-📊 **Real-Time Analytics**
+${translateMessage('real_time_analytics', lang)}
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Users:** ${totalUsers.toLocaleString()} total
-┃ 📱 **Subscriptions:** ${activeSubscriptions.toLocaleString()} active
-┃ 💳 **Payments:** ${totalPayments.toLocaleString()} total
-┃ 🛍️ **Services:** ${totalServices} available
+┃ ${translateMessage('total_users', lang).replace('{count}', totalUsers.toLocaleString())}
+┃ ${translateMessage('verified_users', lang).replace('{count}', verifiedUsers.toLocaleString())}
+┃ ${translateMessage('active_subscriptions', lang).replace('{count}', activeSubscriptions.toLocaleString())}
+┃ ${translateMessage('total_payments', lang).replace('{count}', totalPayments.toLocaleString())}
+┃ ${translateMessage('available_services', lang).replace('{count}', totalServices)}
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-🌐 **Web Admin Panel:** [Open Dashboard](https://bpayb.onrender.com/panel)
+${translateMessage('web_admin_panel', lang)}
 
-🎯 **Management Center:**`;
+${translateMessage('management_center', lang)}`;
 
         const keyboard = {
           inline_keyboard: [
-            [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
-            [{ text: '🛍️ Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
-            [{ text: '💳 Payment Methods', callback_data: 'admin_payments' }],
-            [{ text: '📊 Performance', callback_data: 'admin_performance' }],
-            [{ text: '💬 Broadcast Message', callback_data: 'admin_broadcast' }],
-            [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
+            [{ text: translateMessage('users', lang), callback_data: 'admin_users' }, { text: translateMessage('subscriptions', lang), callback_data: 'admin_subscriptions' }],
+            [{ text: translateMessage('manage_services', lang), callback_data: 'admin_manage_services' }, { text: translateMessage('add_service', lang), callback_data: 'admin_add_service' }],
+            [{ text: translateMessage('payment_methods', lang), callback_data: 'admin_payments' }],
+            [{ text: translateMessage('performance', lang), callback_data: 'admin_performance' }],
+            [{ text: translateMessage('broadcast_message', lang), callback_data: 'admin_broadcast' }],
+            [{ text: translateMessage('refresh_panel', lang), callback_data: 'refresh_admin' }]
           ]
         };
 
@@ -604,7 +935,8 @@ server.listen(PORT, () => {
       } catch (error) {
         console.error('Error loading admin panel:', error);
         performanceMonitor.trackError(error, 'admin-panel-load');
-        await ctx.reply("❌ Error loading admin panel. Please try again.");
+        const lang = 'en'; // Fallback language
+        await ctx.reply(translateMessage('error_loading_admin', lang));
       }
     });
 
@@ -615,6 +947,9 @@ server.listen(PORT, () => {
       }
       return next();
     });
+
+    // Phone verification middleware - MUST BE BEFORE OTHER MIDDLEWARE
+    bot.use(phoneVerificationMiddleware);
 
     // Performance monitoring middleware
     bot.use(async (ctx, next) => {
@@ -635,420 +970,685 @@ server.listen(PORT, () => {
 
     // Register handlers
     console.log("Registering handlers...");
-    setupStartHandler(bot);
-    setupSubscribeHandler(bot);
-
-    // ============ COMPLETE ADMIN IMPLEMENTATION FROM ORIGINAL ADMIN.JS ============
-    // ============ USER COMMAND HANDLERS (REGISTER FIRST) ============
     
-    // Add middleware to set up user context for all commands
-    bot.use(async (ctx, next) => {
+    // Add direct /mysubs command handler
+    bot.command('mysubs', async (ctx) => {
       try {
-        // Set up user language and i18n context
-        if (!ctx.userLang) {
-          // Try to get user language from Firestore
-          try {
-            const userDoc = await firestore.collection('users').doc(String(ctx.from?.id)).get();
-            if (userDoc.exists) {
-              ctx.userLang = userDoc.data().language || 'en';
-            } else {
-              ctx.userLang = ctx.from?.language_code || 'en';
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        const lang = userData.language || 'en';
+        
+        // Import the subscription handler functions
+        const { getUserSubscriptions } = await import("./src/utils/database.js");
+        
+        // Get user's subscriptions
+        const subscriptions = await getUserSubscriptions(String(ctx.from.id));
+        
+        if (subscriptions.length === 0) {
+          const message = lang === 'am'
+            ? `📊 **የእኔ ምዝገባዎች**
+            
+እስካሁን ምንም ምዝገባዎች የሉዎትም። አዲስ ምዝገባ ለመጀመር እባክዎ አገልግሎቶችን ይምረጡ:`
+            : `📊 **My Subscriptions**
+            
+You don't have any subscriptions yet. To start a new subscription, please select a service:`;
+          
+                  const keyboard = [
+          [{ text: lang === 'am' ? '📱 አገልግሎቶች ይምረጡ' : '📱 Select Services', callback_data: 'services' }],
+          [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_menu' }]
+        ];
+          
+          await ctx.reply(message, {
+            reply_markup: { inline_keyboard: keyboard },
+            parse_mode: 'Markdown'
+          });
+          
+          return;
+        }
+        
+        // Group subscriptions by status
+        const pendingSubs = subscriptions.filter(sub => sub.status === 'pending');
+        const activeSubs = subscriptions.filter(sub => sub.status === 'active');
+        const cancelledSubs = subscriptions.filter(sub => sub.status === 'cancelled');
+        const rejectedSubs = subscriptions.filter(sub => sub.status === 'rejected');
+        
+        let message = lang === 'am'
+          ? `📊 **የእኔ ምዝገባዎች**
+          
+**የሚጠበቁ:** ${pendingSubs.length}
+**ንቁ:** ${activeSubs.length}
+**የተሰረዙ:** ${cancelledSubs.length}
+**የተቀበሉ:** ${rejectedSubs.length}
+
+**የምዝገባዎችዎን ያሳዩ:**`
+          : `📊 **My Subscriptions**
+          
+**Pending:** ${pendingSubs.length}
+**Active:** ${activeSubs.length}
+**Cancelled:** ${cancelledSubs.length}
+**Rejected:** ${rejectedSubs.length}
+
+**View your subscriptions:**`;
+        
+        const keyboard = [];
+        
+        // Add subscription buttons
+        subscriptions.slice(0, 5).forEach(sub => {
+          const statusEmoji = {
+            'pending': '⏳',
+            'active': '✅',
+            'cancelled': '❌',
+            'rejected': '🚫'
+          };
+          
+          const statusText = {
+            'pending': lang === 'am' ? 'የሚጠበቅ' : 'Pending',
+            'active': lang === 'am' ? 'ንቁ' : 'Active',
+            'cancelled': lang === 'am' ? 'የተሰረዘ' : 'Cancelled',
+            'rejected': lang === 'am' ? 'የተቀበለ' : 'Rejected'
+          };
+          
+          keyboard.push([
+            {
+              text: `${statusEmoji[sub.status]} ${sub.serviceName} - ${statusText[sub.status]}`,
+              callback_data: `view_subscription_${sub.id}`
             }
-          } catch (error) {
-            ctx.userLang = ctx.from?.language_code || 'en';
-          }
-        }
+          ]);
+        });
         
-        // Set up i18n context
-        if (!ctx.i18n) {
-          try {
-            ctx.i18n = await loadI18n();
-          } catch (error) {
-            console.error('Error loading i18n:', error);
-            ctx.i18n = {};
-          }
-        }
+        // Add action buttons
+        keyboard.push([
+          { text: lang === 'am' ? '📱 አዲስ ምዝገባ' : '📱 New Subscription', callback_data: 'services' },
+          { text: lang === 'am' ? '🔄 እንደገና ጫን' : '🔄 Refresh', callback_data: 'my_subs' }
+        ]);
         
-        return next();
+        keyboard.push([
+          { text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_menu' }
+        ]);
+        
+        await ctx.reply(message, {
+          reply_markup: { inline_keyboard: keyboard },
+          parse_mode: 'Markdown'
+        });
+
       } catch (error) {
-        console.error('Error in user context middleware:', error);
-        return next();
+        console.error('Error in mysubs command:', error);
+        await ctx.reply('❌ Error loading subscriptions. Please try again.');
+      }
+    });
+
+    // Add direct /help command handler
+    bot.command('help', async (ctx) => {
+      try {
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        const lang = userData.language || 'en';
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        
+        let helpText = lang === 'am' 
+          ? '❓ **እርዳታ እና ትዕዛዞች**\n\n'
+          : '❓ **Help & Commands**\n\n';
+        
+        helpText += lang === 'am'
+          ? '**የተጠቃሚ ትዕዛዞች:**\n'
+          : '**User Commands:**\n';
+        
+        helpText += lang === 'am'
+          ? '• /start - ዋና ምናሌ እና አገልግሎቶች\n'
+          : '• /start - Main menu and services\n';
+        
+        helpText += lang === 'am'
+          ? '• /help - ይህን የእርዳታ መልእክት ያሳዩ\n'
+          : '• /help - Show this help message\n';
+        
+        helpText += lang === 'am'
+          ? '• /support - እርዳታ እና ድጋፍ ያግኙ\n'
+          : '• /support - Get help and support\n';
+        
+        helpText += lang === 'am'
+          ? '• /mysubs - የእርስዎ ምዝገባዎች ይመልከቱ\n'
+          : '• /mysubs - View my subscriptions\n';
+        
+        helpText += lang === 'am'
+          ? '• /faq - በተደጋጋሚ የሚጠየቁ ጥያቄዎች\n'
+          : '• /faq - Frequently asked questions\n';
+
+        if (isAdmin) {
+          helpText += lang === 'am'
+            ? '\n**የአስተዳደሪ ትዕዛዞች:**\n'
+            : '\n**Admin Commands:**\n';
+          
+          helpText += lang === 'am'
+            ? '• /admin - የአስተዳደሪ ፓነል\n'
+            : '• /admin - Admin panel\n';
+        }
+
+        helpText += lang === 'am'
+          ? '\n💡 **ፈጣን መዳረሻ:** ለፈጣን አሰሳ የተቆራረጡ ትዕዛዞችን ይጠቀሙ!'
+          : '\n💡 **Quick Access:** Use slash commands for faster navigation!';
+
+        await ctx.reply(helpText, { parse_mode: 'Markdown' });
+      } catch (error) {
+        console.error('Error in help command:', error);
+        await ctx.reply('❌ Error loading help. Please try again.');
+      }
+    });
+
+    // Add /faq command handler
+    bot.command('faq', async (ctx) => {
+      try {
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        const lang = userData.language || 'en';
+        
+        const faqText = lang === 'am'
+          ? '❓ **በተደጋጋሚ የሚጠየቁ ጥያቄዎች**\n\n' +
+            '**🤔 እንዴት እንደሚሰራ?**\n' +
+            'BirrPay የኢትዮጵያ ዋና የሳብስክሪፕሽን ፕላትፎርም ነው። አገልግሎቶችን ይምረጡ፣ ይክፈሉ፣ እና ወዲያውኑ ያግኙ።\n\n' +
+            '**💳 የክፍያ ዘዴዎች**\n' +
+            '• በብር ይክፈሉ\n' +
+            '• የባንክ ሂሳብ ይጠቀሙ\n' +
+            '• የሞባይል ገንዘብ ይጠቀሙ\n\n' +
+            '**⏱️ የክፍያ ጊዜ**\n' +
+            'ክፍያዎች በተሳካ ሁኔታ ከተሰጡ በኋላ በ5-10 ደቂቃዎች ውስጥ ይገኛሉ።\n\n' +
+            '**🔄 ሳብስክሪፕሽን እንደገና ማድረግ**\n' +
+            'የእርስዎ ሳብስክሪፕሽን ከወደቀ በኋላ እንደገና ማድረግ ይችላሉ።\n\n' +
+            '**❓ እርዳታ ካስፈለገዎት**\n' +
+            '/support ይጠቀሙ ወይም የድጋፍ ቡድኑን ያግኙ።\n\n' +
+            '**🌐 የቋንቋ ድጋፍ**\n' +
+            'እንግሊዘኛ እና አማርኛ ይደገፋሉ።'
+          : `❓ **Frequently Asked Questions**\n\n` +
+            `**🤔 How does it work?**\n` +
+            `BirrPay is Ethiopia's premier subscription platform. Choose services, pay, and get instant access.\n\n` +
+            `**💳 Payment Methods**\n` +
+            `• Pay in Ethiopian Birr\n` +
+            `• Use bank accounts\n` +
+            `• Use mobile money\n\n` +
+            `**⏱️ Payment Time**\n` +
+            `Payments are processed within 5-10 minutes after successful payment.\n\n` +
+            `**🔄 Renewing Subscriptions**\n` +
+            `You can renew your subscription after it expires.\n\n` +
+            `**❓ Need Help?**\n` +
+            `Use /support or contact our support team.\n\n` +
+            `**🌐 Language Support**\n` +
+            `English and Amharic are supported.`;
+
+        await ctx.reply(faqText, { parse_mode: 'Markdown' });
+      } catch (error) {
+        console.error('Error in faq command:', error);
+        await ctx.reply('❌ Error loading FAQ. Please try again.');
       }
     });
     
-    // Register user command handlers BEFORE admin handler
-    console.log("✅ Registering user command handlers...");
-    
-    // Add direct command handlers to ensure they work
-    bot.command('start', async (ctx) => {
-      console.log("🚀 START COMMAND TRIGGERED!");
+    // Override the showMainMenu function to include admin check
+    const originalShowMainMenu = (await import('./src/utils/navigation.js')).showMainMenu;
+    const enhancedShowMainMenu = async (ctx, isNewUser = false) => {
       try {
-        const userLang = getUserLanguage(ctx);
+        const lang = ctx.userLang || 'en';
         
-        // Save user to Firestore if not exists
+        // Check if user is admin
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        
+        // Import and call the original function with admin status
+        const { getMainMenuContent } = await import('./src/utils/menuContent.js');
+        const { message, keyboard } = getMainMenuContent(lang, isNewUser, isAdmin);
+        
+        // Try to edit the existing message if it's a callback query
+        if (ctx.updateType === 'callback_query') {
+          try {
+            await ctx.editMessageText(message, {
+              reply_markup: { inline_keyboard: keyboard },
+              parse_mode: 'Markdown',
+              disable_web_page_preview: true
+            });
+            return;
+          } catch (editError) {
+            // If editing fails due to identical content, just answer the callback query
+            if (editError.description && editError.description.includes('message is not modified')) {
+              try {
+                await ctx.answerCbQuery();
+                return;
+              } catch (answerError) {
+                // Ignore answer callback errors
+              }
+            }
+            // For other edit errors, fall through to send new message
+            console.log('Could not edit message, sending new one:', editError.message || editError);
+          }
+        }
+        
+        // Otherwise, send a new message
+        await ctx.reply(message, {
+          reply_markup: { inline_keyboard: keyboard },
+          parse_mode: 'Markdown',
+          disable_web_page_preview: true
+        });
+      } catch (error) {
+        console.error('Error showing main menu:', error);
+        // Fallback to a simple message
+        const fallbackMsg = ctx.userLang === 'am' ? 
+          '🏠 ዋና ገጽ' : 
+          '🏠 Main Menu';
+        try {
+          await ctx.reply(fallbackMsg);
+        } catch (fallbackError) {
+          console.error('Failed to send fallback message:', fallbackError);
+        }
+      }
+    };
+    
+    // Replace the showMainMenu function in the navigation module
+    const navigationModule = await import('./src/utils/navigation.js');
+    navigationModule.showMainMenu = enhancedShowMainMenu;
+    
+    setupStartHandler(bot);
+    setupSubscribeHandler(bot);
+    
+    // Setup phone verification handlers
+    console.log("📱 Setting up phone verification handlers...");
+    setupPhoneVerification(bot);
+
+    // Register other handlers
+    supportHandler(bot);
+    helpHandler(bot);
+    mySubscriptionsHandler(bot);
+    adminHandler(bot);
+    
+    // Enhanced language handlers with persistence
+    console.log("🌐 Setting up enhanced language handlers...");
+    
+    // Language button handlers with persistence
+    bot.action('lang_en', async (ctx) => {
+      try {
+        // Save language preference to Firestore
         await firestore.collection('users').doc(String(ctx.from.id)).set({
-          telegramUserID: ctx.from.id,
-          firstName: ctx.from.first_name,
-          lastName: ctx.from.last_name,
-          username: ctx.from.username,
-          language: userLang,
-          createdAt: new Date(),
+          language: 'en',
           updatedAt: new Date()
         }, { merge: true });
+        
+        await ctx.answerCbQuery('🇺🇸 Language switched to English');
+        await ctx.editMessageText(translateMessage('language_switched_en', 'en'), { 
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[
+              { text: translateMessage('back_to_menu', 'en'), callback_data: 'back_to_menu' }
+            ]]
+          }
+        });
+      } catch (error) {
+        console.error('Error in lang_en action:', error);
+        await ctx.answerCbQuery(translateMessage('error_changing_language', 'en'));
+      }
+    });
 
-        const welcomeMessage = userLang === 'am' 
-          ? `🎉 እንኳን ወደ BirrPay በደህና መጡ!\n\nየኢትዮጵያ ዋና የማስተካል አገልግሎት።\n\nአገልግሎቶችን ለመመዝገብ እባክዎ ከታች ያለውን አዝራር ይጠቀሙ።`
-          : `🎉 Welcome to BirrPay!\n\nEthiopia's Premier Subscription Hub.\n\nPlease use the button below to subscribe to services.`;
+    bot.action('lang_am', async (ctx) => {
+      try {
+        // Save language preference to Firestore
+        await firestore.collection('users').doc(String(ctx.from.id)).set({
+          language: 'am',
+          updatedAt: new Date()
+        }, { merge: true });
+        
+        await ctx.answerCbQuery('🇪🇹 ቋንቋ ወደ አማርኛ ተቀይሯል');
+        await ctx.editMessageText('✅ **ቋንቋ ተሻሽሏል!**\n\n🇪🇹 ቋንቋዎ ወደ አማርኛ ተቀይሯል።\n\nአሁን ሁሉንም የቦት ባህሪያት በአማርኛ መጠቀም ይችላሉ።', { 
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '🏠 ወደ ምናሌ ተመለስ', callback_data: 'back_to_menu' }
+            ]]
+          }
+        });
+      } catch (error) {
+        console.error('Error in lang_am action:', error);
+        await ctx.answerCbQuery(translateMessage('error_changing_language', 'en'));
+      }
+    });
 
+    bot.action('set_lang_en', async (ctx) => {
+      try {
+        // Save language preference to Firestore
+        await firestore.collection('users').doc(String(ctx.from.id)).set({
+          language: 'en',
+          updatedAt: new Date()
+        }, { merge: true });
+        
+        await ctx.answerCbQuery('🇺🇸 Language switched to English');
+        await ctx.editMessageText('✅ **Language Updated!**\n\n🇺🇸 Your language has been switched to English.\n\nYou can now use all bot features in English.', { 
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '🏠 Back to Menu', callback_data: 'back_to_menu' }
+            ]]
+          }
+        });
+      } catch (error) {
+        console.error('Error in set_lang_en action:', error);
+        await ctx.answerCbQuery(translateMessage('error_changing_language', 'en'));
+      }
+    });
+
+    bot.action('set_lang_am', async (ctx) => {
+      try {
+        // Save language preference to Firestore
+        await firestore.collection('users').doc(String(ctx.from.id)).set({
+          language: 'am',
+          updatedAt: new Date()
+        }, { merge: true });
+        
+        await ctx.answerCbQuery('🇪🇹 ቋንቋ ወደ አማርኛ ተቀይሯል');
+        await ctx.editMessageText('✅ **ቋንቋ ተሻሽሏል!**\n\n🇪🇹 ቋንቋዎ ወደ አማርኛ ተቀይሯል።\n\nአሁን ሁሉንም የቦት ባህሪያት በአማርኛ መጠቀም ይችላሉ።', { 
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '🏠 ወደ ምናሌ ተመለስ', callback_data: 'back_to_menu' }
+            ]]
+          }
+        });
+      } catch (error) {
+        console.error('Error in set_lang_am action:', error);
+        await ctx.answerCbQuery(translateMessage('error_changing_language', 'en'));
+      }
+    });
+
+    bot.action('language_settings', async (ctx) => {
+      try {
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        const currentLang = userData.language || 'en';
+        
+        const currentLangText = currentLang === 'am' ? '🇪🇹 አማርኛ' : '🇺🇸 English';
+        const message = translateMessage('language_settings', currentLang).replace('{current}', currentLangText);
+        
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: translateMessage('english', currentLang), callback_data: 'lang_en' },
+                { text: translateMessage('amharic', currentLang), callback_data: 'lang_am' }
+              ],
+              [
+                { text: translateMessage('back_to_menu', currentLang), callback_data: 'back_to_menu' }
+              ]
+            ]
+          }
+        });
+      } catch (error) {
+        console.error('Error in language_settings:', error);
+        await ctx.answerCbQuery(translateMessage('error_language_settings', 'en'));
+      }
+    });
+
+    bot.action('back_to_menu', async (ctx) => {
+      try {
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        const lang = userData.language || 'en';
+        
+        const welcomeMessage = translateMessage('welcome_title', lang) + '\n\n' + translateMessage('welcome_description', lang);
+
+        // Check if user is admin
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        
         const keyboard = {
           inline_keyboard: [
             [
               {
-                text: userLang === 'am' ? '��️ አገልግሎቶችን ይመልከቱ' : '🛍️ View Services',
+                text: translateMessage('view_services', lang),
                 callback_data: 'view_services'
               }
             ],
             [
               {
-                text: userLang === 'am' ? '📊 የእኔ መዋቅሮች' : '📊 My Subscriptions',
+                text: translateMessage('my_subscriptions', lang),
                 callback_data: 'my_subscriptions'
               }
             ],
             [
               {
-                text: userLang === 'am' ? '❓ እርዳታ' : '❓ Help',
+                text: translateMessage('help', lang),
                 callback_data: 'help'
               },
               {
-                text: userLang === 'am' ? '📞 ድጋፍ' : '📞 Support',
+                text: translateMessage('support', lang),
                 callback_data: 'support'
-              }
-            ],
-            [
-              {
-                text: userLang === 'am' ? '🌐 ቋንቋ' : '🌐 Language',
-                callback_data: 'language_settings'
               }
             ]
           ]
         };
 
-        await ctx.reply(welcomeMessage, {
+        // Add admin button only for admins
+        if (isAdmin) {
+          keyboard.inline_keyboard.push([
+            {
+              text: lang === 'am' ? '🔧 አስተዳደሪ ፓነል' : '🔧 Admin Panel',
+              callback_data: 'admin'
+            }
+          ]);
+        }
+
+        // Add language button
+        keyboard.inline_keyboard.push([
+          {
+            text: translateMessage('language', lang),
+            callback_data: 'language_settings'
+          }
+        ]);
+
+        await ctx.editMessageText(welcomeMessage, {
           reply_markup: keyboard,
           parse_mode: 'Markdown'
         });
       } catch (error) {
-        console.error('Error in start command:', error);
-        await ctx.reply(t('errors.generic', getUserLanguage(ctx)));
+        console.error('Error in back_to_menu:', error);
+        await ctx.answerCbQuery(translateMessage('error_returning_menu', 'en'));
       }
     });
 
-    bot.command('support', async (ctx) => {
-      console.log("🚀 SUPPORT COMMAND TRIGGERED!");
+    // Admin button action handler
+    bot.action('admin', async (ctx) => {
       try {
-        const userLang = getUserLanguage(ctx);
-        const supportText = t('support.title', userLang) + '\n\n' +
-                           (userLang === 'am' ? 'እርዳታ ለመስጠት እዚህ ነን! ይችላሉ:' : 'We\'re here to help! You can:') + '\n\n' +
-                           t('support.contact', userLang) + '\n\n' +
-                           t('support.message', userLang) + '\n\n' +
-                           t('support.quick_help', userLang) + '\n\n' +
-                           t('support.response_time', userLang);
-
-        await ctx.reply(supportText, { parse_mode: 'Markdown' });
-      } catch (error) {
-        console.error('Error in support command:', error);
-        await ctx.reply(t('errors.generic', getUserLanguage(ctx)));
-      }
-    });
-
-    bot.command('lang', async (ctx) => {
-      console.log("🚀 LANG COMMAND TRIGGERED!");
-      try {
-        const arg = ctx.message.text.split(" ")[1];
-        console.log("Language argument:", arg);
+        // Get user's language preference first
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        const lang = userData.language || 'en';
         
-        if (arg === "en" || arg === "am") {
-          // Save language preference to Firestore
-          await firestore.collection('users').doc(String(ctx.from.id)).set({
-            language: arg,
-            updatedAt: new Date()
-          }, { merge: true });
-          
-          const responseMsg = t('language.switched_' + arg, arg);
-          
-          await ctx.reply(responseMsg, { parse_mode: 'Markdown' });
-          console.log("Language changed successfully to:", arg);
-        } else {
-          const usageMsg = t('language.usage', getUserLanguage(ctx));
-          
-          await ctx.reply(usageMsg, { parse_mode: 'Markdown' });
-          console.log("Language usage message sent");
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        
+        if (!isAdmin) {
+          await ctx.answerCbQuery(translateMessage('access_denied', lang));
+          return;
         }
-      } catch (error) {
-        console.error('Error in lang command:', error);
-        await ctx.reply(t('errors.generic', getUserLanguage(ctx)));
-      }
-    });
-
-    bot.command('faq', async (ctx) => {
-      console.log("🚀 FAQ COMMAND TRIGGERED!");
-      try {
-        const userLang = getUserLanguage(ctx);
-        const faqText = t('faq.title', userLang) + '\n\n' +
-                       t('faq.how_works', userLang) + '\n\n' +
-                       t('faq.payment_methods', userLang) + '\n\n' +
-                       t('faq.activation_time', userLang) + '\n\n' +
-                       t('faq.renew_subscription', userLang) + '\n\n' +
-                       t('faq.need_help', userLang) + '\n\n' +
-                       t('faq.language_support', userLang);
-
-        await ctx.reply(faqText, { parse_mode: 'Markdown' });
-      } catch (error) {
-        console.error('Error in faq command:', error);
-        await ctx.reply(t('errors.generic', getUserLanguage(ctx)));
-      }
-    });
-
-    // Language button handlers
-    bot.action('lang_en', async (ctx) => {
-      console.log("🚀 LANG_EN BUTTON TRIGGERED!");
-      try {
-        // Save language preference to Firestore
-        await firestore.collection('users').doc(String(ctx.from.id)).set({
-          language: 'en',
-          updatedAt: new Date()
-        }, { merge: true });
         
-        await ctx.answerCbQuery('🇺🇸 Language switched to English');
-        await ctx.editMessageText(t('language.switched_en', 'en'), { parse_mode: 'Markdown' });
+        // Load real-time statistics
+        const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, servicesSnapshot] = await Promise.all([
+          firestore.collection('users').get(),
+          firestore.collection('subscriptions').get(),
+          firestore.collection('payments').get(),
+          firestore.collection('services').get()
+        ]);
+
+        // Calculate statistics
+        const totalUsers = usersSnapshot.size;
+        const verifiedUsers = usersSnapshot.docs.filter(doc => doc.data().phoneVerified).length;
+        const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
+          const subData = doc.data();
+          return subData.status === 'active';
+        }).length;
+        const totalPayments = paymentsSnapshot.size;
+        const totalServices = servicesSnapshot.size;
+
+        const adminMessage = `${translateMessage('admin_dashboard', lang)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${translateMessage('welcome_admin', lang)}
+
+${translateMessage('real_time_analytics', lang)}
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ ${translateMessage('total_users', lang).replace('{count}', totalUsers.toLocaleString())}
+┃ ${translateMessage('verified_users', lang).replace('{count}', verifiedUsers.toLocaleString())}
+┃ ${translateMessage('active_subscriptions', lang).replace('{count}', activeSubscriptions.toLocaleString())}
+┃ ${translateMessage('total_payments', lang).replace('{count}', totalPayments.toLocaleString())}
+┃ ${translateMessage('available_services', lang).replace('{count}', totalServices)}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+${translateMessage('web_admin_panel', lang)}
+
+${translateMessage('management_center', lang)}`;
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: translateMessage('users', lang), callback_data: 'admin_users' }, { text: translateMessage('subscriptions', lang), callback_data: 'admin_subscriptions' }],
+            [{ text: translateMessage('manage_services', lang), callback_data: 'admin_manage_services' }, { text: translateMessage('add_service', lang), callback_data: 'admin_add_service' }],
+            [{ text: translateMessage('payment_methods', lang), callback_data: 'admin_payments' }],
+            [{ text: translateMessage('performance', lang), callback_data: 'admin_performance' }],
+            [{ text: translateMessage('broadcast_message', lang), callback_data: 'admin_broadcast' }],
+            [{ text: translateMessage('refresh_panel', lang), callback_data: 'refresh_admin' }]
+          ]
+        };
+
+        await ctx.editMessageText(adminMessage, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        
+        await ctx.answerCbQuery();
       } catch (error) {
-        console.error('Error in lang_en action:', error);
-        await ctx.answerCbQuery('❌ Error changing language');
+        console.error('Error loading admin panel:', error);
+        performanceMonitor.trackError(error, 'admin-panel-load');
+        const lang = 'en'; // Fallback language
+        await ctx.answerCbQuery(translateMessage('error_loading_admin', lang));
       }
     });
 
-    bot.action('lang_am', async (ctx) => {
-      console.log("🚀 LANG_AM BUTTON TRIGGERED!");
+    // Service management with pagination handlers
+    console.log("📄 Setting up service management with pagination...");
+    
+    // Service management with pagination
+    bot.action('admin_manage_services', async (ctx) => {
       try {
-        // Save language preference to Firestore
-        await firestore.collection('users').doc(String(ctx.from.id)).set({
-          language: 'am',
-          updatedAt: new Date()
-        }, { merge: true });
-        
-        await ctx.answerCbQuery('🇪🇹 ቋንቋ ወደ አማርኛ ተቀይሯል');
-        await ctx.editMessageText(t('language.switched_am', 'am'), { parse_mode: 'Markdown' });
-      } catch (error) {
-        console.error('Error in lang_am action:', error);
-        await ctx.answerCbQuery('❌ Error changing language');
-      }
-    });
-
-    bot.action('set_lang_en', async (ctx) => {
-      console.log("🚀 SET_LANG_EN BUTTON TRIGGERED!");
-      try {
-        // Save language preference to Firestore
-        await firestore.collection('users').doc(String(ctx.from.id)).set({
-          language: 'en',
-          updatedAt: new Date()
-        }, { merge: true });
-        
-        await ctx.answerCbQuery('🇺🇸 Language switched to English');
-        await ctx.editMessageText(t('language.switched_en', 'en'), { parse_mode: 'Markdown' });
-      } catch (error) {
-        console.error('Error in set_lang_en action:', error);
-        await ctx.answerCbQuery('❌ Error changing language');
-      }
-    });
-
-    bot.action('set_lang_am', async (ctx) => {
-      console.log("🚀 SET_LANG_AM BUTTON TRIGGERED!");
-      try {
-        // Save language preference to Firestore
-        await firestore.collection('users').doc(String(ctx.from.id)).set({
-          language: 'am',
-          updatedAt: new Date()
-        }, { merge: true });
-        
-        await ctx.answerCbQuery('🇪🇹 ቋንቋ ወደ አማርኛ ተቀይሯል');
-        await ctx.editMessageText(t('language.switched_am', 'am'), { parse_mode: 'Markdown' });
-      } catch (error) {
-        console.error('Error in set_lang_am action:', error);
-        await ctx.answerCbQuery('❌ Error changing language');
-      }
-    });
-
-    bot.command('mysubs', async (ctx) => {
-      console.log("🚀 MYSUBS COMMAND TRIGGERED!");
-      try {
-        const userLang = getUserLanguage(ctx);
-        
-        // Get user's subscriptions from Firestore
-        const subscriptionsSnapshot = await firestore.collection('subscriptions')
-          .where('userId', '==', String(ctx.from.id))
-          .get();
-
-        if (subscriptionsSnapshot.empty) {
-          await ctx.reply(t('subscriptions.no_subscriptions', userLang), { parse_mode: 'Markdown' });
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          await ctx.answerCbQuery(translateMessage('access_denied', lang));
           return;
         }
 
-        let message = t('subscriptions.title', userLang) + '\n\n';
-        subscriptionsSnapshot.docs.forEach((doc, index) => {
-          const sub = doc.data();
-          const status = sub.status === 'active' ? '🟢' : '🟡';
-          const serviceName = sub.serviceName || sub.service || (userLang === 'am' ? 'ያልተወሰነ አገልግሎት' : 'Unknown Service');
-          message += `${status} **${serviceName}** - ${sub.status}\n`;
-        });
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        const lang = userData.language || 'en';
 
-        await ctx.reply(message, { parse_mode: 'Markdown' });
-      } catch (error) {
-        console.error('Error in mysubs command:', error);
-        await ctx.reply(t('errors.generic', getUserLanguage(ctx)));
-      }
-    });
-    
-    // Also register the original handlers as backup
-    supportHandler(bot);
-    langHandler(bot);
-    helpHandler(bot);
-    mySubscriptionsHandler(bot);
-    
-    // ============ ADMIN HANDLER (REGISTER AFTER USER HANDLERS) ============
-    
-    // Admin handler will be registered at the end
+        // Get all services from Firestore
+        const servicesSnapshot = await firestore.collection('services').get();
+        const services = servicesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
 
-    // Set comprehensive commands menu
-    async function setupMenu() {
-      try {
-        // Base commands for all users
-        const baseCommands = [
-          { command: 'start', description: '🏠 Main menu and services' },
-          { command: 'help', description: '❓ Help and commands list' },
-          { command: 'support', description: '📞 Get support' },
-          { command: 'faq', description: '❓ Frequently asked questions' },
-          { command: 'mysubs', description: '📊 My subscriptions' }
-        ];
-
-        // Admin commands (only for admins)
-        const adminCommands = [
-          { command: 'admin', description: '🔑 Admin panel' }
-        ];
-
-        // Set base commands for all users
-        await bot.telegram.setMyCommands(baseCommands);
-        console.log("✅ User commands menu set for all users");
-
-        // Set admin commands for admin users only
-        if (process.env.ADMIN_TELEGRAM_ID) {
-          try {
-            const adminIds = process.env.ADMIN_TELEGRAM_ID.split(',').map(id => id.trim());
-            for (const adminId of adminIds) {
-              await bot.telegram.setMyCommands([...baseCommands, ...adminCommands], {
-                scope: { type: 'chat', chat_id: parseInt(adminId) }
-              });
+        if (services.length === 0) {
+          await ctx.editMessageText(translateMessage('no_services', lang), {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [[
+                { text: translateMessage('back_to_admin', lang), callback_data: 'refresh_admin' }
+              ]]
             }
-            console.log("✅ Admin commands menu set for admin users");
-          } catch (scopeError) {
-            console.log("⚠️ Could not set admin-specific commands, using global commands");
-            // Fallback: set all commands globally (admin commands will be filtered by the bot)
-            await bot.telegram.setMyCommands([...baseCommands, ...adminCommands]);
-          }
+          });
+          return;
         }
 
-        console.log("✅ Comprehensive commands menu set");
+        // Show first page
+        await showServicesPage(ctx, services, 0, lang);
+        
       } catch (error) {
-        console.error("❌ Error setting commands menu:", error);
+        console.error('Error in admin_manage_services:', error);
+        await ctx.answerCbQuery(translateMessage('error_loading_services', lang));
       }
-    }
-
-    // Initialize resilience and keep-alive systems
-    console.log("🛡️ Initializing resilience systems...");
-    
-    // Register health checks
-    resilienceManager.registerHealthCheck('firestore', async () => {
-      await firestore.collection('config').doc('health').get();
     });
-    
-    resilienceManager.registerHealthCheck('bot-api', async () => {
-      await bot.telegram.getMe();
+
+    // Pagination handlers
+    bot.action(/^services_page_(\d+)$/, async (ctx) => {
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          await ctx.answerCbQuery('❌ Access denied');
+          return;
+        }
+
+        const page = parseInt(ctx.match[1]);
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        const lang = userData.language || 'en';
+
+        // Get all services from Firestore
+        const servicesSnapshot = await firestore.collection('services').get();
+        const services = servicesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        await showServicesPage(ctx, services, page, lang);
+        
+      } catch (error) {
+        console.error('Error in services_page:', error);
+        await ctx.answerCbQuery(translateMessage('error_loading_page', lang));
+      }
     });
-    
-    // Start keep-alive system
-    keepAliveManager.start();
-    
-    // Start scheduler for subscription reminders
-    console.log("⏰ Starting subscription reminder scheduler...");
-    startScheduler();
 
-    // Admin command is now handled by the override after adminHandler(bot)
+    // Helper function to show services page
+    async function showServicesPage(ctx, services, page, lang) {
+      const itemsPerPage = 5;
+      const totalPages = Math.ceil(services.length / itemsPerPage);
+      const startIndex = page * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const pageServices = services.slice(startIndex, endIndex);
 
-    // Help command for all available commands
-    bot.command('help', async (ctx) => {
-      const userLang = getUserLanguage(ctx);
-      const isAdmin = await isAuthorizedAdmin(ctx);
+      let message = translateMessage('services_title', lang) + '\n\n';
       
-      let helpText = t('help.title', userLang) + '\n\n' + t('help.user_commands', userLang) + '\n';
-      helpText += `• /start - ${userLang === 'am' ? 'ዋና ምንዩ እና አገልግሎቶች' : 'Main menu and services'}\n`;
-      helpText += `• /support - ${userLang === 'am' ? 'እርዳታ እና ድጋፍ ያግኙ' : 'Get help and support'}\n`;
-      helpText += `• /faq - ${userLang === 'am' ? 'በተደጋጋሚ የሚጠየቁ ጥያቄዎች' : 'Frequently asked questions'}\n`;
-      helpText += `• /mysubs - ${userLang === 'am' ? 'የእርስዎ ምዝገባዎች ይመልከቱ' : 'View my subscriptions'}\n`;
-      helpText += `• /help - ${userLang === 'am' ? 'ይህን የእርዳታ መልእክት ያሳዩ' : 'Show this help message'}\n`;
+      pageServices.forEach((service, index) => {
+        const status = service.status === 'active' ? '🟢' : '🔴';
+        const price = service.price ? `$${service.price}` : 'N/A';
+        message += `${startIndex + index + 1}. ${status} **${service.name}**\n`;
+        message += `   ${translateMessage('service_price', lang).replace('{price}', price)}\n`;
+        message += `   ${translateMessage('service_id', lang).replace('{id}', service.id)}\n\n`;
+      });
 
-      if (isAdmin) {
-        helpText += '\n' + t('help.admin_commands', userLang) + '\n';
-        helpText += `• /admin - ${userLang === 'am' ? 'የአስተዳዳሪ ፓነል' : 'Admin panel'}\n`;
+      message += translateMessage('pagination_info', lang)
+        .replace('{current}', page + 1)
+        .replace('{total}', totalPages);
+
+      const keyboard = [];
+      
+      // Navigation buttons
+      const navRow = [];
+      if (page > 0) {
+        navRow.push({ text: translateMessage('previous_page', lang), callback_data: `services_page_${page - 1}` });
+      }
+      if (page < totalPages - 1) {
+        navRow.push({ text: translateMessage('next_page', lang), callback_data: `services_page_${page + 1}` });
+      }
+      if (navRow.length > 0) {
+        keyboard.push(navRow);
       }
 
-      helpText += '\n💡 **' + (userLang === 'am' ? 'ፈጣን መዳረሻ' : 'Quick Access') + ':** ' + (userLang === 'am' ? 'ለፈጣን አሰሳ የተቆራረጡ ትዕዛዞችን ይጠቀሙ!' : 'Use slash commands for faster navigation!');
+      // Back button
+      keyboard.push([{ text: translateMessage('back_to_admin', lang), callback_data: 'refresh_admin' }]);
 
-      await ctx.reply(helpText, { parse_mode: 'Markdown' });
-    });
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: keyboard }
+      });
+    }
 
     // Start the bot
-    async function startBot() {
-      console.log("🚀 Starting bot...");
-      
-      // Test admin command to verify command registration works
-      bot.command('testadmin', async (ctx) => {
-        console.log("🧪 TEST ADMIN COMMAND triggered from user:", ctx.from.id);
-        await ctx.reply("🧪 Test admin command working!");
-      });
-      
-      // Test performance monitoring
-      bot.command('testperf', async (ctx) => {
-        const metrics = performanceMonitor.getMetrics();
-        const message = `📊 **Performance Test Results**
-
-⏱️ **Uptime:** ${metrics.uptime.hours}h ${metrics.uptime.minutes}m
-📈 **Requests:** ${metrics.requests.total} total
-✅ **Success Rate:** ${metrics.efficiency.successRate}
-🔥 **Firestore Reads:** ${metrics.firestore.reads}
-🔥 **Firestore Writes:** ${metrics.firestore.writes}
-💾 **Memory:** ${(metrics.memory.usage / 1024 / 1024).toFixed(2)} MB
-❌ **Errors:** ${metrics.errors.total}`;
-        
-        await ctx.reply(message, { parse_mode: 'Markdown' });
-      });
-      
-      // Register the real admin handler with all callback handlers
-      console.log("🔑 Registering real admin handler...");
-      try {
-        adminHandler(bot);
-        console.log("✅ Real admin handler registered successfully");
-      } catch (error) {
-        console.error("❌ Error registering real admin handler:", error);
-      }
-      
-      await setupMenu(); // Set commands menu on startup
-      await bot.launch();
-      console.log("✅ Bot started - ALL admin features loading...");
-      console.log("🌐 Web Admin Panel: https://bpayb.onrender.com/panel");
-      console.log("🛡️ Resilience systems active");
-      console.log("⏰ Subscription reminders scheduled (9:00 AM & 6:00 PM ET)");
-    }
-
-    startBot();
+    console.log("🚀 Starting bot with phone verification, enhanced translations, and pagination...");
+    await bot.launch();
+    console.log("✅ Bot started - Phone verification ENABLED");
+    console.log("🌐 Enhanced language persistence ENABLED");
+    console.log("📄 Service pagination ENABLED (5 per page)");
+    console.log("🌐 Web Admin Panel: https://bpayb.onrender.com/panel");
+    console.log("📱 Users must verify phone before accessing services");
+    console.log("🔤 All messages translated in English and Amharic");
 
   } catch (error) {
     console.error("❌ Failed to initialize:", error);

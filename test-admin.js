@@ -1,89 +1,88 @@
-// Test script to verify admin panel is working
-import fetch from 'node-fetch';
+// Test script to verify admin system
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import fs from 'fs';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-
-async function testAdminPanel() {
-    console.log('🧪 Testing BirrPay Admin Panel...\n');
-
-    try {
-        // Test 1: Check if server is running
-        console.log('1. Testing server health...');
-        const healthResponse = await fetch(`${BASE_URL}/health`);
-        const healthData = await healthResponse.json();
-        console.log('✅ Server is running:', healthData.status);
-        console.log('   Environment:', healthData.env);
-        console.log('   Node version:', healthData.node);
-
-        // Test 2: Check admin panel routes
-        console.log('\n2. Testing admin panel routes...');
-        
-        const adminRoutes = ['/admin', '/panel'];
-        for (const route of adminRoutes) {
-            try {
-                const response = await fetch(`${BASE_URL}${route}`);
-                if (response.ok) {
-                    console.log(`✅ ${route} - Status: ${response.status}`);
-                } else {
-                    console.log(`❌ ${route} - Status: ${response.status}`);
-                }
-            } catch (error) {
-                console.log(`❌ ${route} - Error: ${error.message}`);
-            }
-        }
-
-        // Test 3: Check admin API endpoints
-        console.log('\n3. Testing admin API endpoints...');
-        
-        // Test login endpoint (should work without auth)
-        try {
-            const loginResponse = await fetch(`${BASE_URL}/api/admin/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: 'admin',
-                    password: 'admin123'
-                })
-            });
-            
-            if (loginResponse.ok) {
-                const loginData = await loginResponse.json();
-                console.log('✅ Login endpoint working');
-                console.log('   Response:', loginData.success ? 'Success' : 'Failed');
-            } else {
-                console.log('❌ Login endpoint failed:', loginResponse.status);
-            }
-        } catch (error) {
-            console.log('❌ Login endpoint error:', error.message);
-        }
-
-        // Test stats endpoint (should require auth)
-        try {
-            const statsResponse = await fetch(`${BASE_URL}/api/admin/stats`);
-            if (statsResponse.status === 401) {
-                console.log('✅ Stats endpoint properly protected (requires auth)');
-            } else {
-                console.log('⚠️ Stats endpoint response:', statsResponse.status);
-            }
-        } catch (error) {
-            console.log('❌ Stats endpoint error:', error.message);
-        }
-
-        console.log('\n🎉 Admin Panel Test Complete!');
-        console.log('\n📋 Access URLs:');
-        console.log(`   Main Admin: ${BASE_URL}/admin`);
-        console.log(`   Alt Admin: ${BASE_URL}/panel`);
-        console.log('\n🔑 Default Credentials:');
-        console.log('   Username: admin');
-        console.log('   Password: admin123');
-
-    } catch (error) {
-        console.error('❌ Test failed:', error.message);
-    }
+// Load Firebase config
+let firebaseConfig;
+if (process.env.FIREBASE_CONFIG) {
+  firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG);
+} else {
+  const configFile = fs.readFileSync('firebaseConfig.json', 'utf8');
+  firebaseConfig = JSON.parse(configFile);
 }
 
-// Run the test
-testAdminPanel();
+// Initialize Firebase
+const app = initializeApp({
+  credential: cert(firebaseConfig)
+});
+
+const firestore = getFirestore(app);
+
+// Test admin check function
+const isAuthorizedAdmin = async (userId) => {
+  try {
+    if (!userId) return false;
+    
+    // Check against environment variable first (for backward compatibility)
+    if (process.env.ADMIN_TELEGRAM_ID && userId === process.env.ADMIN_TELEGRAM_ID) {
+      return true;
+    }
+    
+    // Check against Firestore config (old method)
+    const adminDoc = await firestore.collection('config').doc('admins').get();
+    if (adminDoc.exists) {
+      const admins = adminDoc.data().userIds || [];
+      if (admins.includes(userId)) {
+        return true;
+      }
+    }
+    
+    // Check against user document (new method)
+    const userDoc = await firestore.collection('users').doc(userId).get();
+    if (userDoc.exists) {
+      const userData = userDoc.data();
+      if (userData.isAdmin === true) {
+        return true;
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    return false;
+  }
+};
+
+// Test function
+async function testAdminSystem() {
+  console.log('🔍 Testing admin system...\n');
+  
+  // Test with a sample user ID (replace with actual user ID)
+  const testUserId = process.argv[2] || '123456789';
+  
+  console.log(`Testing admin access for user: ${testUserId}`);
+  
+  const isAdmin = await isAuthorizedAdmin(testUserId);
+  
+  console.log(`\nResult: ${isAdmin ? '✅ ADMIN ACCESS' : '❌ NO ADMIN ACCESS'}`);
+  
+  if (isAdmin) {
+    console.log('\n✅ User has admin privileges!');
+    console.log('They should be able to:');
+    console.log('- Use /admin command');
+    console.log('- See admin button in main menu');
+    console.log('- Access admin panel features');
+  } else {
+    console.log('\n❌ User does not have admin privileges.');
+    console.log('\nTo make them an admin, run:');
+    console.log(`node scripts/make-admin.js ${testUserId}`);
+  }
+  
+  process.exit(0);
+}
+
+testAdminSystem();
 
 
 

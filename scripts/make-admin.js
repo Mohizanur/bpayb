@@ -85,6 +85,28 @@ async function makeUserAdmin() {
       updatedAt: new Date().toISOString()
     }, { merge: true });
     
+    // Also add to config/admins collection for backward compatibility
+    const configRef = db.collection('config').doc('admins');
+    const configDoc = await configRef.get();
+    
+    if (configDoc.exists) {
+      const configData = configDoc.data();
+      const userIds = configData.userIds || [];
+      if (!userIds.includes(telegramId)) {
+        userIds.push(telegramId);
+        await configRef.update({
+          userIds: userIds,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    } else {
+      await configRef.set({
+        userIds: [telegramId],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+    
     console.log(`\n✅ Success! User is now an admin.`);
     console.log('\nUser details:');
     console.log('------------------------------');

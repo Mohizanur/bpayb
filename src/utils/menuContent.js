@@ -1,6 +1,6 @@
 import { getBackToMenuButton } from "./navigation.js";
 
-export const getMainMenuContent = (lang = 'en', isNewUser = false) => {
+export const getMainMenuContent = (lang = 'en', isNewUser = false, isAdmin = false) => {
   // Welcome message parts
   const welcomeTitle = lang === "am" 
     ? "🎉 እንኳን ወደ BirrPay ደህና መጡ!"
@@ -109,6 +109,16 @@ BirrPay is Ethiopia's premier platform for managing all your digital subscriptio
       }
     ]
   ];
+
+  // Add admin button only for admins
+  if (isAdmin) {
+    menuButtons.push([
+      { 
+        text: lang === "am" ? "🔧 አስተዳደሪ ፓነል" : "🔧 Admin Panel",
+        callback_data: "admin"
+      }
+    ]);
+  }
 
   return {
     message,

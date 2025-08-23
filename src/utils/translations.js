@@ -1,163 +1,192 @@
-// Comprehensive Translation System for BirrPay Bot
-
-export const translations = {
-  // Main Menu
-  main_menu: {
-    en: "🏠 **BirrPay Main Menu**\n\nChoose an option:",
-    am: "🏠 **የBirrPay ዋና ሜኑ**\n\nአማራጭ ይምረጡ:"
-  },
-  
-  // Help System
-  help: {
-    title: {
-      en: "🤖 **BirrPay Bot Commands**",
-      am: "🤖 **የBirrPay ቦት ትዕዛዞች**"
+// Comprehensive translations for BirrPay Bot
+const translations = {
+  // Phone verification messages
+  phone_verification: {
+    required: {
+      en: '📱 Phone Verification Required\n\nTo use BirrPay services, you need to verify your phone number.\n\nPlease verify your phone number by clicking the button below.',
+      am: '📱 የተልፍዎን መረጃ አስፈላጊ\n\nየBirrPay አገልግሎቶችን ለመጠቀም የተልፍዎን መረጃ አስፈላጊ።\n\nእባክዎ ከታች ያለውን ቁልፍ በመጫን የስልክ ቁጥርዎን ያረጋግጡ።'
     },
-    user_commands: {
-      en: "📱 **User Commands:**",
-      am: "📱 **የተጠቃሚ ትዕዛዞች:**"
+    verify_button: {
+      en: '📱 Verify My Number',
+      am: '📱 ስልክ ቁጥሬን ለማረጋገጥ'
     },
-    admin_commands: {
-      en: "🔑 **Admin Commands:**",
-      am: "🔑 **የአስተዳዳሪ ትዕዛዞች:**"
+    request_contact: {
+      en: '📱 Phone Verification\n\nPlease tap the button below to share your contact for verification.\n\nNote: This is only used to verify your phone number.',
+      am: '📱 የተልፍዎን ማረጋገጫ\n\nእባክዎ የተልፍዎን መረጃ ለማረጋገጥ ከታች ያለውን ቁልፍ በመጫን እውቂያዎን ያጋሩ።\n\nአስፈላጊ: ይህ የሚያስፈልገው የእርስዎን ስልክ ቁጥር ለማረጋገጥ ብቻ ነው።'
+    },
+    share_contact: {
+      en: '📱 Share Contact',
+      am: '📱 እውቂያ ማጋራት'
+    },
+    manual_input: {
+      en: '✍️ Type Manually',
+      am: '✍️ በእጅ መፃፍ'
+    },
+    manual_prompt: {
+      en: '📱 Please enter your phone number (+1234567890):',
+      am: '📱 እባክዎ የስልክ ቁጥርዎን ያስገቡ (+1234567890):'
+    },
+    invalid_format: {
+      en: '⚠️ Please use a valid phone number format (+1234567890)',
+      am: '⚠️ እባክዎ ትክክለኛ የስልክ ቁጥር ይጠቀሙ (+1234567890)'
+    },
+    verified_success: {
+      en: '✅ Your phone number has been verified! You can now use our services.',
+      am: '✅ የስልክ ቁጥርዎ ተረጋግጧል! አሁን አገልግሎቶችን መጠቀም ይችላሉ።'
+    },
+    back_button: {
+      en: '🔙 Back',
+      am: '🔙 ወደ ኋላ'
     }
   },
 
-  // Support System
-  support: {
+  // Welcome messages
+  welcome: {
     title: {
-      en: "💬 **BirrPay Support**",
-      am: "💬 **የBirrPay ድጋፍ**"
+      en: '🎉 Welcome to BirrPay!',
+      am: '🎉 እንኳን ወደ BirrPay በደህና መጡ!'
     },
-    contact: {
-      en: "📧 **Contact us directly:**\nsupport@admin.birr‑pay",
-      am: "📧 **በቀጥታ ያግኙን:**\nsupport@admin.birr‑pay"
+    subtitle: {
+      en: '🌟 **Ethiopia\'s #1 Subscription Platform**',
+      am: '🌟 **የኢትዮጵያ #1 የሳብስክሪፕሽን ፕላትፎርም**'
     },
-    message: {
-      en: "💬 **Send a message:**\nJust type your question or issue and send it. Our admin will review and respond.",
-      am: "💬 **መልእክት ይላኩ:**\nጥያቄዎን ወይም ችግሮን ብቻ ይተይቡ እና ይላኩ። አስተዳዳሪያችን ያገኝ እና ይመልሳል።"
+    description: {
+      en: 'Ethiopia\'s Premier Subscription Hub.\n\nPlease use the button below to subscribe to services.',
+      am: 'የኢትዮጵያ ዋና የማስተካል አገልግሎት።\n\nአገልግሎቶችን ለመመዝገብ እባክዎ ከታች ያለውን አዝራር ይጠቀሙ።'
     },
-    quick_help: {
-      en: "⚡ **Quick Help:**\n• /help - View all commands\n• /faq - Common questions\n• /mysubs - View subscriptions",
-      am: "⚡ **ፈጣን እርዳታ:**\n• /help - ሁሉንም ትዕዛዞች ይመልከቱ\n• /faq - የተለመዱ ጥያቄዎች\n• /mysubs - መዋቅሮችን ይመልከቱ"
-    },
-    response_time: {
-      en: "🕐 **Response time:** Usually within 24 hours",
-      am: "🕐 **የምላሽ ጊዜ:** አብዛኛውን ጊዜ በ24 ሰዓት ውስጥ"
+    verified_welcome: {
+      en: '✅ **Phone Number Verified!**\n\n{phone} has been successfully verified. You can now use all BirrPay services.\n\n✨ **What You Can Do:**\n• Access Netflix, Amazon Prime, Spotify, and more\n• Pay easily using Ethiopian Birr\n• Manage all subscriptions from one place\n• Get 24/7 customer support\n\n🔒 **100% Secure** | 🇪🇹 **Local Support** | ⚡ **Fast & Easy**',
+      am: '✅ **ስልክ ቁጥርዎ ተረጋግጧል!**\n\n{phone} በተሳካ ሁኔታ ተረጋግጧል። አሁን የBirrPay አገልግሎቶችን መጠቀም ይችላሉ።\n\n✨ **ምን ማድረግ ይችላሉ:**\n• Netflix, Amazon Prime, Spotify እና ሌሎችንም ያግኙ\n• በብር በቀላሉ ይክፈሉ\n• ሁሉንም ሳብስክሪፕሽኖችዎን በአንድ ቦታ ያስተዳድሩ\n• 24/7 የደንበኞች ድጋፍ ያግኙ\n\n🔒 **100% ደህንነቱ የተጠበቀ** | 🇪🇹 **የአካባቢ ድጋፍ** | ⚡ **ፈጣን እና ቀላል**'
     }
   },
 
-  // FAQ System
-  faq: {
-    title: {
-      en: "❓ **Frequently Asked Questions**",
-      am: "❓ **በተደጋጋሚ የሚጠየቁ ጥያቄዎች**"
+  // Menu buttons
+  menu: {
+    view_services: {
+      en: '🛍️ View Services',
+      am: '🛍️ አገልግሎቶችን ይመልከቱ'
     },
-    how_works: {
-      en: "**🤔 How does BirrPay work?**\n• Choose a service (Netflix, Spotify, etc.)\n• Select a plan and duration\n• Submit payment proof\n• Get instant activation",
-      am: "**🤔 BirrPay እንዴት እንደሚሰራ?**\n• አገልግሎት ይምረጡ (Netflix, Spotify, ወዘተ)\n• እቅድ እና ጊዜ ይምረጡ\n• የክፍያ ማረጋገጫ ያቅርቡ\n• ፈጣን ማነቃቂያ ያግኙ"
+    my_subscriptions: {
+      en: '📊 My Subscriptions',
+      am: '📊 የእኔ መዋቅሮች'
     },
-    payment_methods: {
-      en: "**💳 What payment methods are accepted?**\n• CBE Birr\n• TeleBirr\n• Bank transfers\n• Mobile money",
-      am: "**💳 ምን ዓይነት የክፍያ መንገዶች ይቀበላሉ?**\n• CBE Birr\n• TeleBirr\n• የባንክ ማስተላለፊያዎች\n• የሞባይል ገንዘብ"
+    help: {
+      en: '❓ Help',
+      am: '❓ እርዳታ'
     },
-    activation_time: {
-      en: "**⏰ How long does activation take?**\n• Usually within 5-10 minutes\n• Faster during business hours\n• 24/7 support available",
-      am: "**⏰ ማነቃቂያ ስንት ጊዜ ይወስዳል?**\n• አብዛኛውን ጊዜ በ5-10 ደቂቃዎች ውስጥ\n• በንግድ ሰዓታት ፈጣን\n• 24/7 ድጋፍ ዝግጁ"
+    support: {
+      en: '📞 Support',
+      am: '📞 ድጋፍ'
     },
-    renew_subscription: {
-      en: "**🔄 Can I renew my subscription?**\n• Yes! Use /mysubs to view current subscriptions\n• Renew anytime before expiration\n• Automatic reminders sent",
-      am: "**🔄 መዋቅሬን መደስ እችላለሁ?**\n• አዎ! የአሁኑ መዋቅሮችን ለማየት /mysubs ይጠቀሙ\n• ከማብቂያ ቀን በፊት በማንኛውም ጊዜ ያድሱ\n• አውቶማቲክ ማስታወሻዎች ይላካሉ"
+    language: {
+      en: '🌐 Language',
+      am: '🌐 ቋንቋ'
     },
-    need_help: {
-      en: "**📞 Need more help?**\n• Use /support for direct assistance\n• Contact: support@admin.birr‑pay\n• Response within 24 hours",
-      am: "**📞 ተጨማሪ እርዳታ ያስፈልግዎታል?**\n• ለቀጥታ እርዳታ /support ይጠቀሙ\n• አድራሻ: support@admin.birr‑pay\n• በ24 ሰዓት ውስጥ ምላሽ"
-    },
-    language_support: {
-      en: "**🌐 Language Support**\n• English and Amharic supported\n• Use /lang en or /lang am to change",
-      am: "**🌐 የቋንቋ ድጋፍ**\n• እንግሊዝኛ እና አማርኛ ይደገፋሉ\n• ለመቀየር /lang en ወይም /lang am ይጠቀሙ"
+    back_to_menu: {
+      en: '🏠 Back to Menu',
+      am: '🏠 ወደ ምናሌ ተመለስ'
     }
   },
 
-  // Language System
+  // Language settings
   language: {
-    settings: {
-      en: "🌐 **Language Settings**\n\nChoose your preferred language:",
-      am: "🌐 **የቋንቋ ቅንብሮች**\n\nየሚፈልጉትን ቋንቋ ይምረጡ:"
+    settings_title: {
+      en: '🌐 **Language Settings**\n\nCurrent language: {current}\n\nPlease select your preferred language:',
+      am: '🌐 **የቋንቋ ማስተካከያ**\n\nአሁን ያለው ቋንቋዎ: {current}\n\nእባክዎ የሚፈልጉትን ቋንቋ ይምረጡ:'
     },
-    usage: {
-      en: "🌐 **Language Settings**\n\n**Usage:** /lang en or /lang am\n\n**Available languages:**\n• /lang en - Switch to English\n• /lang am - Switch to Amharic",
-      am: "🌐 **የቋንቋ ቅንብሮች**\n\n**አጠቃቀም:** /lang en ወይም /lang am\n\n**የሚገኙ ቋንቋዎች:**\n• /lang en - ወደ እንግሊዝኛ ቀይር\n• /lang am - ወደ አማርኛ ቀይር"
+    english: {
+      en: '🇺🇸 English',
+      am: '🇺🇸 English'
+    },
+    amharic: {
+      en: '🇪🇹 Amharic',
+      am: '🇪🇹 አማርኛ'
     },
     switched_en: {
-      en: "🇺🇸 **Language switched to English**\n\nAll messages will now be displayed in English.",
-      am: "🇺🇸 **ቋንቋ ወደ እንግሊዝኛ ተቀይሯል**\n\nሁሉም መልእክቶች አሁን በእንግሊዝኛ ይታያሉ።"
+      en: '✅ **Language Updated!**\n\n🇺🇸 Your language has been switched to English.\n\nYou can now use all bot features in English.',
+      am: '✅ **Language Updated!**\n\n🇺🇸 Your language has been switched to English.\n\nYou can now use all bot features in English.'
     },
     switched_am: {
-      en: "🇪🇹 **Language switched to Amharic**\n\nAll messages will now be displayed in Amharic.",
-      am: "🇪🇹 **ቋንቋ ወደ አማርኛ ተቀይሯል**\n\nሁሉም መልእክቶች አሁን በአማርኛ ይታያሉ።"
-    },
-    button_en: {
-      en: "🇺🇸 English",
-      am: "🇺🇸 English"
-    },
-    button_am: {
-      en: "🇪🇹 አማርኛ",
-      am: "🇪🇹 አማርኛ"
+      en: '✅ **ቋንቋ ተሻሽሏል!**\n\n🇪🇹 ቋንቋዎ ወደ አማርኛ ተቀይሯል።\n\nአሁን ሁሉንም የቦት ባህሪያት በአማርኛ መጠቀም ይችላሉ።',
+      am: '✅ **ቋንቋ ተሻሽሏል!**\n\n🇪🇹 ቋንቋዎ ወደ አማርኛ ተቀይሯል።\n\nአሁን ሁሉንም የቦት ባህሪያት በአማርኛ መጠቀም ይችላሉ።'
     }
   },
 
-  // Subscriptions System
-  subscriptions: {
-    title: {
-      en: "📊 **Your Subscriptions**",
-      am: "📊 **የእርስዎ መዋቅሮች**"
-    },
-    no_subscriptions: {
-      en: "📊 **Your Subscriptions**\n\nYou don't have any subscriptions yet.\n\nUse /start to subscribe to services!",
-      am: "📊 **የእርስዎ መዋቅሮች**\n\nእስካሁን ምንም መዋቅሮች የሉዎትም።\n\nአገልግሎቶችን ለመመዝገብ /start ይጠቀሙ!"
-    }
-  },
-
-  // Admin Commands
+  // Admin messages
   admin: {
     access_denied: {
-      en: "❌ Access denied. Admin only.",
-      am: "❌ መዳረሻ ተሰርዟል። አስተዳዳሪ ብቻ።"
+      en: '❌ **Access Denied**\n\nThis command is restricted to authorized administrators only.',
+      am: '❌ **መዳረሻ ተከልክሏል**\n\nይህ ትዕዛዝ ለተፈቀደላቸው አስተዳደሪዎች ብቻ ነው።'
+    },
+    dashboard_title: {
+      en: '🌟 **BirrPay Admin Dashboard** 🌟',
+      am: '🌟 **የBirrPay አስተዳደሪ ዳሽቦርድ** 🌟'
+    },
+    welcome_admin: {
+      en: '👋 **Welcome back, Administrator!**',
+      am: '👋 **እንኳን ደህና መጡ፣ አስተዳደሪ!**'
+    },
+    analytics_title: {
+      en: '📊 **Real-Time Analytics**',
+      am: '📊 **የቅጽበት ትንተና**'
+    },
+    users_total: {
+      en: '👥 **Users:** {count} total',
+      am: '👥 **ተጠቃሚዎች:** {count} ጠቅላላ'
+    },
+    users_verified: {
+      en: '✅ **Verified:** {count} users',
+      am: '✅ **ተረጋግጧል:** {count} ተጠቃሚዎች'
+    },
+    subscriptions: {
+      en: '📱 **Subscriptions:** {count} active',
+      am: '📱 **ምዝገባዎች:** {count} ንቁ'
+    },
+    payments: {
+      en: '💳 **Payments:** {count} total',
+      am: '💳 **ክፍያዎች:** {count} ጠቅላላ'
+    },
+    services: {
+      en: '🛍️ **Services:** {count} available',
+      am: '🛍️ **አገልግሎቶች:** {count} ይገኛሉ'
     }
   },
 
-  // Error Messages
+  // Error messages
   errors: {
     generic: {
-      en: "❌ Error occurred. Please try again.",
-      am: "❌ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።"
+      en: '❌ An error occurred. Please try again.',
+      am: '❌ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+    },
+    verification_failed: {
+      en: '❌ Error occurred during verification. Please try again.',
+      am: '❌ በማረጋገጫ ሂደት ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+    },
+    language_change_failed: {
+      en: '❌ Error changing language',
+      am: '❌ ቋንቋ ለመቀየር ስህተት'
+    },
+    admin_panel_error: {
+      en: '❌ Error loading admin panel. Please try again.',
+      am: '❌ የአስተዳደሪ ፓነል ለመጫን ስህተት። እባክዎ እንደገና ይሞክሩ።'
     }
   },
 
-  // Navigation
-  navigation: {
-    back_to_menu: {
-      en: "⬅️ Back to Menu",
-      am: "⬅️ ወደ ሜኑ ተመለስ"
+  // Success messages
+  success: {
+    language_updated: {
+      en: '✅ Language updated successfully!',
+      am: '✅ ቋንቋ በተሳካ ሁኔታ ተሻሽሏል!'
     },
-    back: {
-      en: "⬅️ Back",
-      am: "⬅️ ተመለስ"
-    },
-    cancel: {
-      en: "❌ Cancel",
-      am: "❌ ሰርዝ"
-    },
-    confirm: {
-      en: "✅ Confirm",
-      am: "✅ አረጋግጥ"
+    phone_verified: {
+      en: '✅ Phone number verified successfully!',
+      am: '✅ የስልክ ቁጥር በተሳካ ሁኔታ ተረጋግጧል!'
     }
   }
 };
 
-// Translation function
-export function t(key, lang = 'en') {
+// Helper function to get translation
+export const t = (key, language = 'en') => {
   const keys = key.split('.');
   let value = translations;
   
@@ -166,27 +195,38 @@ export function t(key, lang = 'en') {
       value = value[k];
     } else {
       console.warn(`Translation key not found: ${key}`);
-      return key;
+      return key; // Return the key if translation not found
     }
   }
   
-  if (typeof value === 'object' && value[lang]) {
-    return value[lang];
-  } else if (typeof value === 'string') {
+  if (typeof value === 'string') {
     return value;
-  } else {
-    console.warn(`Translation not found for key: ${key}, lang: ${lang}`);
-    return key;
+  } else if (value && value[language]) {
+    return value[language];
+  } else if (value && value.en) {
+    return value.en; // Fallback to English
   }
-}
+  
+  return key; // Return the key if no translation found
+};
 
-// Get user language from context
-export function getUserLanguage(ctx) {
-  return ctx.userLang || ctx.from?.language_code || 'en';
-}
+// Helper function to get user language
+export const getUserLanguage = (ctx) => {
+  // This should be called after user data is loaded
+  // For now, return default language
+  return ctx.userLang || 'en';
+};
 
-// Translate with user context
-export function translate(key, ctx) {
-  const lang = getUserLanguage(ctx);
-  return t(key, lang);
-}
+// Helper function to format translation with variables
+export const tf = (key, language = 'en', variables = {}) => {
+  let text = t(key, language);
+  
+  // Replace variables in the format {variable}
+  for (const [varName, varValue] of Object.entries(variables)) {
+    text = text.replace(new RegExp(`{${varName}}`, 'g'), varValue);
+  }
+  
+  return text;
+};
+
+export default translations;
