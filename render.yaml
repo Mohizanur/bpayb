@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: bpayb
+    name: birrpay-bot
     env: node
     plan: free
     buildCommand: npm install
@@ -9,28 +9,46 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 3000
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
       - key: ADMIN_TELEGRAM_ID
-        value: "5186537254"
-      - key: KEEP_ALIVE_URL
-        value: https://bpayb.onrender.com
-      - key: HEALTH_CHECK_URL
-        value: http://localhost:3000/health
-      - key: MAX_ERRORS_BEFORE_RECOVERY
-        value: 10
-      - key: ERROR_WINDOW_MS
-        value: 300000
-      - key: RECOVERY_WAIT_MS
-        value: 30000
-      - key: ENABLE_PERFORMANCE_MONITORING
-        value: true
-      - key: ENABLE_ERROR_LOGGING
-        value: true
-      - key: ENABLE_HEALTH_CHECKS
-        value: true
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        value: birrpay-20e82
+      - key: FIREBASE_PRIVATE_KEY_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_CLIENT_ID
+        sync: false
+      - key: FIREBASE_AUTH_URI
+        value: https://accounts.google.com/o/oauth2/auth
+      - key: FIREBASE_TOKEN_URI
+        value: https://oauth2.googleapis.com/token
+      - key: FIREBASE_AUTH_PROVIDER_X509_CERT_URL
+        value: https://www.googleapis.com/oauth2/v1/certs
+      - key: FIREBASE_CLIENT_X509_CERT_URL
+        sync: false
     autoDeploy: true
     numInstances: 1
+    scaling:
+      minInstances: 1
+      maxInstances: 1
+    resources:
+      cpu: 0.1
+      memory: 512MB
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-XSS-Protection
+        value: 1; mode=block
 
 databases:
   - name: birrpay-secrets

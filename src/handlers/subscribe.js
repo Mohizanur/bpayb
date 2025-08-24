@@ -62,7 +62,7 @@ function setupSubscribeHandler(bot) {
         
         return {
           text: `${plan.duration} ${durationText} - ${plan.price} ${currency}`,
-          callback_data: `subscribe_${service.id || service.serviceID}_${plan.duration}m_${plan.price}`
+        callback_data: `subscribe_${service.id || service.serviceID}_${plan.duration}m_${plan.price}`
         };
       });
       
@@ -113,7 +113,7 @@ function setupSubscribeHandler(bot) {
     }
   });
 
-        // Handle subscription with duration and price
+  // Handle subscription with duration and price
   bot.action(/^subscribe_([a-z0-9_-]+)_(\d+m)_(\d+)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
@@ -173,7 +173,7 @@ function setupSubscribeHandler(bot) {
     }
   });
 
-        // Handle subscription confirmation
+  // Handle subscription confirmation
   bot.action(/^confirm_sub_([a-z0-9_-]+)_(\d+m)_(\d+)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];

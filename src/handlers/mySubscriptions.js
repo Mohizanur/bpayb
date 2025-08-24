@@ -15,7 +15,7 @@ export default function mySubscriptionsHandler(bot) {
       
       if (subscriptions.length === 0) {
         const message = `📊 **${t('my_subscriptions', lang)}**
-        
+          
 ${t('no_subscriptions_yet', lang)}`;
         
         const keyboard = [

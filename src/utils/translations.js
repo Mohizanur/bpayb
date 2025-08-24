@@ -273,9 +273,9 @@ const translations = {
     en: '🛍️ **Services:** {count} available',
     am: '🛍️ **አገልግሎቶች:** {count} ይገኛሉ'
   },
-  web_admin_panel: {
-    en: '🌐 **Web Admin Panel:** https://bpayb.onrender.com/panel',
-    am: '🌐 **ድህረ ገጽ አስተዳደሪ ፓነል:** https://bpayb.onrender.com/panel'
+  telegram_admin_panel: {
+    en: '📱 **Admin Panel:** Use /admin command in Telegram',
+    am: '📱 **አስተዳደር ፓነል:** በTelegram ውስጥ /admin ትዕዛዝ ይጠቀሙ'
   },
   management_center: {
     en: '🔧 **Management Center** - Complete control over your platform',

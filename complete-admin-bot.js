@@ -1,7 +1,7 @@
 // Complete BirrPay Bot with EVERY SINGLE admin feature from original admin.js
 import { Telegraf } from 'telegraf';
 import dotenv from 'dotenv';
-import { createServer } from 'http';
+// Web server removed - admin panel now accessible via Telegram only
 import { readFileSync, existsSync } from 'fs';
 import { extname, join } from 'path';
 import { firestore } from './src/utils/firestore.js';
@@ -449,107 +449,10 @@ function sendJson(res, data, status = 200) {
   res.end(JSON.stringify(data));
 }
 
-// Create HTTP server for health checks and admin panel
-const server = createServer(async (req, res) => {
-  const url = req.url;
-  
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200);
-    res.end();
-    return;
-  }
-  
-  // Health check endpoint
-  if (url === '/health' || url === '/health/' || url === '/') {
-    try {
-      // Check if bot is running
-      const botStatus = bot ? 'running' : 'stopped';
-      
-      // Basic health check
-      const healthStatus = {
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        version: '2.0.0',
-        environment: process.env.NODE_ENV || 'development',
-        phoneVerification: 'enabled',
-        botStatus: botStatus,
-        server: 'birrpay-bot',
-        endpoints: {
-          health: '/health',
-          status: '/status',
-          panel: '/panel'
-        }
-      };
-      
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(healthStatus));
-      console.log('✅ Health check passed');
-    } catch (error) {
-      console.error('❌ Health check error:', error.message);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ 
-        status: 'unhealthy', 
-        error: error.message,
-        timestamp: new Date().toISOString(),
-        server: 'birrpay-bot'
-      }));
-    }
-    return;
-  }
+// Web server removed - admin panel now accessible via Telegram only
 
-  // Simple status endpoint for Render
-  if (url === '/status') {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('OK');
-    return;
-  }
-  
-  // Default response
-  res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.end(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>BirrPay Bot</title>
-        <style>
-            body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #e2e8f0; margin: 0; padding: 40px; text-align: center; }
-            .container { max-width: 600px; margin: 0 auto; }
-            h1 { color: #3b82f6; margin-bottom: 20px; }
-            .btn { display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 10px; margin: 10px; transition: all 0.3s ease; }
-            .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3); }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🚀 BirrPay Bot</h1>
-            <p>The bot is running successfully with phone verification enabled!</p>
-            <a href="/panel" class="btn">🌐 Open Admin Panel</a>
-            <p style="margin-top: 30px; color: #94a3b8;">
-                Use <code>/admin</code> command in Telegram for admin access
-            </p>
-        </div>
-    </body>
-    </html>
-  `);
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`🚀 HTTP Server listening on port ${PORT}`);
-  console.log(`🔧 Health check: http://localhost:${PORT}/health`);
-  console.log(`🌐 Admin Panel: http://localhost:${PORT}/panel`);
+// Web server removed - admin panel now accessible via Telegram only
   console.log(`📱 Phone verification: ENABLED`);
-}).on('error', (error) => {
-  console.error('❌ Server startup error:', error);
-  process.exit(1);
-});
 
 // Add error handling for uncaught exceptions
 process.on('uncaughtException', (error) => {
@@ -1364,7 +1267,7 @@ ${t('management_center', lang)}`;
     console.log("✅ Bot started - Phone verification ENABLED");
     console.log("🌐 Enhanced language persistence ENABLED");
     console.log("📄 Service pagination ENABLED (5 per page)");
-    console.log("🌐 Web Admin Panel: https://bpayb.onrender.com/panel");
+    console.log("📱 Admin Panel: Use /admin command in Telegram");
     console.log("📱 Users must verify phone before accessing services");
     console.log("🔤 All messages translated in English and Amharic");
 
