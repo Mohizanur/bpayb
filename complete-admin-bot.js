@@ -1263,7 +1263,7 @@ ${t('management_center', lang)}`;
       });
     }
 
-    // Start HTTP server for Render health checks
+    // Start HTTP server for Render health checks and webhook
     const PORT = process.env.PORT || 3000;
     const server = createServer((req, res) => {
       if (req.url === '/health') {
@@ -1278,7 +1278,13 @@ ${t('management_center', lang)}`;
           webhook: {
             url: process.env.WEBHOOK_URL || 'https://bpayb.onrender.com/webhook',
             mode: 'webhook',
-            responseTime: '50-100ms'
+            responseTime: '50-100ms',
+            status: 'active'
+          },
+          endpoints: {
+            health: '/health',
+            webhook: '/webhook',
+            status: '/'
           }
         }));
       } else if (req.url === '/') {
@@ -1293,6 +1299,7 @@ ${t('management_center', lang)}`;
               <p>Uptime: <strong>${Math.floor(process.uptime() / 3600)} hours</strong></p>
               <p>Memory Usage: <strong>${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB</strong></p>
               <p>Capacity: <strong>1,000+ simultaneous users</strong></p>
+              <p>Mode: <strong>Webhook (50-100ms response)</strong></p>
               <hr>
               <p><em>Keep-alive system active - running 24/7</em></p>
             </body>
@@ -1303,23 +1310,6 @@ ${t('management_center', lang)}`;
         res.end('Not Found');
       }
     });
-
-    server.listen(PORT, () => {
-      console.log(`🌐 Health server running on port ${PORT}`);
-      console.log(`📊 Health check: http://localhost:${PORT}/health`);
-    });
-
-    // Keep-alive ping to prevent Render sleep
-    setInterval(async () => {
-      try {
-        const response = await fetch(`http://localhost:${PORT}/health`);
-        if (response.ok) {
-          console.log('💓 Keep-alive ping successful');
-        }
-      } catch (error) {
-        console.log('⚠️ Keep-alive ping failed, but continuing...');
-      }
-    }, 30000); // Every 30 seconds (prevents 15min sleep)
 
     // Start the bot with webhooks for Render
     console.log("🚀 Starting bot with webhooks for Render deployment...");
@@ -1336,8 +1326,27 @@ ${t('management_center', lang)}`;
       await bot.telegram.setWebhook(webhookUrl);
       console.log(`✅ Webhook set to: ${webhookUrl}`);
       
-      // Start webhook server
-      bot.startWebhook('/webhook', null, PORT);
+      // Start webhook server on the same HTTP server
+      bot.startWebhook('/webhook', null, PORT, 'localhost');
+      
+      // Start the HTTP server after webhook is set up
+      server.listen(PORT, () => {
+        console.log(`🌐 HTTP server running on port ${PORT}`);
+        console.log(`📊 Health check: http://localhost:${PORT}/health`);
+        console.log(`🌐 Webhook endpoint: http://localhost:${PORT}/webhook`);
+      });
+
+      // Keep-alive ping to prevent Render sleep
+      setInterval(async () => {
+        try {
+          const response = await fetch(`http://localhost:${PORT}/health`);
+          if (response.ok) {
+            console.log('💓 Keep-alive ping successful');
+          }
+        } catch (error) {
+          console.log('⚠️ Keep-alive ping failed, but continuing...');
+        }
+      }, 30000); // Every 30 seconds (prevents 15min sleep)
       console.log("✅ Bot started with webhooks - Phone verification ENABLED");
       console.log("🌐 Enhanced language persistence ENABLED");
       console.log("📄 Service pagination ENABLED (5 per page)");
