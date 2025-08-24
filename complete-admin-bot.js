@@ -1305,6 +1305,9 @@ ${t('management_center', lang)}`;
             </body>
           </html>
         `);
+      } else if (req.url === '/webhook') {
+        // Handle webhook requests
+        bot.handleUpdate(req, res);
       } else {
         res.writeHead(404);
         res.end('Not Found');
@@ -1326,14 +1329,12 @@ ${t('management_center', lang)}`;
       await bot.telegram.setWebhook(webhookUrl);
       console.log(`✅ Webhook set to: ${webhookUrl}`);
       
-      // Start webhook server on the same HTTP server
-      bot.startWebhook('/webhook', null, PORT, 'localhost');
-      
-      // Start the HTTP server after webhook is set up
+      // Start the HTTP server with integrated webhook
       server.listen(PORT, () => {
         console.log(`🌐 HTTP server running on port ${PORT}`);
         console.log(`📊 Health check: http://localhost:${PORT}/health`);
         console.log(`🌐 Webhook endpoint: http://localhost:${PORT}/webhook`);
+        console.log(`✅ Webhook integrated into HTTP server`);
       });
 
       // Keep-alive ping to prevent Render sleep
