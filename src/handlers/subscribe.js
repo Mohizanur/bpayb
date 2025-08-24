@@ -5,13 +5,14 @@
 
 import { firestore } from '../utils/firestore.js';
 import { cache } from '../utils/cache.js';
+import { t, getUserLanguage } from '../utils/translations.js';
 
 function setupSubscribeHandler(bot) {
   // Handle service selection with more flexible ID matching and caching
   bot.action(/^select_service_([a-z0-9_-]+)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
-      const lang = ctx.userLang || 'en';
+      const lang = await getUserLanguage(ctx);
       
       // Show loading message
       await ctx.answerCbQuery();
@@ -32,7 +33,7 @@ function setupSubscribeHandler(bot) {
       }
       
       if (!service) {
-        await ctx.answerCbQuery(lang === 'am' ? 'አገልግሎት አልተገኘም' : 'Service not found');
+        await ctx.answerCbQuery(t('service_not_found', lang));
         return;
       }
       
@@ -48,17 +49,22 @@ function setupSubscribeHandler(bot) {
       }
       
       // Show service details and subscription options
-      const message = lang === 'am' 
-        ? `✅ *${service.name}* የተመረጠ\n\n${service.description || ''}\n\nእባክዎ የምትፈልጉትን የደንበኝነት ምዝገባ ዓይነት ይምረጥ:`
-        : `✅ *${service.name}* selected\n\n${service.description || ''}\n\nPlease choose your subscription duration:`;
+      const message = `✅ *${service.name}* ${t('selected', lang)}\n\n${service.description || ''}\n\n${t('choose_subscription_duration', lang)}`;
       
       // Create inline keyboard with available plans
-      const planButtons = service.plans.map(plan => ({
-        text: lang === 'am' ? 
-          `${plan.duration} ${plan.duration === 1 ? 'ወር' : plan.duration < 12 ? 'ወራት' : 'አመት'} - ${plan.price} ብር` : 
-          `${plan.duration} ${plan.duration === 1 ? 'Month' : plan.duration < 12 ? 'Months' : 'Year'}${plan.duration >= 12 && plan.duration % 12 === 0 ? 's' : ''} - ${plan.price} ETB`,
-        callback_data: `subscribe_${service.id || service.serviceID}_${plan.duration}m_${plan.price}`
-      }));
+      const planButtons = service.plans.map(plan => {
+        const durationText = plan.duration === 1 
+          ? t('month', lang)
+          : plan.duration < 12 
+            ? t('months', lang)
+            : t('year', lang);
+        const currency = lang === 'am' ? t('birr', lang) : 'ETB';
+        
+        return {
+          text: `${plan.duration} ${durationText} - ${plan.price} ${currency}`,
+          callback_data: `subscribe_${service.id || service.serviceID}_${plan.duration}m_${plan.price}`
+        };
+      });
       
       // Group buttons in rows of 2
       const keyboardRows = [];
@@ -69,7 +75,7 @@ function setupSubscribeHandler(bot) {
       // Add custom plan button
       keyboardRows.push([
         { 
-          text: lang === 'am' ? '🎯 ብጁ እቅድ ይጠይቁ' : '🎯 Request Custom Plan', 
+          text: t('request_custom_plan', lang), 
           callback_data: `custom_plan_for_${service.id || service.serviceID}` 
         }
       ]);
@@ -77,7 +83,7 @@ function setupSubscribeHandler(bot) {
       // Add back button
       keyboardRows.push([
         { 
-          text: lang === 'am' ? '🔙 ወደ ኋላ' : '🔙 Back', 
+          text: t('back', lang), 
           callback_data: 'back_to_services' 
         }
       ]);
@@ -103,17 +109,17 @@ function setupSubscribeHandler(bot) {
       
     } catch (error) {
       console.error('Error in service selection:', error);
-      await ctx.answerCbQuery(lang === 'am' ? 'ስህተት ተፈጥሯል' : 'An error occurred');
+      await ctx.answerCbQuery(t('error_occurred', lang));
     }
   });
 
-  // Handle subscription with duration and price
+        // Handle subscription with duration and price
   bot.action(/^subscribe_([a-z0-9_-]+)_(\d+m)_(\d+)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
       const duration = ctx.match[2]; // e.g., '1m', '3m', '6m', '12m'
       const price = parseInt(ctx.match[3], 10);
-      const lang = ctx.userLang || 'en';
+      const lang = await getUserLanguage(ctx);
       
       // Get the service details
       let service = ctx.services?.find(s => s.id === serviceId || s.serviceID === serviceId);
@@ -131,36 +137,30 @@ function setupSubscribeHandler(bot) {
       }
       
       if (!service) {
-        await ctx.answerCbQuery(lang === 'am' ? 'አገልግሎት አልተገኘም' : 'Service not found');
+        await ctx.answerCbQuery(t('service_not_found', lang));
         return;
       }
 
       // Parse duration
       const months = parseInt(duration, 10);
-      const durationText = lang === 'am' 
-        ? `${months} ${months === 1 ? 'ወር' : 'ወራት'}`
-        : `${months} ${months === 1 ? 'Month' : 'Months'}`;
+      const durationText = `${months} ${months === 1 ? t('month', lang) : t('months', lang)}`;
 
       // Format price
       const formattedPrice = price.toLocaleString('en-US');
       
       // Show confirmation message
-      const confirmMessage = lang === 'am'
-        ? `✅ *${service.name} - ${durationText}*\n\n` +
-          `ዋጋ: *${formattedPrice} ብር*\n\n` +
-          `ይህን የደንበኝነት ምዝገባ መግዛት ይፈልጋሉ?`
-        : `✅ *${service.name} - ${durationText}*\n\n` +
-          `Price: *${formattedPrice} ETB*\n\n` +
-          `Do you want to proceed with this subscription?`;
+      const confirmMessage = `✅ *${service.name} - ${durationText}*\n\n` +
+        `${t('price', lang)}: *${formattedPrice} ${lang === 'am' ? t('birr', lang) : 'ETB'}*\n\n` +
+        `${t('proceed_with_subscription', lang)}`;
 
       await ctx.editMessageText(confirmMessage, {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
             [
-              { text: lang === 'am' ? '✅ አዎ' : '✅ Yes', 
+              { text: t('yes', lang), 
                 callback_data: `confirm_sub_${serviceId}_${duration}_${price}` },
-              { text: lang === 'am' ? '❌ አይ' : '❌ No', 
+              { text: t('no', lang), 
                 callback_data: `back_to_services` }
             ]
           ]
@@ -169,18 +169,18 @@ function setupSubscribeHandler(bot) {
       
     } catch (error) {
       console.error('Error in subscription selection:', error);
-      await ctx.answerCbQuery(lang === 'am' ? 'ስህተት ተፈጥሯል' : 'An error occurred');
+      await ctx.answerCbQuery(t('error_occurred', lang));
     }
   });
 
-  // Handle subscription confirmation
+        // Handle subscription confirmation
   bot.action(/^confirm_sub_([a-z0-9_-]+)_(\d+m)_(\d+)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
       const duration = ctx.match[2];
       const price = parseInt(ctx.match[3], 10);
       const userId = String(ctx.from.id);
-      const lang = ctx.userLang || 'en';
+      const lang = await getUserLanguage(ctx);
       
       // Get the service details
       let service = ctx.services?.find(s => s.id === serviceId || s.serviceID === serviceId);
@@ -198,14 +198,12 @@ function setupSubscribeHandler(bot) {
       }
       
       if (!service) {
-        await ctx.answerCbQuery(lang === 'am' ? 'አገልግሎት አልተገኘም' : 'Service not found');
+        await ctx.answerCbQuery(t('service_not_found', lang));
         return;
       }
 
       const months = parseInt(duration, 10);
-      const durationText = lang === 'am' 
-        ? `${months} ${months === 1 ? 'ወር' : 'ወራት'}`
-        : `${months} ${months === 1 ? 'Month' : 'Months'}`;
+      const durationText = `${months} ${months === 1 ? t('month', lang) : t('months', lang)}`;
       
       // Find the matching plan
       const plan = service.plans?.find(p => p.duration === months);
@@ -247,27 +245,16 @@ function setupSubscribeHandler(bot) {
           paymentMethodsListAm += `${icon} *${method.nameAm || method.name}*: ${method.account}\n`;
         });
 
-        const paymentMessage = lang === 'am'
-        ? `💳 *የክፍያ መመሪያዎች*
+        const paymentMessage = `💳 *${t('payment_instructions_title', lang)}*
 
-አገልግሎት: ${service.name}
-ቆይታ: ${plan?.billingCycle || `${months} ${months === 1 ? 'ወር' : 'ወራት'}`}
-ጠቅላላ ዋጋ: *${price.toLocaleString()} ብር*
+${t('service', lang)}: ${service.name}
+${t('duration', lang)}: ${plan?.billingCycle || `${months} ${months === 1 ? t('month', lang) : t('months', lang)}`}
+${t('total_amount', lang)}: *${price.toLocaleString()} ${lang === 'am' ? t('birr', lang) : 'ETB'}*
 
-ክፍያ ለማድረግ ወደሚከተሉት አካውንቶች ገንዘብ ያስተላልፉ፡
-${paymentMethodsListAm}
-${paymentMethods.length > 0 ? (paymentMethods[0].instructionsAm || 'ክፍያ ካደረጉ በኋላ የክፍያ ማረጋገጫ ስክሪንሾት ወይም ሪሲት ይላኩ።') : 'ክፍያ ካደረጉ በኋላ የክፍያ ማረጋገጫ ስክሪንሾት ወይም ሪሲት ይላኩ።'}
-አስተናጋጁ ክፍያዎን ከፀደቀ በኋላ አገልግሎቱ ይጀምራል።`
-        : `💳 *Payment Instructions*
-
-Service: ${service.name}
-Duration: ${plan?.billingCycle || `${months} ${months === 1 ? 'Month' : 'Months'}`}
-Total Amount: *${price.toLocaleString()} ETB*
-
-Please make payment to any of the following accounts:
-${paymentMethodsListEn}
-${paymentMethods.length > 0 ? (paymentMethods[0].instructions || 'After payment, please send a screenshot or receipt as proof.') : 'After payment, please send a screenshot or receipt as proof.'}
-Your service will start after admin approves your payment.`;
+${t('payment_accounts_instruction', lang)}:
+${lang === 'am' ? paymentMethodsListAm : paymentMethodsListEn}
+${paymentMethods.length > 0 ? (lang === 'am' ? (paymentMethods[0].instructionsAm || t('payment_proof_instruction', lang)) : (paymentMethods[0].instructions || t('payment_proof_instruction', lang))) : t('payment_proof_instruction', lang)}
+${t('service_start_after_approval', lang)}`;
 
       // Save pending payment to database (without starting subscription yet)
       const paymentId = `pay_${Date.now()}_${userId}`;
@@ -294,11 +281,11 @@ Your service will start after admin approves your payment.`;
         reply_markup: {
           inline_keyboard: [
             [
-              { text: lang === 'am' ? '📤 የክፍያ ማስረጃ አስገባ' : '📤 Upload Payment Proof',
+              { text: t('upload_payment_proof', lang),
                 callback_data: `upload_proof_${paymentId}` }
             ],
             [
-              { text: lang === 'am' ? '🏠 ዋና ገጽ' : '🏠 Main Menu',
+              { text: t('main_page', lang),
                 callback_data: 'main_menu' }
             ]
           ]
@@ -322,8 +309,8 @@ Your service will start after admin approves your payment.`;
       
     } catch (error) {
       console.error('Error in payment instructions:', error);
-      const lang = ctx.userLang || 'en';
-      await ctx.answerCbQuery(lang === 'am' ? 'ስህተት ተፈጥሯል' : 'An error occurred');
+      const lang = await getUserLanguage(ctx);
+      await ctx.answerCbQuery(t('error_occurred', lang));
     }
   });
 
@@ -331,7 +318,7 @@ Your service will start after admin approves your payment.`;
   bot.action(/^upload_proof_(.+)$/i, async (ctx) => {
     try {
       const paymentId = ctx.match[1];
-      const lang = ctx.userLang || 'en';
+      const lang = await getUserLanguage(ctx);
       
       // Set user state to expect photo
       await firestore.collection('userStates').doc(String(ctx.from.id)).set({
@@ -340,13 +327,9 @@ Your service will start after admin approves your payment.`;
         timestamp: new Date().toISOString()
       });
       
-      const message = lang === 'am'
-        ? `📤 *የክፍያ ማስረጃ ይላኩ*\n\n` +
-          `እባክዎ የክፍያ ማስረጃዎን (ስክሪንሾት ወይም ሪሲት) ይላኩ።\n` +
-          `ለማሰረዝ /cancel ይጫኑ።`
-        : `📤 *Upload Payment Proof*\n\n` +
-          `Please send a screenshot or photo of your payment receipt.\n` +
-          `Click /cancel to cancel.`;
+      const message = `📤 *${t('upload_payment_proof_title', lang)}*\n\n` +
+        `${t('upload_payment_proof_instruction', lang)}\n` +
+        `${t('click_cancel_to_cancel', lang)}`;
       
       await ctx.editMessageText(message, {
         parse_mode: 'Markdown'
@@ -354,18 +337,23 @@ Your service will start after admin approves your payment.`;
       
     } catch (error) {
       console.error('Error in upload proof handler:', error);
-      await ctx.answerCbQuery(lang === 'am' ? 'ስህተት ተፈጥሯል' : 'An error occurred');
+      const lang = await getUserLanguage(ctx);
+      await ctx.answerCbQuery(t('error_occurred', lang));
     }
   });
   
   // Helper function to get user language
-  async function getUserLanguage(userId) {
+  async function getUserLanguage(ctx) {
     try {
+      const userId = String(ctx.from.id);
+      if (!userId) {
+        return ctx.from.language_code === 'am' ? 'am' : 'en';
+      }
       const userDoc = await firestore.collection('users').doc(userId).get();
       return userDoc.exists ? (userDoc.data().language || 'en') : 'en';
     } catch (error) {
       console.error('Error getting user language:', error);
-      return 'en';
+      return ctx.from.language_code === 'am' ? 'am' : 'en';
     }
   }
 }

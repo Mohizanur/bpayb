@@ -2,6 +2,19 @@ import { escapeMarkdownV2, loadI18n } from "../utils/i18n.js";
 import { firestore } from "../utils/firestore.js";
 import { loadServices } from "../utils/loadServices.js";
 import { getBackToMenuButton, getInlineKeyboard, showMainMenu } from "../utils/navigation.js";
+import { t } from "../utils/translations.js";
+
+// Helper function to get user language from database
+const getUserLanguage = async (ctx) => {
+  try {
+    const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+    const userData = userDoc.data() || {};
+    return userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+  } catch (error) {
+    console.error('Error getting user language:', error);
+    return ctx.from?.language_code === 'am' ? 'am' : 'en';
+  }
+};
 
 // Helper function to check if user is new
 const isNewUser = async (userId) => {
@@ -21,13 +34,16 @@ const createUserProfile = async (ctx) => {
     const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
     const existingData = userDoc.exists ? userDoc.data() : {};
     
+    // Get current language preference
+    const currentLang = existingData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+    
     await firestore.collection('users').doc(String(ctx.from.id)).set({
       telegramId: ctx.from.id,
       firstName: ctx.from.first_name,
       lastName: ctx.from.last_name || '',
       username: ctx.from.username || '',
       // PRESERVE existing language selection, only set default for new users
-      language: existingData.language || ctx.userLang || ctx.from.language_code || 'en',
+      language: currentLang,
       phoneVerified: existingData.phoneVerified || false,
       hasCompletedOnboarding: existingData.hasCompletedOnboarding || false,
       joinedAt: existingData.joinedAt || new Date(),
@@ -46,7 +62,7 @@ const createUserProfile = async (ctx) => {
       metadata: {
         firstName: ctx.from.first_name,
         username: ctx.from.username,
-        language: existingData.language || ctx.userLang || ctx.from.language_code || 'en'
+        language: currentLang
       }
     });
     
@@ -60,8 +76,8 @@ const createUserProfile = async (ctx) => {
 export function setupStartHandler(bot) {
   bot.start(async (ctx) => {
     try {
-      // Use the user's saved language preference, not Telegram's default
-      const lang = ctx.userLang || 'en';
+      // Get user's saved language preference from database
+      const lang = await getUserLanguage(ctx);
       const isFirstTime = await isNewUser(ctx.from.id);
       
       // Update user info and create profile
@@ -77,8 +93,9 @@ export function setupStartHandler(bot) {
 
     } catch (error) {
       console.error("Error in start handler:", error);
+      const lang = await getUserLanguage(ctx);
       await ctx.reply(
-        ctx.userLang === 'am' 
+        lang === 'am' 
           ? "ሰላምታ! እባክዎ እንደገና ይሞክሩ።" 
           : "Welcome! Please try again."
       );
@@ -88,7 +105,7 @@ export function setupStartHandler(bot) {
   // Handle onboarding flow for new users
   bot.action("start_onboarding", async (ctx) => {
     try {
-      const lang = ctx.userLang || 'en';
+      const lang = await getUserLanguage(ctx);
       
       const onboardingMessage = lang === "am"
         ? `🚀 **BirrPay የመጀመሪያ እርምጃዎች**
@@ -143,23 +160,23 @@ Get 10% off your first subscription!`;
       const onboardingKeyboard = [
         [
           { 
-            text: lang === "am" ? "🎯 አሁን አገልግሎቶችን ይመልከቱ" : "🎯 Browse Services Now", 
+            text: t('browse_services_now', lang), 
             callback_data: "services" 
           }
         ],
         [
           { 
-            text: lang === "am" ? "❓ ተጨማሪ ጥያቄዎች" : "❓ Have Questions?", 
+            text: t('have_questions', lang), 
             callback_data: "faq_menu" 
           },
           { 
-            text: lang === "am" ? "🛠️ ድጋፍ አግኙ" : "🛠️ Get Support", 
+            text: t('get_support', lang), 
             callback_data: "support_menu" 
           }
         ],
         [
           { 
-            text: lang === "am" ? "🏠 ዋና ምንዩ" : "🏠 Main Menu", 
+            text: t('main_menu', lang), 
             callback_data: "back_to_start" 
           }
         ]
@@ -187,7 +204,7 @@ Get 10% off your first subscription!`;
   // Features section handler (matching website features)
   bot.action("features", async (ctx) => {
     try {
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
       
       const featuresText = lang === "am"
         ? `🎯 **የBirrPay ባህሪያት**
@@ -235,14 +252,14 @@ Customer service available in Amharic and English.`;
   // Services section handler
   bot.action("services", async (ctx) => {
     try {
-      const lang = ctx.userLang || 'en';
+      const lang = await getUserLanguage(ctx);
       const services = await loadServices();
       if (!services || services.length === 0) {
         await ctx.answerCbQuery();
-        await ctx.editMessageText(lang === 'am' ? 'ምንም አገልግሎት አልተገኘም። እባክዎ በኋላ ይሞክሩ።' : 'No services are currently available. Please try again later.', {
+        await ctx.editMessageText(t('no_services_available', lang), {
           reply_markup: {
             inline_keyboard: [
-              [{ text: lang === "en" ? "⬅️ Back to Menu" : "⬅️ ወደ ሜኑ ተመለስ", callback_data: "back_to_start" }]
+              [{ text: t('back_to_menu', lang), callback_data: "back_to_start" }]
             ]
           }
         });
@@ -270,17 +287,15 @@ Customer service available in Amharic and English.`;
       
       // Add navigation buttons
       keyboard.push([
-        { text: lang === "en" ? "💳 View Plans" : "💳 እቅዶች ይመልከቱ", callback_data: "plans" },
-        { text: lang === "en" ? "📊 My Subscriptions" : "📊 የእኔ ምዝገባዎች", callback_data: "my_subs" }
+        { text: t('view_plans', lang), callback_data: "plans" },
+        { text: t('my_subscriptions', lang), callback_data: "my_subs" }
       ]);
       
       keyboard.push([
-        { text: lang === "en" ? "⬅️ Back to Menu" : "⬅️ ወደ ሜኑ ተመለስ", callback_data: "back_to_start" }
+        { text: t('back_to_menu', lang), callback_data: "back_to_start" }
       ]);
       
-      const message = lang === "en" 
-        ? "🎆 **Available Services**\n\nChoose a service to view details and subscribe:"
-        : "🎆 **የሚገኙ አገልግሎቶች**\n\nዝርዝር መረጃ እና መመዝገብ አገልግሎት ይምረጡ:";
+      const message = t('available_services', lang);
       
       await ctx.editMessageText(message, {
         reply_markup: { inline_keyboard: keyboard },
@@ -289,14 +304,15 @@ Customer service available in Amharic and English.`;
       await ctx.answerCbQuery();
     } catch (error) {
       console.error("Error in manage_plans action:", error);
-      await ctx.answerCbQuery("Sorry, something went wrong.");
+      const lang = await getUserLanguage(ctx);
+      await ctx.answerCbQuery(t('error_occurred', lang));
     }
   });
 
   // Plans section handler (1, 3, 6, 12 months for all services)
   bot.action("plans", async (ctx) => {
     try {
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
       
       const plansText = lang === "am"
         ? `💳 **የምዝገባ እቅዶች**
@@ -352,7 +368,7 @@ All services are available for the following durations:
           { text: lang === "en" ? "📅 3 Months" : "📅 3 ወር", callback_data: "select_plan_3months" }
         ],
         [
-          { text: lang === "en" ? "📅 6 Months" : "📅 6 ወር", callback_data: "select_plan_6months" },
+          { text: lang === "en" ? "�� 6 Months" : "📅 6 ወር", callback_data: "select_plan_6months" },
           { text: lang === "en" ? "📅 12 Months" : "📅 12 ወር", callback_data: "select_plan_12months" }
         ],
         [
@@ -378,7 +394,7 @@ All services are available for the following durations:
   bot.action(/select_plan_(1month|3months|6months|12months)/, async (ctx) => {
     try {
       const planType = ctx.match[1];
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
       
       const planDetails = {
         "1month": { duration: "1 month", period: "30 days" },
@@ -433,7 +449,7 @@ All services are available for this duration.`;
   // Custom plan handler
   bot.action("custom_plan", async (ctx) => {
     try {
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
       
       const customPlanText = lang === "am"
         ? `🎯 **ብጁ እቅድ ጥያቄ**
@@ -505,7 +521,7 @@ Custom plan requests are answered within 24 hours.`;
   // Request custom plan handler
   bot.action("request_custom_plan", async (ctx) => {
     try {
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
       
       const requestText = lang === "am"
         ? `📝 **ብጁ እቅድ ጥያቄ**
@@ -567,7 +583,7 @@ Please send the following information:
   bot.action(/^accept_custom_pricing_(.+)$/, async (ctx) => {
     try {
       const requestId = ctx.match[1];
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
 
       // Get the custom plan request with pricing
       const requestDoc = await firestore.collection('customPlanRequests').doc(requestId).get();
@@ -690,7 +706,7 @@ After making payment, send a screenshot of your payment proof.`;
   bot.action(/^decline_custom_pricing_(.+)$/, async (ctx) => {
     try {
       const requestId = ctx.match[1];
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
 
       // Update custom plan request status
       await firestore.collection('customPlanRequests').doc(requestId).update({
@@ -740,7 +756,7 @@ You have declined the custom plan pricing.
   bot.action(/^upload_custom_proof_(.+)$/, async (ctx) => {
     try {
       const pendingPaymentId = ctx.match[1];
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
 
       const instructionMsg = lang === 'am'
         ? `📤 **የክፍያ ማረጋገጫ ላክ**
@@ -793,7 +809,7 @@ Please send your payment proof (screenshot).
   bot.action(/^custom_plan_for_(.+)$/, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
       
       // Get service details
       let service;
@@ -887,7 +903,7 @@ Custom plan requests are answered within 24 hours.`;
   bot.action(/^request_custom_plan_for_(.+)$/, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
       
       // Get service details
       let service;
@@ -969,7 +985,7 @@ Please send the following information:
   bot.action(/service_details_(.+)/, async (ctx) => {
     try {
       const serviceID = ctx.match[1];
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
       const services = ctx.services;
       const service = services.find(s => s.serviceID === serviceID);
       
@@ -1009,7 +1025,7 @@ Please send the following information:
   // How to Use section handler (matching website how-to-use)
   bot.action("how_to_use", async (ctx) => {
     try {
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
 
       
       const howToText = lang === "am"
@@ -1072,7 +1088,7 @@ Please send the following information:
   // Contact section handler (matching website contact)
   bot.action("contact", async (ctx) => {
     try {
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
       
       const contactText = lang === "am"
         ? `📞 **እኛን ያግኙ**
@@ -1136,7 +1152,7 @@ We'll forward your message to admin immediately.`;
   // Language settings handler
   bot.action("language_settings", async (ctx) => {
     try {
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
       
       const langText = lang === "am"
         ? `🌐 **ቋንቋ ቅንብሮች**
@@ -1170,7 +1186,7 @@ Choose your preferred language:`;
   // Handle FAQ menu from start (matching website FAQ)
   bot.action("faq_menu", async (ctx) => {
     try {
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
       
       // FAQ data matching the website
       const faqs = lang === "am" ? [
@@ -1212,7 +1228,7 @@ Choose your preferred language:`;
   bot.action(/faq_answer_(\d+)/, async (ctx) => {
     try {
       const index = parseInt(ctx.match[1]);
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
       
       const faqs = lang === "am" ? [
         { q: "BirrPay ምንድን ነው?", a: "BirrPay የኢትዮጵያ የመጀመሪያ የምዝገባ ማዕከል ነው። ሁሉንም የዲጂታል ምዝገባዎችዎን በአንድ ቦታ ማስተዳደር ይችላሉ።" },
@@ -1253,7 +1269,7 @@ Choose your preferred language:`;
   // Handle start callback (same as back_to_start)
   bot.action("start", async (ctx) => {
     try {
-      const lang = ctx.userLang || "en";
+      const lang = await getUserLanguage(ctx);
       
       // Main welcome message matching website hero section
       const title = lang === "am" 
@@ -1330,7 +1346,7 @@ Choose your preferred language:`;
     } catch (error) {
       console.error('Error in back_to_menu action:', error);
       try {
-        const lang = ctx.userLang || (ctx.userLang === 'am' ? 'am' : 'en');
+        const lang = await getUserLanguage(ctx);
         await ctx.answerCbQuery(lang === 'am' ? 'ስህተት ተከስቷል። እባክዎ ቆይተው ይሞክሩ።' : 'An error occurred. Please try again.');
       } catch (e) {
         console.error('Error sending error message:', e);
@@ -1351,7 +1367,7 @@ Choose your preferred language:`;
 
   bot.action("support", async (ctx) => {
     try {
-      const lang = ctx.userLang;
+      const lang = await getUserLanguage(ctx);
       const supportText =
         lang === "en"
           ? `💬 Support Information:
@@ -1394,7 +1410,7 @@ Choose your preferred language:`;
   // Pricing button handler
   bot.action("pricing", async (ctx) => {
     try {
-      const lang = ctx.userLang || 'en';
+      const lang = await getUserLanguage(ctx);
       
       const pricingMessage = lang === 'am'
         ? `💰 **BirrPay የዋጋ አሰጣጥ**
@@ -1481,7 +1497,7 @@ Choose your preferred language:`;
   // Payment methods button handler
   bot.action("payment_methods", async (ctx) => {
     try {
-      const lang = ctx.userLang || 'en';
+      const lang = await getUserLanguage(ctx);
       
       const paymentMessage = lang === 'am'
         ? `💳 **የክፍያ ዘዴዎች**
@@ -1582,7 +1598,7 @@ Choose your preferred language:`;
   // Terms button handler
   bot.action("terms", async (ctx) => {
     try {
-      const lang = ctx.userLang || 'en';
+      const lang = await getUserLanguage(ctx);
       
       const termsMessage = lang === 'am'
         ? `📜 **የአገልግሎት ደረጃዎች**
@@ -1676,7 +1692,7 @@ BirrPay is not responsible for changes made by third-party service providers. Se
   // About button handler
   bot.action("about", async (ctx) => {
     try {
-      const lang = ctx.userLang || 'en';
+      const lang = await getUserLanguage(ctx);
       
       const aboutMessage = lang === 'am'
         ? `ℹ️ **BirrPay ስለ እኛ**
@@ -1779,7 +1795,7 @@ Netflix • Spotify • Amazon Prime • YouTube Premium • Disney+ • HBO Max
   // Change language button handler
   bot.action("change_language", async (ctx) => {
     try {
-      const currentLang = ctx.userLang || 'en';
+      const currentLang = await getUserLanguage(ctx);
       
       const languageMessage = currentLang === 'am'
         ? `🌐 **ቋንቋ ቀይር**
@@ -1811,7 +1827,7 @@ Please select your preferred language:`;
   // Notifications button handler
   bot.action("notifications", async (ctx) => {
     try {
-      const lang = ctx.userLang || 'en';
+      const lang = await getUserLanguage(ctx);
       
       const notificationsMessage = lang === 'am'
         ? `🔔 **ማሳወቂያ ቅንብሮች**

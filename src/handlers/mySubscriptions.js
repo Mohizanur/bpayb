@@ -1,29 +1,26 @@
 import { getUserSubscriptions, getSubscription } from "../utils/database.js";
 import { formatCurrency } from "../utils/payment.js";
 import { db } from "../../firebase-config.js";
+import { t, getUserLanguage } from "../utils/translations.js";
 
 export default function mySubscriptionsHandler(bot) {
   // Handle my subscriptions menu
   bot.action("my_subs", async (ctx) => {
     try {
       const userId = String(ctx.from.id);
-      const lang = ctx.userLang || 'en';
+      const lang = await getUserLanguage(ctx);
       
       // Get user's subscriptions
       const subscriptions = await getUserSubscriptions(userId);
       
       if (subscriptions.length === 0) {
-        const message = lang === 'am'
-          ? `📊 **የእኔ ምዝገባዎች**
-          
-እስካሁን ምንም ምዝገባዎች የሉዎትም። አዲስ ምዝገባ ለመጀመር እባክዎ አገልግሎቶችን ይምረጡ:`
-          : `📊 **My Subscriptions**
-          
-You don't have any subscriptions yet. To start a new subscription, please select a service:`;
+        const message = `📊 **${t('my_subscriptions', lang)}**
+        
+${t('no_subscriptions_yet', lang)}`;
         
         const keyboard = [
-          [{ text: lang === 'am' ? '📱 አገልግሎቶች ይምረጡ' : '📱 Select Services', callback_data: 'services' }],
-          [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_menu' }]
+          [{ text: t('select_services', lang), callback_data: 'services' }],
+          [{ text: t('main_menu', lang), callback_data: 'back_to_menu' }]
         ];
         
         await ctx.editMessageText(message, {
@@ -41,23 +38,14 @@ You don't have any subscriptions yet. To start a new subscription, please select
       const cancelledSubs = subscriptions.filter(sub => sub.status === 'cancelled');
       const rejectedSubs = subscriptions.filter(sub => sub.status === 'rejected');
       
-      let message = lang === 'am'
-        ? `📊 **የእኔ ምዝገባዎች**
+      let message = `📊 **${t('my_subscriptions', lang)}**
         
-**የሚጠበቁ:** ${pendingSubs.length}
-**ንቁ:** ${activeSubs.length}
-**የተሰረዙ:** ${cancelledSubs.length}
-**የተቀበሉ:** ${rejectedSubs.length}
+**${t('pending', lang)}:** ${pendingSubs.length}
+**${t('active', lang)}:** ${activeSubs.length}
+**${t('cancelled', lang)}:** ${cancelledSubs.length}
+**${t('rejected', lang)}:** ${rejectedSubs.length}
 
-**የምዝገባዎችዎን ያሳዩ:**`
-        : `📊 **My Subscriptions**
-        
-**Pending:** ${pendingSubs.length}
-**Active:** ${activeSubs.length}
-**Cancelled:** ${cancelledSubs.length}
-**Rejected:** ${rejectedSubs.length}
-
-**View your subscriptions:**`;
+**${t('view_your_subscriptions', lang)}:**`;
       
       const keyboard = [];
       
@@ -71,10 +59,10 @@ You don't have any subscriptions yet. To start a new subscription, please select
         };
         
         const statusText = {
-          'pending': lang === 'am' ? 'የሚጠበቅ' : 'Pending',
-          'active': lang === 'am' ? 'ንቁ' : 'Active',
-          'cancelled': lang === 'am' ? 'የተሰረዘ' : 'Cancelled',
-          'rejected': lang === 'am' ? 'የተቀበለ' : 'Rejected'
+          'pending': t('pending', lang),
+          'active': t('active', lang),
+          'cancelled': t('cancelled', lang),
+          'rejected': t('rejected', lang)
         };
         
         keyboard.push([
@@ -87,12 +75,12 @@ You don't have any subscriptions yet. To start a new subscription, please select
       
       // Add action buttons
       keyboard.push([
-        { text: lang === 'am' ? '📱 አዲስ ምዝገባ' : '📱 New Subscription', callback_data: 'services' },
-        { text: lang === 'am' ? '🔄 እንደገና ጫን' : '🔄 Refresh', callback_data: 'my_subs' }
+        { text: t('new_subscription', lang), callback_data: 'services' },
+        { text: t('refresh', lang), callback_data: 'my_subs' }
       ]);
       
       keyboard.push([
-        { text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_menu' }
+        { text: t('main_menu', lang), callback_data: 'back_to_menu' }
       ]);
       
       try {
@@ -114,12 +102,8 @@ You don't have any subscriptions yet. To start a new subscription, please select
       
     } catch (error) {
       console.error('Error in my subscriptions:', error);
-      const lang = ctx.userLang || 'en';
-      const errorMessage = lang === 'am'
-        ? '❌ ምዝገባዎችን ማሳየት ላይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
-        : '❌ Error loading subscriptions. Please try again.';
-      
-      await ctx.answerCbQuery(errorMessage);
+      const lang = await getUserLanguage(ctx);
+      await ctx.answerCbQuery(t('error_loading_subscriptions', lang));
     }
   });
   
@@ -127,13 +111,13 @@ You don't have any subscriptions yet. To start a new subscription, please select
   bot.action(/view_subscription_(.+)/, async (ctx) => {
     try {
       const subscriptionId = ctx.match[1];
-      const lang = ctx.userLang || 'en';
+      const lang = await getUserLanguage(ctx);
       
       // Get subscription details
       const subscription = await getSubscription(subscriptionId);
       
       if (!subscription || subscription.userId !== String(ctx.from.id)) {
-        await ctx.answerCbQuery(lang === 'am' ? 'ምዝገባ አልተገኘም' : 'Subscription not found');
+        await ctx.answerCbQuery(t('subscription_not_found', lang));
         return;
       }
       
@@ -145,49 +129,33 @@ You don't have any subscriptions yet. To start a new subscription, please select
       };
       
       const statusText = {
-        'pending': lang === 'am' ? 'የሚጠበቅ' : 'Pending',
-        'active': lang === 'am' ? 'ንቁ' : 'Active',
-        'cancelled': lang === 'am' ? 'የተሰረዘ' : 'Cancelled',
-        'rejected': lang === 'am' ? 'የተቀበለ' : 'Rejected'
+        'pending': t('pending', lang),
+        'active': t('active', lang),
+        'cancelled': t('cancelled', lang),
+        'rejected': t('rejected', lang)
       };
       
       const paymentStatusText = {
-        'pending': lang === 'am' ? 'የሚጠበቅ' : 'Pending',
-        'completed': lang === 'am' ? 'ተሟልቷል' : 'Completed',
-        'failed': lang === 'am' ? 'ውድቅ ሆነ' : 'Failed'
+        'pending': t('pending', lang),
+        'completed': t('completed', lang),
+        'failed': t('failed', lang)
       };
       
-      const message = lang === 'am'
-        ? `📊 **የምዝገባ ዝርዝር**
+      const message = `📊 **${t('subscription_details', lang)}**
         
-**አገልግሎት:** ${subscription.serviceName || 'N/A'}
-**የእቅድ ቆይታ:** ${subscription.durationName || subscription.duration || 'N/A'}
-**መጠን:** ${subscription.amount && !isNaN(subscription.amount) ? formatCurrency(subscription.amount) : 'N/A'}
-**ሁኔታ:** ${statusEmoji[subscription.status]} ${statusText[subscription.status]}
-**የክፍያ ሁኔታ:** ${paymentStatusText[subscription.paymentStatus] || 'በመጠባበቅ ላይ'}
-**የክፍያ ማጣቀሻ:** ${subscription.paymentReference || 'አልተገኘም'}
-**የተፈጠረበት ቀን:** ${subscription.createdAt && typeof subscription.createdAt.toDate === 'function' 
+**${t('service', lang)}:** ${subscription.serviceName || 'N/A'}
+**${t('duration', lang)}:** ${subscription.durationName || subscription.duration || 'N/A'}
+**${t('amount', lang)}:** ${subscription.amount && !isNaN(subscription.amount) ? formatCurrency(subscription.amount) : 'N/A'}
+**${t('status', lang)}:** ${statusEmoji[subscription.status]} ${statusText[subscription.status]}
+**${t('payment_status', lang)}:** ${paymentStatusText[subscription.paymentStatus] || t('pending', lang)}
+**${t('payment_reference', lang)}:** ${subscription.paymentReference || t('not_available', lang)}
+**${t('created', lang)}:** ${subscription.createdAt && typeof subscription.createdAt.toDate === 'function' 
           ? subscription.createdAt.toDate().toLocaleDateString() 
           : subscription.createdAt 
             ? new Date(subscription.createdAt).toLocaleDateString()
             : 'N/A'}
 
-${subscription.rejectionReason ? `**የመቀበል ምክንያት:** ${subscription.rejectionReason}` : ''}`
-        : `📊 **Subscription Details**
-        
-**Service:** ${subscription.serviceName || 'N/A'}
-**Duration:** ${subscription.durationName || subscription.duration || 'N/A'}
-**Amount:** ${subscription.amount && !isNaN(subscription.amount) ? formatCurrency(subscription.amount) : 'N/A'}
-**Status:** ${statusEmoji[subscription.status]} ${statusText[subscription.status]}
-**Payment Status:** ${paymentStatusText[subscription.paymentStatus] || 'Pending'}
-**Payment Reference:** ${subscription.paymentReference || 'Not Available'}
-**Created:** ${subscription.createdAt && typeof subscription.createdAt.toDate === 'function' 
-          ? subscription.createdAt.toDate().toLocaleDateString() 
-          : subscription.createdAt 
-            ? new Date(subscription.createdAt).toLocaleDateString()
-            : 'N/A'}
-
-${subscription.rejectionReason ? `**Rejection Reason:** ${subscription.rejectionReason}` : ''}`;
+${subscription.rejectionReason ? `**${t('rejection_reason', lang)}:** ${subscription.rejectionReason}` : ''}`;
       
       const keyboard = [];
       
@@ -195,20 +163,20 @@ ${subscription.rejectionReason ? `**Rejection Reason:** ${subscription.rejection
       if (subscription.status === 'pending') {
         if (!subscription.screenshotUploaded) {
           keyboard.push([
-            { text: lang === 'am' ? '📸 ስክሪንሾት ያስገቡ' : '📸 Upload Screenshot', callback_data: `upload_screenshot_${subscriptionId}` }
+            { text: t('upload_screenshot', lang), callback_data: `upload_screenshot_${subscriptionId}` }
           ]);
         }
         keyboard.push([
-          { text: lang === 'am' ? '❌ ምዝገባ ያስተሳስሩ' : '❌ Cancel Subscription', callback_data: `cancel_subscription_${subscriptionId}` }
+          { text: t('cancel_subscription', lang), callback_data: `cancel_subscription_${subscriptionId}` }
         ]);
       } else if (subscription.status === 'active') {
         keyboard.push([
-          { text: lang === 'am' ? '❌ ምዝገባ ያስተሳስሩ' : '❌ Cancel Subscription', callback_data: `cancel_subscription_${subscriptionId}` }
+          { text: t('cancel_subscription', lang), callback_data: `cancel_subscription_${subscriptionId}` }
         ]);
       }
       
       keyboard.push([
-        { text: lang === 'am' ? '⬅️ ወደ ኋላ' : '⬅️ Back', callback_data: 'my_subs' }
+        { text: t('back', lang), callback_data: 'my_subs' }
       ]);
       
       await ctx.editMessageText(message, {

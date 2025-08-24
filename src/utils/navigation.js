@@ -37,7 +37,17 @@ export const getInlineKeyboard = (buttons = [], lang = 'en') => {
 // Function to show main menu with consistent content
 export const showMainMenu = async (ctx, isNewUser = false) => {
   try {
-    const lang = ctx.userLang || 'en';
+    // Get user language from database
+    let lang = 'en';
+    try {
+      const { firestore } = await import('./firestore.js');
+      const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+      const userData = userDoc.data() || {};
+      lang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+    } catch (error) {
+      console.error('Error getting user language:', error);
+      lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+    }
     
     // Check if user is admin
     let isAdmin = false;
@@ -84,7 +94,7 @@ export const showMainMenu = async (ctx, isNewUser = false) => {
   } catch (error) {
     console.error('Error showing main menu:', error);
     // Fallback to a simple message
-    const fallbackMsg = ctx.userLang === 'am' ? 
+    const fallbackMsg = lang === 'am' ? 
       '🏠 ዋና ገጽ' : 
       '🏠 Main Menu';
     try {

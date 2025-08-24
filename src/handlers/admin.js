@@ -9,7 +9,7 @@ const escapeMarkdown = (text) => {
 };
 
 // Helper function for admin security check
-const isAuthorizedAdmin = async (ctx) => {
+export const isAuthorizedAdmin = async (ctx) => {
   try {
     const userId = ctx.from?.id?.toString();
     if (!userId) return false;
@@ -28,7 +28,10 @@ const isAuthorizedAdmin = async (ctx) => {
       }
     }
     
-    console.warn(`Unauthorized admin access attempt from user ${userId} (${ctx.from?.username || 'no username'})`);
+    // Only log if this is an actual admin command attempt, not just a verification check
+    if (ctx.message?.text?.startsWith('/admin') || ctx.callbackQuery?.data?.startsWith('admin_')) {
+      console.warn(`Unauthorized admin access attempt from user ${userId} (${ctx.from?.username || 'no username'})`);
+    }
     return false;
   } catch (error) {
     console.error('Error checking admin status:', error);

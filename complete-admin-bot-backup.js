@@ -37,7 +37,260 @@ const translateMessage = (key, lang = 'en') => {
   return t(key, lang);
 };
 
-;
+// Comprehensive translation function
+const translateMessage = (key, lang = 'en') => {
+  const translations = {
+    // Phone verification
+    'phone_verification_required': {
+      en: '📱 Phone Verification Required\n\nTo use BirrPay services, you need to verify your phone number.\n\nPlease verify your phone number by clicking the button below.',
+      am: '📱 የተልፍዎን መረጃ አስፈላጊ\n\nየBirrPay አገልግሎቶችን ለመጠቀም የተልፍዎን መረጃ አስፈላጊ።\n\nእባክዎ ከታች ያለውን ቁልፍ በመጫን የስልክ ቁጥርዎን ያረጋግጡ።'
+    },
+    'verify_my_number': {
+      en: '📱 Verify My Number',
+      am: '📱 ስልክ ቁጥሬን ለማረጋገጥ'
+    },
+    'share_contact': {
+      en: '📱 Share Contact',
+      am: '📱 እውቂያ ማጋራት'
+    },
+    'type_manually': {
+      en: '✍️ Type Manually',
+      am: '✍️ በእጅ መፃፍ'
+    },
+    'invalid_phone_format': {
+      en: '⚠️ Please use a valid phone number format (+1234567890)',
+      am: '⚠️ እባክዎ ትክክለኛ የስልክ ቁጥር ይጠቀሙ (+1234567890)'
+    },
+    'phone_verified_success': {
+      en: '✅ Your phone number has been verified! You can now use our services.',
+      am: '✅ የስልክ ቁጥርዎ ተረጋግጧል! አሁን አገልግሎቶችን መጠቀም ይችላሉ።'
+    },
+    
+    // Welcome messages
+    'welcome_title': {
+      en: '🎉 Welcome to BirrPay!',
+      am: '🎉 እንኳን ወደ BirrPay በደህና መጡ!'
+    },
+    'welcome_subtitle': {
+      en: '🌟 **Ethiopia\'s #1 Subscription Platform**',
+      am: '🌟 **የኢትዮጵያ #1 የሳብስክሪፕሽን ፕላትፎርም**'
+    },
+    'welcome_description': {
+      en: 'Ethiopia\'s Premier Subscription Hub.\n\nPlease use the button below to subscribe to services.',
+      am: 'የኢትዮጵያ ዋና የማስተካል አገልግሎት።\n\nአገልግሎቶችን ለመመዝገብ እባክዎ ከታች ያለውን አዝራር ይጠቀሙ።'
+    },
+    
+    // Menu buttons
+    'view_services': {
+      en: '🛍️ View Services',
+      am: '🛍️ አገልግሎቶችን ይመልከቱ'
+    },
+    'my_subscriptions': {
+      en: '📊 My Subscriptions',
+      am: '📊 የእኔ መዋቅሮች'
+    },
+    'help': {
+      en: '❓ Help',
+      am: '❓ እርዳታ'
+    },
+    'support': {
+      en: '📞 Support',
+      am: '📞 ድጋፍ'
+    },
+    'language': {
+      en: '🌐 Language',
+      am: '🌐 ቋንቋ'
+    },
+    'admin_panel': {
+      en: '🔧 Admin Panel',
+      am: '🔧 አስተዳደሪ ፓነል'
+    },
+    'back_to_menu': {
+      en: '🏠 Back to Menu',
+      am: '🏠 ወደ ምናሌ ተመለስ'
+    },
+    
+    // Language settings
+    'language_settings': {
+      en: '🌐 **Language Settings**\n\nCurrent language: {current}\n\nPlease select your preferred language:',
+      am: '🌐 **የቋንቋ ማስተካከያ**\n\nአሁን ያለው ቋንቋዎ: {current}\n\nእባክዎ የሚፈልጉትን ቋንቋ ይምረጡ:'
+    },
+    'english': {
+      en: '🇺🇸 English',
+      am: '🇺🇸 English'
+    },
+    'amharic': {
+      en: '🇪🇹 Amharic',
+      am: '🇪🇹 አማርኛ'
+    },
+    'language_switched_en': {
+      en: '✅ **Language Updated!**\n\n🇺🇸 Your language has been switched to English.\n\nYou can now use all bot features in English.',
+      am: '✅ **Language Updated!**\n\n🇺🇸 Your language has been switched to English.\n\nYou can now use all bot features in English.'
+    },
+    'language_switched_am': {
+      en: '✅ **ቋንቋ ተሻሽሏል!**\n\n🇪🇹 ቋንቋዎ ወደ አማርኛ ተቀይሯል።\n\nአሁን ሁሉንም የቦት ባህሪያት በአማርኛ መጠቀም ይችላሉ።',
+      am: '✅ **ቋንቋ ተሻሽሏል!**\n\n🇪🇹 ቋንቋዎ ወደ አማርኛ ተቀይሯል።\n\nአሁን ሁሉንም የቦት ባህሪያት በአማርኛ መጠቀም ይችላሉ።'
+    },
+    
+    // Pagination
+    'pagination_info': {
+      en: '📄 Page {current} of {total}',
+      am: '📄 ገጽ {current} ከ {total}'
+    },
+    'previous_page': {
+      en: '⬅️ Previous',
+      am: '⬅️ ቀዳሚ'
+    },
+    'next_page': {
+      en: 'Next ➡️',
+      am: 'ቀጣይ ➡️'
+    },
+    'back_to_admin': {
+      en: '🔙 Back to Admin',
+      am: '🔙 ወደ አስተዳደሪ ተመለስ'
+    },
+    'services_title': {
+      en: '🛍️ **Service Management**',
+      am: '🛍️ **የአገልግሎት አስተዳደር**'
+    },
+    'no_services': {
+      en: 'No services found.',
+      am: 'ምንም አገልግሎት አልተገኘም።'
+    },
+    
+    // Error messages
+    'error_generic': {
+      en: '❌ An error occurred. Please try again.',
+      am: '❌ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+    },
+    'error_verification': {
+      en: '❌ Error occurred during verification. Please try again.',
+      am: '❌ በማረጋገጫ ሂደት ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።'
+    },
+    
+    // Admin panel messages
+    'access_denied': {
+      en: '❌ **Access Denied**\n\nThis command is restricted to authorized administrators only.',
+      am: '❌ **መድረስ ተከልክሏል**\n\nይህ ትዕዛዝ ለሚፈቀዱ አስተዳደሪዎች ብቻ የተወሰነ ነው።'
+    },
+    'welcome_admin': {
+      en: '👋 **Welcome back, Administrator!**',
+      am: '👋 **እንኳን ደስ አለዎት፣ አስተዳደሪ!**'
+    },
+    'admin_dashboard': {
+      en: '🌟 **BirrPay Admin Dashboard** 🌟',
+      am: '🌟 **የBirrPay አስተዳደሪ ዳሽቦርድ** 🌟'
+    },
+    'real_time_analytics': {
+      en: '📊 **Real-Time Analytics**',
+      am: '📊 **የቅጽበት ትንተና**'
+    },
+    'total_users': {
+      en: '👥 **Users:** {count} total',
+      am: '👥 **ተጠቃሚዎች:** {count} ጠቅላላ'
+    },
+    'verified_users': {
+      en: '✅ **Verified:** {count} users',
+      am: '✅ **ተረጋግጧል:** {count} ተጠቃሚዎች'
+    },
+    'active_subscriptions': {
+      en: '📱 **Subscriptions:** {count} active',
+      am: '📱 **የደንበኝነት ምዝገቦች:** {count} ንቁ'
+    },
+    'total_payments': {
+      en: '💳 **Payments:** {count} total',
+      am: '💳 **ክፍያዎች:** {count} ጠቅላላ'
+    },
+    'available_services': {
+      en: '🛍️ **Services:** {count} available',
+      am: '🛍️ **አገልግሎቶች:** {count} ይገኛሉ'
+    },
+    'web_admin_panel': {
+      en: '🌐 **Web Admin Panel:** [Open Dashboard](https://bpayb.onrender.com/panel)',
+      am: '🌐 **ድህረ ገጽ አስተዳደሪ ፓነል:** [ዳሽቦርድ ክፈት](https://bpayb.onrender.com/panel)'
+    },
+    'management_center': {
+      en: '🎯 **Management Center:**',
+      am: '🎯 **የአስተዳደር ማዕከል:**'
+    },
+    // Admin buttons
+    'users': {
+      en: '👥 Users',
+      am: '👥 ተጠቃሚዎች'
+    },
+    'subscriptions': {
+      en: '📊 Subscriptions',
+      am: '📊 የደንበኝነት ምዝገቦች'
+    },
+    'manage_services': {
+      en: '🛍️ Manage Services',
+      am: '🛍️ አገልግሎቶችን አስተዳድር'
+    },
+    'add_service': {
+      en: '➕ Add Service',
+      am: '➕ አገልግሎት አክል'
+    },
+    'payment_methods': {
+      en: '💳 Payment Methods',
+      am: '💳 የክፍያ ዘዴዎች'
+    },
+    'performance': {
+      en: '📊 Performance',
+      am: '📊 አدነገጃ'
+    },
+    'broadcast_message': {
+      en: '💬 Broadcast Message',
+      am: '💬 የስርጭት መልእክት'
+    },
+    'refresh_panel': {
+      en: '🔄 Refresh Panel',
+      am: '🔄 ፓነል አድስ'
+    },
+    // Admin error messages
+    'error_loading_admin': {
+      en: '❌ Error loading admin panel. Please try again.',
+      am: '❌ የአስተዳደሪ ፓነል መጫን ስህተት። እባክዎ እንደገና ይሞክሩ።'
+    },
+    'error_changing_language': {
+      en: '❌ Error changing language',
+      am: '❌ ቋንቋ መለወጥ ስህተት'
+    },
+    'error_loading_services': {
+      en: '❌ Error loading services',
+      am: '❌ አገልግሎቶችን መጫን ስህተት'
+    },
+    'error_loading_page': {
+      en: '❌ Error loading page',
+      am: '❌ ገጽ መጫን ስህተት'
+    },
+    'error_returning_menu': {
+      en: '❌ Error returning to menu',
+      am: '❌ ወደ ምናሌ መመለስ ስህተት'
+    },
+    'error_language_settings': {
+      en: '❌ Error loading language settings',
+      am: '❌ የቋንቋ ቅንብሮችን መጫን ስህተት'
+    },
+    // Service management
+    'service_price': {
+      en: '💰 Price: {price}',
+      am: '💰 ዋጋ: {price}'
+    },
+    'service_id': {
+      en: '📝 ID: `{id}`',
+      am: '📝 መለያ: `{id}`'
+    }
+
+  };
+  
+  const translation = translations[key];
+  if (!translation) {
+    console.warn(`Translation key not found: ${key}`);
+    return key;
+  }
+  
+  return translation[lang] || translation.en || key;
+};
 import { performanceMonitor } from './src/utils/performanceMonitor.js';
 
 // Using imported isAuthorizedAdmin function from admin.js
@@ -102,7 +355,7 @@ const phoneVerificationMiddleware = async (ctx, next) => {
           reply_markup: {
             inline_keyboard: [[
               { 
-                text: t('verify_my_number', lang), 
+                text: lang === 'am' ? '📱 ስልክ ቁጥሬን ለማረጋገጥ' : '📱 Verify My Number', 
                 callback_data: 'verify_phone' 
               }
             ]]
@@ -146,7 +399,7 @@ const setupPhoneVerification = (bot) => {
         keyboard: [
           [
             {
-              text: t('share_contact', lang),
+              text: lang === 'am' ? '📱 እውቂያ ማጋራት' : '📱 Share Contact',
               request_contact: true
             }
           ]
@@ -249,29 +502,29 @@ const setupPhoneVerification = (bot) => {
       const menuButtons = [
         [
           { 
-            text: t('lets_get_started', lang),
+            text: lang === "am" ? "🚀 እንጀምር!" : "🚀 Let's Get Started!",
             callback_data: "view_services"
           }
         ],
         [
           { 
-            text: t('my_subscriptions', lang),
+            text: lang === "am" ? "📊 የእኔ መዋቅሮች" : "📊 My Subscriptions",
             callback_data: "my_subscriptions"
           }
         ],
         [
           { 
-            text: t('help', lang),
+            text: lang === "am" ? "❓ እርዳታ" : "❓ Help",
             callback_data: "help"
           },
           { 
-            text: t('support', lang),
+            text: lang === "am" ? "📞 ድጋፍ" : "📞 Support",
             callback_data: "support"
           }
         ],
         [
           { 
-            text: t('language', lang),
+            text: lang === "am" ? "🌐 ቋንቋ" : "🌐 Language",
             callback_data: "language_settings"
           }
         ]
@@ -310,7 +563,7 @@ const setupPhoneVerification = (bot) => {
       await ctx.reply(message, {
         reply_markup: {
           keyboard: [
-            [{ text: t('back', lang) }]
+            [{ text: lang === 'am' ? '🔙 ወደ ኋላ' : '🔙 Back' }]
           ],
           resize_keyboard: true
         }
@@ -382,13 +635,13 @@ const setupPhoneVerification = (bot) => {
         keyboard: [
           [
             {
-              text: t('share_contact', lang),
+              text: lang === 'am' ? '📱 እውቂያ ማጋራት' : '📱 Share Contact',
               request_contact: true
             }
           ],
           [
             {
-              text: t('type_manually', lang)
+              text: lang === 'am' ? '✍️ በእጅ መፃፍ' : '✍️ Type Manually'
             }
           ]
         ],
@@ -593,7 +846,7 @@ process.on('unhandledRejection', (reason, promise) => {
         console.log("🔑 Admin check result:", isAdmin);
         
         if (!isAdmin) {
-          await ctx.reply(t('access_denied', lang));
+          await ctx.reply(translateMessage('access_denied', lang));
           return;
         }
         
@@ -615,33 +868,33 @@ process.on('unhandledRejection', (reason, promise) => {
         const totalPayments = paymentsSnapshot.size;
         const totalServices = servicesSnapshot.size;
 
-        const adminMessage = `${t('admin_dashboard', lang)}
+        const adminMessage = `${translateMessage('admin_dashboard', lang)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-${t('welcome_admin', lang)}
+${translateMessage('welcome_admin', lang)}
 
-${t('real_time_analytics', lang)}
+${translateMessage('real_time_analytics', lang)}
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ ${t('total_users', lang).replace('{count}', totalUsers.toLocaleString())}
-┃ ${t('verified_users', lang).replace('{count}', verifiedUsers.toLocaleString())}
-┃ ${t('active_subscriptions', lang).replace('{count}', activeSubscriptions.toLocaleString())}
-┃ ${t('total_payments', lang).replace('{count}', totalPayments.toLocaleString())}
-┃ ${t('available_services', lang).replace('{count}', totalServices)}
+┃ ${translateMessage('total_users', lang).replace('{count}', totalUsers.toLocaleString())}
+┃ ${translateMessage('verified_users', lang).replace('{count}', verifiedUsers.toLocaleString())}
+┃ ${translateMessage('active_subscriptions', lang).replace('{count}', activeSubscriptions.toLocaleString())}
+┃ ${translateMessage('total_payments', lang).replace('{count}', totalPayments.toLocaleString())}
+┃ ${translateMessage('available_services', lang).replace('{count}', totalServices)}
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-${t('web_admin_panel', lang)}
+${translateMessage('web_admin_panel', lang)}
 
-${t('management_center', lang)}`;
+${translateMessage('management_center', lang)}`;
 
         const keyboard = {
           inline_keyboard: [
-            [{ text: t('users', lang), callback_data: 'admin_users' }, { text: t('subscriptions', lang), callback_data: 'admin_subscriptions' }],
-            [{ text: t('manage_services', lang), callback_data: 'admin_manage_services' }, { text: t('add_service', lang), callback_data: 'admin_add_service' }],
-            [{ text: t('payment_methods', lang), callback_data: 'admin_payments' }],
-            [{ text: t('performance', lang), callback_data: 'admin_performance' }],
-            [{ text: t('broadcast_message', lang), callback_data: 'admin_broadcast' }],
-            [{ text: t('refresh_panel', lang), callback_data: 'refresh_admin' }]
+            [{ text: translateMessage('users', lang), callback_data: 'admin_users' }, { text: translateMessage('subscriptions', lang), callback_data: 'admin_subscriptions' }],
+            [{ text: translateMessage('manage_services', lang), callback_data: 'admin_manage_services' }, { text: translateMessage('add_service', lang), callback_data: 'admin_add_service' }],
+            [{ text: translateMessage('payment_methods', lang), callback_data: 'admin_payments' }],
+            [{ text: translateMessage('performance', lang), callback_data: 'admin_performance' }],
+            [{ text: translateMessage('broadcast_message', lang), callback_data: 'admin_broadcast' }],
+            [{ text: translateMessage('refresh_panel', lang), callback_data: 'refresh_admin' }]
           ]
         };
 
@@ -653,7 +906,7 @@ ${t('management_center', lang)}`;
         console.error('Error loading admin panel:', error);
         performanceMonitor.trackError(error, 'admin-panel-load');
         const lang = 'en'; // Fallback language
-        await ctx.reply(t('error_loading_admin', lang));
+        await ctx.reply(translateMessage('error_loading_admin', lang));
       }
     });
 
@@ -711,8 +964,8 @@ ${t('management_center', lang)}`;
 You don't have any subscriptions yet. To start a new subscription, please select a service:`;
           
                   const keyboard = [
-          [{ text: t('select_services', lang), callback_data: 'services' }],
-          [{ text: t('main_menu', lang), callback_data: 'back_to_menu' }]
+          [{ text: lang === 'am' ? '📱 አገልግሎቶች ይምረጡ' : '📱 Select Services', callback_data: 'services' }],
+          [{ text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_menu' }]
         ];
           
           await ctx.reply(message, {
@@ -775,12 +1028,12 @@ You don't have any subscriptions yet. To start a new subscription, please select
         
         // Add action buttons
         keyboard.push([
-          { text: t('new_subscription', lang), callback_data: 'services' },
-          { text: t('refresh', lang), callback_data: 'my_subs' }
+          { text: lang === 'am' ? '📱 አዲስ ምዝገባ' : '📱 New Subscription', callback_data: 'services' },
+          { text: lang === 'am' ? '🔄 እንደገና ጫን' : '🔄 Refresh', callback_data: 'my_subs' }
         ]);
         
         keyboard.push([
-          { text: t('main_menu', lang), callback_data: 'back_to_menu' }
+          { text: lang === 'am' ? '🏠 ዋና ምንዩ' : '🏠 Main Menu', callback_data: 'back_to_menu' }
         ]);
         
         await ctx.reply(message, {
@@ -985,17 +1238,17 @@ You don't have any subscriptions yet. To start a new subscription, please select
         }, { merge: true });
         
         await ctx.answerCbQuery('🇺🇸 Language switched to English');
-        await ctx.editMessageText(t('language_switched_en', 'en'), { 
+        await ctx.editMessageText(translateMessage('language_switched_en', 'en'), { 
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [[
-              { text: t('back_to_menu', 'en'), callback_data: 'back_to_menu' }
+              { text: translateMessage('back_to_menu', 'en'), callback_data: 'back_to_menu' }
             ]]
           }
         });
       } catch (error) {
         console.error('Error in lang_en action:', error);
-        await ctx.answerCbQuery(t('error_changing_language', 'en'));
+        await ctx.answerCbQuery(translateMessage('error_changing_language', 'en'));
       }
     });
 
@@ -1012,13 +1265,13 @@ You don't have any subscriptions yet. To start a new subscription, please select
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [[
-              { text: t('back_to_menu', 'am'), callback_data: 'back_to_menu' }
+              { text: '🏠 ወደ ምናሌ ተመለስ', callback_data: 'back_to_menu' }
             ]]
           }
         });
       } catch (error) {
         console.error('Error in lang_am action:', error);
-        await ctx.answerCbQuery(t('error_changing_language', 'en'));
+        await ctx.answerCbQuery(translateMessage('error_changing_language', 'en'));
       }
     });
 
@@ -1035,13 +1288,13 @@ You don't have any subscriptions yet. To start a new subscription, please select
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [[
-              { text: t('back_to_menu', 'en'), callback_data: 'back_to_menu' }
+              { text: '🏠 Back to Menu', callback_data: 'back_to_menu' }
             ]]
           }
         });
       } catch (error) {
         console.error('Error in set_lang_en action:', error);
-        await ctx.answerCbQuery(t('error_changing_language', 'en'));
+        await ctx.answerCbQuery(translateMessage('error_changing_language', 'en'));
       }
     });
 
@@ -1058,13 +1311,13 @@ You don't have any subscriptions yet. To start a new subscription, please select
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [[
-              { text: t('back_to_menu', 'am'), callback_data: 'back_to_menu' }
+              { text: '🏠 ወደ ምናሌ ተመለስ', callback_data: 'back_to_menu' }
             ]]
           }
         });
       } catch (error) {
         console.error('Error in set_lang_am action:', error);
-        await ctx.answerCbQuery(t('error_changing_language', 'en'));
+        await ctx.answerCbQuery(translateMessage('error_changing_language', 'en'));
       }
     });
 
@@ -1075,25 +1328,25 @@ You don't have any subscriptions yet. To start a new subscription, please select
         const currentLang = userData.language || 'en';
         
         const currentLangText = currentLang === 'am' ? '🇪🇹 አማርኛ' : '🇺🇸 English';
-        const message = t('language_settings', currentLang).replace('{current}', currentLangText);
+        const message = translateMessage('language_settings', currentLang).replace('{current}', currentLangText);
         
         await ctx.editMessageText(message, {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
               [
-                { text: t('english', currentLang), callback_data: 'lang_en' },
-                { text: t('amharic', currentLang), callback_data: 'lang_am' }
+                { text: translateMessage('english', currentLang), callback_data: 'lang_en' },
+                { text: translateMessage('amharic', currentLang), callback_data: 'lang_am' }
               ],
               [
-                { text: t('back_to_menu', currentLang), callback_data: 'back_to_menu' }
+                { text: translateMessage('back_to_menu', currentLang), callback_data: 'back_to_menu' }
               ]
             ]
           }
         });
       } catch (error) {
         console.error('Error in language_settings:', error);
-        await ctx.answerCbQuery(t('error_language_settings', 'en'));
+        await ctx.answerCbQuery(translateMessage('error_language_settings', 'en'));
       }
     });
 
@@ -1103,7 +1356,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
         const userData = userDoc.data() || {};
         const lang = userData.language || 'en';
         
-        const welcomeMessage = t('welcome_title', lang) + '\n\n' + t('welcome_description', lang);
+        const welcomeMessage = translateMessage('welcome_title', lang) + '\n\n' + translateMessage('welcome_description', lang);
 
         // Check if user is admin
         const isAdmin = await isAuthorizedAdmin(ctx);
@@ -1112,23 +1365,23 @@ You don't have any subscriptions yet. To start a new subscription, please select
           inline_keyboard: [
             [
               {
-                text: t('view_services', lang),
+                text: translateMessage('view_services', lang),
                 callback_data: 'view_services'
               }
             ],
             [
               {
-                text: t('my_subscriptions', lang),
+                text: translateMessage('my_subscriptions', lang),
                 callback_data: 'my_subscriptions'
               }
             ],
             [
               {
-                text: t('help', lang),
+                text: translateMessage('help', lang),
                 callback_data: 'help'
               },
               {
-                text: t('support', lang),
+                text: translateMessage('support', lang),
                 callback_data: 'support'
               }
             ]
@@ -1139,7 +1392,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
         if (isAdmin) {
           keyboard.inline_keyboard.push([
             {
-              text: t('admin_panel', lang),
+              text: lang === 'am' ? '🔧 አስተዳደሪ ፓነል' : '🔧 Admin Panel',
               callback_data: 'admin'
             }
           ]);
@@ -1148,7 +1401,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
         // Add language button
         keyboard.inline_keyboard.push([
           {
-            text: t('language', lang),
+            text: translateMessage('language', lang),
             callback_data: 'language_settings'
           }
         ]);
@@ -1159,7 +1412,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
         });
       } catch (error) {
         console.error('Error in back_to_menu:', error);
-        await ctx.answerCbQuery(t('error_returning_menu', 'en'));
+        await ctx.answerCbQuery(translateMessage('error_returning_menu', 'en'));
       }
     });
 
@@ -1174,7 +1427,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
         const isAdmin = await isAuthorizedAdmin(ctx);
         
         if (!isAdmin) {
-          await ctx.answerCbQuery(t('access_denied', lang));
+          await ctx.answerCbQuery(translateMessage('access_denied', lang));
           return;
         }
         
@@ -1196,33 +1449,33 @@ You don't have any subscriptions yet. To start a new subscription, please select
         const totalPayments = paymentsSnapshot.size;
         const totalServices = servicesSnapshot.size;
 
-        const adminMessage = `${t('admin_dashboard', lang)}
+        const adminMessage = `${translateMessage('admin_dashboard', lang)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-${t('welcome_admin', lang)}
+${translateMessage('welcome_admin', lang)}
 
-${t('real_time_analytics', lang)}
+${translateMessage('real_time_analytics', lang)}
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ ${t('total_users', lang).replace('{count}', totalUsers.toLocaleString())}
-┃ ${t('verified_users', lang).replace('{count}', verifiedUsers.toLocaleString())}
-┃ ${t('active_subscriptions', lang).replace('{count}', activeSubscriptions.toLocaleString())}
-┃ ${t('total_payments', lang).replace('{count}', totalPayments.toLocaleString())}
-┃ ${t('available_services', lang).replace('{count}', totalServices)}
+┃ ${translateMessage('total_users', lang).replace('{count}', totalUsers.toLocaleString())}
+┃ ${translateMessage('verified_users', lang).replace('{count}', verifiedUsers.toLocaleString())}
+┃ ${translateMessage('active_subscriptions', lang).replace('{count}', activeSubscriptions.toLocaleString())}
+┃ ${translateMessage('total_payments', lang).replace('{count}', totalPayments.toLocaleString())}
+┃ ${translateMessage('available_services', lang).replace('{count}', totalServices)}
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-${t('web_admin_panel', lang)}
+${translateMessage('web_admin_panel', lang)}
 
-${t('management_center', lang)}`;
+${translateMessage('management_center', lang)}`;
 
         const keyboard = {
           inline_keyboard: [
-            [{ text: t('users', lang), callback_data: 'admin_users' }, { text: t('subscriptions', lang), callback_data: 'admin_subscriptions' }],
-            [{ text: t('manage_services', lang), callback_data: 'admin_manage_services' }, { text: t('add_service', lang), callback_data: 'admin_add_service' }],
-            [{ text: t('payment_methods', lang), callback_data: 'admin_payments' }],
-            [{ text: t('performance', lang), callback_data: 'admin_performance' }],
-            [{ text: t('broadcast_message', lang), callback_data: 'admin_broadcast' }],
-            [{ text: t('refresh_panel', lang), callback_data: 'refresh_admin' }]
+            [{ text: translateMessage('users', lang), callback_data: 'admin_users' }, { text: translateMessage('subscriptions', lang), callback_data: 'admin_subscriptions' }],
+            [{ text: translateMessage('manage_services', lang), callback_data: 'admin_manage_services' }, { text: translateMessage('add_service', lang), callback_data: 'admin_add_service' }],
+            [{ text: translateMessage('payment_methods', lang), callback_data: 'admin_payments' }],
+            [{ text: translateMessage('performance', lang), callback_data: 'admin_performance' }],
+            [{ text: translateMessage('broadcast_message', lang), callback_data: 'admin_broadcast' }],
+            [{ text: translateMessage('refresh_panel', lang), callback_data: 'refresh_admin' }]
           ]
         };
 
@@ -1236,7 +1489,7 @@ ${t('management_center', lang)}`;
         console.error('Error loading admin panel:', error);
         performanceMonitor.trackError(error, 'admin-panel-load');
         const lang = 'en'; // Fallback language
-        await ctx.answerCbQuery(t('error_loading_admin', lang));
+        await ctx.answerCbQuery(translateMessage('error_loading_admin', lang));
       }
     });
 
@@ -1248,7 +1501,7 @@ ${t('management_center', lang)}`;
       try {
         const isAdmin = await isAuthorizedAdmin(ctx);
         if (!isAdmin) {
-          await ctx.answerCbQuery(t('access_denied', lang));
+          await ctx.answerCbQuery(translateMessage('access_denied', lang));
           return;
         }
 
@@ -1264,11 +1517,11 @@ ${t('management_center', lang)}`;
         }));
 
         if (services.length === 0) {
-          await ctx.editMessageText(t('no_services', lang), {
+          await ctx.editMessageText(translateMessage('no_services', lang), {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [[
-                { text: t('back_to_admin', lang), callback_data: 'refresh_admin' }
+                { text: translateMessage('back_to_admin', lang), callback_data: 'refresh_admin' }
               ]]
             }
           });
@@ -1280,7 +1533,7 @@ ${t('management_center', lang)}`;
         
       } catch (error) {
         console.error('Error in admin_manage_services:', error);
-        await ctx.answerCbQuery(t('error_loading_services', lang));
+        await ctx.answerCbQuery(translateMessage('error_loading_services', lang));
       }
     });
 
@@ -1309,7 +1562,7 @@ ${t('management_center', lang)}`;
         
       } catch (error) {
         console.error('Error in services_page:', error);
-        await ctx.answerCbQuery(t('error_loading_page', lang));
+        await ctx.answerCbQuery(translateMessage('error_loading_page', lang));
       }
     });
 
@@ -1321,17 +1574,17 @@ ${t('management_center', lang)}`;
       const endIndex = startIndex + itemsPerPage;
       const pageServices = services.slice(startIndex, endIndex);
 
-      let message = t('services_title', lang) + '\n\n';
+      let message = translateMessage('services_title', lang) + '\n\n';
       
       pageServices.forEach((service, index) => {
         const status = service.status === 'active' ? '🟢' : '🔴';
         const price = service.price ? `$${service.price}` : 'N/A';
         message += `${startIndex + index + 1}. ${status} **${service.name}**\n`;
-        message += `   ${t('service_price', lang).replace('{price}', price)}\n`;
-        message += `   ${t('service_id', lang).replace('{id}', service.id)}\n\n`;
+        message += `   ${translateMessage('service_price', lang).replace('{price}', price)}\n`;
+        message += `   ${translateMessage('service_id', lang).replace('{id}', service.id)}\n\n`;
       });
 
-      message += t('pagination_info', lang)
+      message += translateMessage('pagination_info', lang)
         .replace('{current}', page + 1)
         .replace('{total}', totalPages);
 
@@ -1340,17 +1593,17 @@ ${t('management_center', lang)}`;
       // Navigation buttons
       const navRow = [];
       if (page > 0) {
-        navRow.push({ text: t('previous_page', lang), callback_data: `services_page_${page - 1}` });
+        navRow.push({ text: translateMessage('previous_page', lang), callback_data: `services_page_${page - 1}` });
       }
       if (page < totalPages - 1) {
-        navRow.push({ text: t('next_page', lang), callback_data: `services_page_${page + 1}` });
+        navRow.push({ text: translateMessage('next_page', lang), callback_data: `services_page_${page + 1}` });
       }
       if (navRow.length > 0) {
         keyboard.push(navRow);
       }
 
       // Back button
-      keyboard.push([{ text: t('back_to_admin', lang), callback_data: 'refresh_admin' }]);
+      keyboard.push([{ text: translateMessage('back_to_admin', lang), callback_data: 'refresh_admin' }]);
 
       await ctx.editMessageText(message, {
         parse_mode: 'Markdown',
