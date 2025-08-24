@@ -375,6 +375,10 @@ const translations = {
     en: '🔧 Admin Panel',
     am: '🔧 አስተዳደሪ ፓነል'
   },
+  web_admin_panel: {
+    en: 'Telegram Admin Panel',
+    am: 'የቴሌግራም አስተዳደር ፓነል'
+  },
   cancel: {
     en: '❌ Cancel',
     am: '❌ ሰርዝ'
