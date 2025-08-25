@@ -850,6 +850,10 @@ ${t('management_center', lang)}`;
     // Add debug middleware to see all commands
     bot.use(async (ctx, next) => {
       console.log('🔍 Bot middleware processing update');
+      console.log('📋 ctx.from:', ctx.from);
+      console.log('📋 ctx.message:', ctx.message);
+      console.log('📋 ctx.callbackQuery:', ctx.callbackQuery);
+      
       if (ctx.message && ctx.message.text) {
         console.log(`📥 Command: "${ctx.message.text}" from user ${ctx.from.id}`);
       }
@@ -1599,6 +1603,12 @@ ${t('management_center', lang)}`;
       } else if (req.url === '/webhook') {
         // Handle webhook requests
         console.log('📥 Webhook request received');
+        
+        // Log request details for debugging
+        console.log('📋 Request method:', req.method);
+        console.log('📋 Content-Type:', req.headers['content-type']);
+        
+        // Handle the webhook properly
         bot.handleUpdate(req, res);
       } else {
         res.writeHead(404);
