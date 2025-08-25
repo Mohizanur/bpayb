@@ -849,8 +849,12 @@ ${t('management_center', lang)}`;
 
     // Add debug middleware to see all commands
     bot.use(async (ctx, next) => {
+      console.log('🔍 Bot middleware processing update');
       if (ctx.message && ctx.message.text) {
         console.log(`📥 Command: "${ctx.message.text}" from user ${ctx.from.id}`);
+      }
+      if (ctx.callbackQuery) {
+        console.log(`🔄 Callback: "${ctx.callbackQuery.data}" from user ${ctx.from.id}`);
       }
       return next();
     });
@@ -1594,6 +1598,7 @@ ${t('management_center', lang)}`;
         `);
       } else if (req.url === '/webhook') {
         // Handle webhook requests
+        console.log('📥 Webhook request received');
         bot.handleUpdate(req, res);
       } else {
         res.writeHead(404);
