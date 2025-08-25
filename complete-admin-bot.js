@@ -1547,6 +1547,8 @@ ${t('management_center', lang)}`;
 
     // Start HTTP server for Render health checks and webhook
     const PORT = process.env.PORT || 3000;
+    console.log(`🔧 PORT environment variable: ${process.env.PORT}`);
+    console.log(`🔧 Using port: ${PORT}`);
     const server = createServer((req, res) => {
       if (req.url === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1608,8 +1610,13 @@ ${t('management_center', lang)}`;
       console.log("🗑️ Deleted existing webhook");
       
       // Set new webhook
+      console.log(`🔧 Setting webhook to: ${webhookUrl}`);
       await bot.telegram.setWebhook(webhookUrl);
       console.log(`✅ Webhook set to: ${webhookUrl}`);
+      
+      // Test webhook info
+      const webhookInfo = await bot.telegram.getWebhookInfo();
+      console.log(`🔧 Webhook info:`, JSON.stringify(webhookInfo, null, 2));
       
       // Start the HTTP server with integrated webhook
       server.listen(PORT, () => {
