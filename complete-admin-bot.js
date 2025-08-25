@@ -15,7 +15,7 @@ import adminHandler, { isAuthorizedAdmin } from './src/handlers/admin.js';
 import { keepAliveManager } from './src/utils/keepAlive.js';
 import { resilienceManager } from './src/utils/resilience.js';
 import { startScheduler } from './src/utils/scheduler.js';
-import { checkExpirationReminders } from './src/utils/expirationReminder.js';
+import expirationReminder from './src/utils/expirationReminder.js';
 import supportHandler from './src/handlers/support.js';
 import langHandler from './src/handlers/lang.js';
 import helpHandler from './src/handlers/help.js';
@@ -543,7 +543,7 @@ ${t('management_center', lang)}`;
           inline_keyboard: [
             [{ text: t('users', lang), callback_data: 'admin_users' }, { text: t('subscriptions', lang), callback_data: 'admin_subscriptions' }],
             [{ text: t('manage_services', lang), callback_data: 'admin_manage_services' }, { text: t('add_service', lang), callback_data: 'admin_add_service' }],
-            [{ text: t('payment_methods', lang), callback_data: 'admin_payments' }],
+            [{ text: t('revenue_management', lang), callback_data: 'admin_payments' }, { text: t('payment_methods', lang), callback_data: 'admin_payment_methods' }],
             [{ text: t('performance', lang), callback_data: 'admin_performance' }],
             [{ text: t('broadcast_message', lang), callback_data: 'admin_broadcast' }],
             [{ text: t('refresh_panel', lang), callback_data: 'refresh_admin' }]
@@ -559,6 +559,276 @@ ${t('management_center', lang)}`;
         performanceMonitor.trackError(error, 'admin-panel-load');
         const lang = 'en'; // Fallback language
         await ctx.reply(t('error_loading_admin', lang));
+      }
+    });
+
+    // Admin expiration check command
+    bot.command('admin_expiring', async (ctx) => {
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          await ctx.reply('❌ Access denied. Admin only.');
+          return;
+        }
+
+        await ctx.reply('🔍 Checking expiring subscriptions...');
+        const result = await expirationReminder.checkExpirationReminders();
+        
+        const message = `📊 **Expiration Check Results**\n\n` +
+          `⏰ **Total Expiring:** ${result.totalExpiring || 0}\n` +
+          `📱 **Reminders Sent:** ${result.remindersSent || 0}\n` +
+          `📊 **Admin Alert:** ${result.adminAlertSent ? 'Yes' : 'No'}\n` +
+          `🕐 **Checked At:** ${new Date().toLocaleString()}\n\n` +
+          `✅ Check completed successfully!`;
+
+        await ctx.reply(message, { parse_mode: 'Markdown' });
+        
+      } catch (error) {
+        console.error('Error in admin_expiring command:', error);
+        await ctx.reply('❌ Error checking expiring subscriptions');
+      }
+    });
+
+    // Admin payments handler
+    bot.action('admin_payments', async (ctx) => {
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          await ctx.answerCbQuery('❌ Access denied. Admin only.');
+          return;
+        }
+
+        // Get user language
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        const lang = userData.language || 'en';
+
+        // Load payment data
+        const paymentsSnapshot = await firestore.collection('payments').orderBy('createdAt', 'desc').limit(20).get();
+        
+        // Calculate revenue statistics
+        let totalRevenue = 0;
+        let approvedPayments = 0;
+        let pendingPayments = 0;
+        let rejectedPayments = 0;
+        let recentPayments = [];
+
+        paymentsSnapshot.docs.forEach(doc => {
+          const paymentData = doc.data();
+          if (paymentData.status === 'approved' && paymentData.amount) {
+            totalRevenue += parseFloat(paymentData.amount) || 0;
+            approvedPayments++;
+          } else if (paymentData.status === 'pending') {
+            pendingPayments++;
+          } else if (paymentData.status === 'rejected') {
+            rejectedPayments++;
+          }
+          
+          recentPayments.push({
+            id: doc.id,
+            ...paymentData
+          });
+        });
+
+        const message = `💳 **Payment Management**\n\n` +
+          `💰 **REAL REVENUE:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n\n` +
+          `📊 **Payment Statistics:**\n` +
+          `✅ **Approved:** ${approvedPayments} payments\n` +
+          `⏳ **Pending:** ${pendingPayments} payments\n` +
+          `❌ **Rejected:** ${rejectedPayments} payments\n\n` +
+          `📋 **Recent Payments (Last 20):**\n`;
+
+        // Add recent payments to message
+        recentPayments.slice(0, 10).forEach((payment, index) => {
+          const statusIcon = payment.status === 'approved' ? '✅' : 
+                           payment.status === 'pending' ? '⏳' : '❌';
+          const amount = payment.amount ? `ETB ${parseFloat(payment.amount).toFixed(2)}` : 'N/A';
+          const date = payment.createdAt ? new Date(payment.createdAt.toDate()).toLocaleDateString() : 'N/A';
+          
+          message += `${statusIcon} **${amount}** - ${payment.status} (${date})\n`;
+        });
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '✅ Approved Payments', callback_data: 'admin_approved' }, { text: '⏳ Pending Payments', callback_data: 'admin_pending' }],
+            [{ text: '❌ Rejected Payments', callback_data: 'admin_rejected' }, { text: '📊 Revenue Stats', callback_data: 'admin_revenue' }],
+            [{ text: '🔄 Refresh', callback_data: 'admin_payments' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        };
+
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        await ctx.answerCbQuery();
+
+      } catch (error) {
+        console.error('Error in admin_payments:', error);
+        await ctx.answerCbQuery('❌ Error loading payments');
+      }
+    });
+
+    // Admin revenue stats handler
+    bot.action('admin_revenue', async (ctx) => {
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          await ctx.answerCbQuery('❌ Access denied. Admin only.');
+          return;
+        }
+
+        // Load all payments for comprehensive revenue analysis
+        const paymentsSnapshot = await firestore.collection('payments').get();
+        const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
+        
+        // Calculate comprehensive revenue statistics
+        let totalRevenue = 0;
+        let approvedPayments = 0;
+        let pendingPayments = 0;
+        let rejectedPayments = 0;
+        let customPlanRevenue = 0;
+        let regularPlanRevenue = 0;
+        let monthlyRevenue = 0;
+        let yearlyRevenue = 0;
+
+        const now = new Date();
+        const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        paymentsSnapshot.docs.forEach(doc => {
+          const paymentData = doc.data();
+          const paymentDate = paymentData.createdAt ? paymentData.createdAt.toDate() : new Date();
+          
+          if (paymentData.status === 'approved' && paymentData.amount) {
+            const amount = parseFloat(paymentData.amount) || 0;
+            totalRevenue += amount;
+            approvedPayments++;
+
+            // Check if it's a custom plan
+            if (paymentData.isCustomPlan) {
+              customPlanRevenue += amount;
+            } else {
+              regularPlanRevenue += amount;
+            }
+
+            // Check if it's this month's revenue
+            if (paymentDate >= thisMonth) {
+              monthlyRevenue += amount;
+            }
+
+            // Check plan duration
+            if (paymentData.planDuration === 'year' || paymentData.planDuration === '12') {
+              yearlyRevenue += amount;
+            }
+          } else if (paymentData.status === 'pending') {
+            pendingPayments++;
+          } else if (paymentData.status === 'rejected') {
+            rejectedPayments++;
+          }
+        });
+
+        // Calculate subscription statistics
+        const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
+          const subData = doc.data();
+          return subData.status === 'active';
+        }).length;
+
+        const avgRevenuePerUser = approvedPayments > 0 ? totalRevenue / approvedPayments : 0;
+        const avgRevenuePerSubscription = activeSubscriptions > 0 ? totalRevenue / activeSubscriptions : 0;
+
+        const message = `📊 **DETAILED REVENUE ANALYSIS**\n\n` +
+          `💰 **TOTAL REAL REVENUE:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n\n` +
+          `📈 **Revenue Breakdown:**\n` +
+          `• Regular Plans: ETB ${regularPlanRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n` +
+          `• Custom Plans: ETB ${customPlanRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n` +
+          `• This Month: ETB ${monthlyRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n` +
+          `• Yearly Plans: ETB ${yearlyRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n\n` +
+          `📊 **Payment Statistics:**\n` +
+          `✅ **Approved:** ${approvedPayments} payments\n` +
+          `⏳ **Pending:** ${pendingPayments} payments\n` +
+          `❌ **Rejected:** ${rejectedPayments} payments\n\n` +
+          `📈 **Performance Metrics:**\n` +
+          `• Avg Revenue/User: ETB ${avgRevenuePerUser.toFixed(2)}\n` +
+          `• Avg Revenue/Subscription: ETB ${avgRevenuePerSubscription.toFixed(2)}\n` +
+          `• Active Subscriptions: ${activeSubscriptions}\n\n` +
+          `💡 **Note:** This includes ONLY approved payments. Pending and rejected payments are NOT counted in revenue.`;
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '📊 Export Report', callback_data: 'export_revenue' }, { text: '📈 Charts', callback_data: 'revenue_charts' }],
+            [{ text: '🔄 Refresh', callback_data: 'admin_revenue' }],
+            [{ text: '🔙 Back to Payments', callback_data: 'admin_payments' }]
+          ]
+        };
+
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        await ctx.answerCbQuery();
+
+      } catch (error) {
+        console.error('Error in admin_revenue:', error);
+        await ctx.answerCbQuery('❌ Error loading revenue stats');
+      }
+    });
+
+    // Admin payment methods handler
+    bot.action('admin_payment_methods', async (ctx) => {
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          await ctx.answerCbQuery('❌ Access denied. Admin only.');
+          return;
+        }
+
+        // Get user language
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        const lang = userData.language || 'en';
+
+        // Load payment methods from database
+        const paymentMethodsSnapshot = await firestore.collection('payment_methods').get();
+        const paymentMethods = paymentMethodsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        let message = `💳 **Payment Methods Management**\n\n`;
+        
+        if (paymentMethods.length === 0) {
+          message += `📝 **No payment methods configured yet.**\n\n`;
+          message += `➕ **Add your first payment method to start accepting payments.**`;
+        } else {
+          message += `📋 **Configured Payment Methods:**\n\n`;
+          
+          paymentMethods.forEach((method, index) => {
+            const statusIcon = method.active ? '✅' : '❌';
+            const statusText = method.active ? 'Active' : 'Inactive';
+            message += `${statusIcon} **${method.name}** (${statusText})\n`;
+            message += `   • Account: ${method.account || 'N/A'}\n`;
+            message += `   • Type: ${method.type || 'N/A'}\n\n`;
+          });
+        }
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '➕ Add Payment Method', callback_data: 'add_payment_method' }],
+            [{ text: '✏️ Edit Payment Methods', callback_data: 'edit_payment_methods' }],
+            [{ text: '🔄 Toggle Method Status', callback_data: 'toggle_payment_methods' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'refresh_admin' }]
+          ]
+        };
+
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        await ctx.answerCbQuery();
+
+      } catch (error) {
+        console.error('Error in admin_payment_methods:', error);
+        await ctx.answerCbQuery('❌ Error loading payment methods');
       }
     });
 
@@ -1068,8 +1338,8 @@ You don't have any subscriptions yet. To start a new subscription, please select
       }
     });
 
-    // Admin button action handler
-    bot.action('admin', async (ctx) => {
+    // Refresh admin panel handler
+    bot.action('refresh_admin', async (ctx) => {
       try {
         // Get user's language preference first
         const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
@@ -1124,7 +1394,7 @@ ${t('management_center', lang)}`;
           inline_keyboard: [
             [{ text: t('users', lang), callback_data: 'admin_users' }, { text: t('subscriptions', lang), callback_data: 'admin_subscriptions' }],
             [{ text: t('manage_services', lang), callback_data: 'admin_manage_services' }, { text: t('add_service', lang), callback_data: 'admin_add_service' }],
-            [{ text: t('payment_methods', lang), callback_data: 'admin_payments' }],
+            [{ text: t('revenue_management', lang), callback_data: 'admin_payments' }, { text: t('payment_methods', lang), callback_data: 'admin_payment_methods' }],
             [{ text: t('performance', lang), callback_data: 'admin_performance' }],
             [{ text: t('broadcast_message', lang), callback_data: 'admin_broadcast' }],
             [{ text: t('refresh_panel', lang), callback_data: 'refresh_admin' }]
@@ -1357,6 +1627,10 @@ ${t('management_center', lang)}`;
       console.log(`🌐 Render Health Server: http://localhost:${PORT}/health`);
       console.log(`🌐 Webhook URL: ${webhookUrl}`);
       console.log("⚡ Webhook mode: Instant response times (50-100ms)");
+      
+      // Start expiration reminder system
+      await expirationReminder.start();
+      console.log("⏰ Expiration reminder system started");
     } catch (error) {
       console.log("⚠️ Webhook setup failed, falling back to polling...");
       console.log("Error:", error.message);

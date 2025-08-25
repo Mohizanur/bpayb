@@ -379,6 +379,35 @@ const translations = {
     en: 'Telegram Admin Panel',
     am: 'የቴሌግራም አስተዳደር ፓነል'
   },
+  // Expiration reminder translations
+  subscription_expires_tomorrow: {
+    en: '🚨 URGENT: Your {service} ({plan}) subscription expires TOMORROW! Renew now to avoid service interruption.',
+    am: '🚨 አደጋ: የ{service} ({plan}) ምዝገባዎ ነገ ያበቃል! አገልግሎት እንዳይቋረጥ አሁን ያድስጡ።'
+  },
+  subscription_expires_soon: {
+    en: '⚠️ IMPORTANT: Your {service} ({plan}) subscription expires in {days} days. Renew soon to continue enjoying the service.',
+    am: '⚠️ አስፈላጊ: የ{service} ({plan}) ምዝገባዎ በ{days} ቀናት ያበቃል። አገልግሎቱን ለመቀጠል በቅርቡ ያድስጡ።'
+  },
+  subscription_expires_week: {
+    en: '📅 REMINDER: Your {service} ({plan}) subscription expires in {days} days. Plan your renewal to avoid any interruption.',
+    am: '📅 ማስታወሻ: የ{service} ({plan}) ምዝገባዎ በ{days} ቀናት ያበቃል። ማንኛውም መቋረጥ እንዳይከሰት የመደሰቻ እቅድዎን ያዘጋጁ።'
+  },
+  subscription_expired: {
+    en: '⏰ Your {service} ({plan}) subscription has expired. Renew now to restore access to the service.',
+    am: '⏰ የ{service} ({plan}) ምዝገባዎ አብቅቷል። ወደ አገልግሎቱ መድረስ እንደገና ያድስጡ።'
+  },
+  renewal_coming_soon: {
+    en: '🔄 Renewal feature coming soon!',
+    am: '🔄 የመደሰቻ ባህሪ በቅርቡ ይመጣል!'
+  },
+  renewal_instructions: {
+    en: '📋 To renew your subscription:\n\n1️⃣ Use /start\n2️⃣ Click "My Subscriptions"\n3️⃣ Select the subscription to renew\n4️⃣ Follow the payment process\n\n💡 Need help? Contact support.',
+    am: '📋 ምዝገባዎን ለመደሰቻ:\n\n1️⃣ /start ይጠቀሙ\n2️⃣ "የእኔ ምዝገባዎች" ይጫኑ\n3️⃣ ለመደሰቻ የሚደሰት ምዝገባ ይምረጡ\n4️⃣ የክፍያ ሂደቱን ይከተሉ\n\n💡 እርዳታ ያስፈልግዎታል? ድጋፍ ያግኙ።'
+  },
+  revenue_management: {
+    en: '💰 Revenue Management',
+    am: '💰 ገቢ አስተዳደር'
+  },
   cancel: {
     en: '❌ Cancel',
     am: '❌ ሰርዝ'
