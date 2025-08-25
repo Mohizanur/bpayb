@@ -499,9 +499,9 @@ process.on('unhandledRejection', (reason, promise) => {
     // Create bot instance
     const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
-    // Register admin command FIRST to avoid conflicts
-    bot.command('admin', async (ctx) => {
-      console.log("🔑 ADMIN COMMAND triggered from user:", ctx.from.id);
+    // Back to Admin handler - Main admin panel with revenue management
+    bot.action('back_to_admin', async (ctx) => {
+      console.log("🔑 BACK TO ADMIN triggered from user:", ctx.from.id);
       
       try {
         // Get user's language preference first
@@ -513,9 +513,88 @@ process.on('unhandledRejection', (reason, promise) => {
         console.log("🔑 Admin check result:", isAdmin);
         
         if (!isAdmin) {
+          await ctx.answerCbQuery(t('access_denied', lang));
+          return;
+        }
+        
+        // Load real-time statistics
+        const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, servicesSnapshot] = await Promise.all([
+          firestore.collection('users').get(),
+          firestore.collection('subscriptions').get(),
+          firestore.collection('payments').get(),
+          firestore.collection('services').get()
+        ]);
+
+        // Calculate statistics
+        const totalUsers = usersSnapshot.size;
+        const verifiedUsers = usersSnapshot.docs.filter(doc => doc.data().phoneVerified).length;
+        const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
+          const subData = doc.data();
+          return subData.status === 'active';
+        }).length;
+        const totalPayments = paymentsSnapshot.size;
+        const totalServices = servicesSnapshot.size;
+
+        const adminMessage = `${t('admin_dashboard', lang)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${t('welcome_admin', lang)}
+
+${t('real_time_analytics', lang)}
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ ${t('total_users', lang).replace('{count}', totalUsers.toLocaleString())}
+┃ ${t('verified_users', lang).replace('{count}', verifiedUsers.toLocaleString())}
+┃ ${t('active_subscriptions', lang).replace('{count}', activeSubscriptions.toLocaleString())}
+┃ ${t('total_payments', lang).replace('{count}', totalPayments.toLocaleString())}
+┃ ${t('available_services', lang).replace('{count}', totalServices)}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+${t('web_admin_panel', lang)}
+
+${t('management_center', lang)}`;
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: t('users', lang), callback_data: 'admin_users' }, { text: t('subscriptions', lang), callback_data: 'admin_subscriptions' }],
+            [{ text: t('manage_services', lang), callback_data: 'admin_manage_services' }, { text: t('add_service', lang), callback_data: 'admin_add_service' }],
+            [{ text: t('revenue_management', lang), callback_data: 'admin_payments' }, { text: t('payment_methods', lang), callback_data: 'admin_payment_methods' }],
+            [{ text: t('performance', lang), callback_data: 'admin_performance' }],
+            [{ text: t('broadcast_message', lang), callback_data: 'admin_broadcast' }],
+            [{ text: t('refresh_panel', lang), callback_data: 'refresh_admin' }]
+          ]
+        };
+
+        await ctx.editMessageText(adminMessage, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        
+        await ctx.answerCbQuery();
+      } catch (error) {
+        console.error('Error loading admin panel:', error);
+        performanceMonitor.trackError(error, 'admin-panel-load');
+        const lang = 'en'; // Fallback language
+        await ctx.answerCbQuery(t('error_loading_admin', lang));
+      }
+    });
+
+    // Admin command - shows admin panel directly
+    bot.command('admin', async (ctx) => {
+      console.log("🔑 ADMIN COMMAND triggered from user:", ctx.from.id);
+      
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          const lang = 'en'; // Fallback language
           await ctx.reply(t('access_denied', lang));
           return;
         }
+        
+        // Get user's language preference first
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        const lang = userData.language || 'en';
         
         // Load real-time statistics
         const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, servicesSnapshot] = await Promise.all([
@@ -569,9 +648,9 @@ ${t('management_center', lang)}`;
           parse_mode: 'Markdown',
           reply_markup: keyboard
         });
+        
       } catch (error) {
-        console.error('Error loading admin panel:', error);
-        performanceMonitor.trackError(error, 'admin-panel-load');
+        console.error('Error in admin command:', error);
         const lang = 'en'; // Fallback language
         await ctx.reply(t('error_loading_admin', lang));
       }
@@ -1466,7 +1545,7 @@ ${t('management_center', lang)}`;
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [[
-                { text: t('back_to_admin', lang), callback_data: 'refresh_admin' }
+                { text: t('back_to_admin', lang), callback_data: 'back_to_admin' }
               ]]
             }
           });
@@ -1548,7 +1627,7 @@ ${t('management_center', lang)}`;
       }
 
       // Back button
-      keyboard.push([{ text: t('back_to_admin', lang), callback_data: 'refresh_admin' }]);
+              keyboard.push([{ text: t('back_to_admin', lang), callback_data: 'back_to_admin' }]);
 
       await ctx.editMessageText(message, {
         parse_mode: 'Markdown',
