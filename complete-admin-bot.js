@@ -61,6 +61,12 @@ const phoneVerificationMiddleware = async (ctx, next) => {
     
     // Check if user is verified
     try {
+      // Check if ctx.from exists before accessing its properties
+      if (!ctx.from || !ctx.from.id) {
+        console.log('⚠️ ctx.from or ctx.from.id is undefined, skipping verification');
+        return next();
+      }
+      
       const userId = String(ctx.from.id);
       const userDoc = await firestore.collection('users').doc(userId).get();
       let userData = userDoc.data();
@@ -133,6 +139,12 @@ const setupPhoneVerification = (bot) => {
   // Phone verification button handler
   bot.action('verify_phone', async (ctx) => {
     try {
+      // Check if ctx.from exists before accessing its properties
+      if (!ctx.from || !ctx.from.id) {
+        console.log('⚠️ ctx.from or ctx.from.id is undefined in verify_phone handler');
+        return;
+      }
+      
       // Get user's saved language preference
       const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
       const userData = userDoc.data() || {};
