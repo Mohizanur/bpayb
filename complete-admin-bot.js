@@ -47,15 +47,18 @@ import { performanceMonitor } from './src/utils/performanceMonitor.js';
 // Phone verification middleware - Check if user is verified before allowing access
 const phoneVerificationMiddleware = async (ctx, next) => {
   try {
-    // Skip verification check for admin and verification commands
+    // Skip verification check for admin and essential commands
     const isAdmin = await isAuthorizedAdmin(ctx);
     const isVerificationCommand = ctx.message?.text?.startsWith('/verify') || ctx.callbackQuery?.data?.startsWith('verify_');
     const isStartCommand = ctx.message?.text === '/start';
+    const isHelpCommand = ctx.message?.text === '/help';
+    const isLanguageCommand = ctx.message?.text === '/lang' || ctx.message?.text === '/language';
+    const isSupportCommand = ctx.message?.text === '/support';
     const isContactMessage = ctx.message?.contact;
     const isManualPhoneInput = ctx.message?.text === '✍️ በእጅ መፃፍ' || ctx.message?.text === '✍️ Type Manually';
     const isVerificationCodeInput = ctx.message?.text && /^\d{6}$/.test(ctx.message.text.trim());
     
-    if (isAdmin || isVerificationCommand || isStartCommand || isContactMessage || isManualPhoneInput || isVerificationCodeInput) {
+    if (isAdmin || isVerificationCommand || isStartCommand || isHelpCommand || isLanguageCommand || isSupportCommand || isContactMessage || isManualPhoneInput || isVerificationCodeInput) {
       return next();
     }
     
@@ -1546,7 +1549,7 @@ ${t('management_center', lang)}`;
     }
 
     // Start HTTP server for Render health checks and webhook
-    const PORT = process.env.PORT || 3000;
+    const PORT = process.env.PORT || 10000;
     console.log(`🔧 PORT environment variable: ${process.env.PORT}`);
     console.log(`🔧 Using port: ${PORT}`);
     const server = createServer((req, res) => {
