@@ -1608,8 +1608,26 @@ ${t('management_center', lang)}`;
         console.log('📋 Request method:', req.method);
         console.log('📋 Content-Type:', req.headers['content-type']);
         
-        // Handle the webhook properly
-        bot.handleUpdate(req, res);
+        // Properly handle webhook with body parsing
+        let body = '';
+        req.on('data', chunk => {
+          body += chunk.toString();
+        });
+        
+        req.on('end', () => {
+          try {
+            console.log('📋 Raw webhook body:', body);
+            const update = JSON.parse(body);
+            console.log('📋 Parsed update:', JSON.stringify(update, null, 2));
+            
+            // Handle the update properly
+            bot.handleUpdate(update, res);
+          } catch (error) {
+            console.error('❌ Error parsing webhook body:', error);
+            res.writeHead(400);
+            res.end('Bad Request');
+          }
+        });
       } else {
         res.writeHead(404);
         res.end('Not Found');
