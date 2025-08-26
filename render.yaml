@@ -11,6 +11,12 @@ services:
         value: 10000
       - key: NODE_ENV
         value: production
+      - key: DEBUG_MODE
+        value: "false"
+      - key: LOG_LEVEL
+        value: "error"
+      - key: RENDER_EXTERNAL_URL
+        value: https://bpayb.onrender.com
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: ADMIN_TELEGRAM_ID
@@ -34,7 +40,7 @@ services:
       - key: FIREBASE_CLIENT_X509_CERT_URL
         sync: false
       - key: WEBHOOK_URL
-        value: https://bpayb.onrender.com/webhook
+        value: https://bpayb.onrender.com/telegram
     autoDeploy: true
     numInstances: 1
     scaling:
