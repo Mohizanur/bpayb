@@ -523,11 +523,23 @@ process.on('unhandledRejection', (reason, promise) => {
         // Calculate statistics
         const totalUsers = usersSnapshot.size;
         const verifiedUsers = usersSnapshot.docs.filter(doc => doc.data().phoneVerified).length;
+        const unverifiedUsers = totalUsers - verifiedUsers;
+        
         const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
           const subData = doc.data();
           return subData.status === 'active';
         }).length;
+        const pendingSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
+          const subData = doc.data();
+          return subData.status === 'pending';
+        }).length;
+        
         const totalPayments = paymentsSnapshot.size;
+        const pendingPayments = paymentsSnapshot.docs.filter(doc => {
+          const payData = doc.data();
+          return payData.status === 'pending';
+        }).length;
+        
         const totalServices = servicesSnapshot.size;
 
         const adminMessage = `🌟 **BirrPay Admin Dashboard** 🌟
@@ -538,11 +550,10 @@ process.on('unhandledRejection', (reason, promise) => {
 
 📊 **Real-Time Analytics**
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Total Users:** ${totalUsers}
-┃ ✅ **Verified Users:** ${verifiedUsers}
-┃ 🟢 **Active Subscriptions:** ${activeSubscriptions}
-┃ 💳 **Total Payments:** ${totalPayments}
-┃ 🎆 **Available Services:** ${totalServices}
+┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
+┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
+┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
+┃ 🎆 **Services:** ${totalServices} available
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
 🔧 **Management Center** - Complete control over your platform`;
@@ -604,11 +615,23 @@ process.on('unhandledRejection', (reason, promise) => {
         // Calculate statistics
         const totalUsers = usersSnapshot.size;
         const verifiedUsers = usersSnapshot.docs.filter(doc => doc.data().phoneVerified).length;
+        const unverifiedUsers = totalUsers - verifiedUsers;
+        
         const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
           const subData = doc.data();
           return subData.status === 'active';
         }).length;
+        const pendingSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
+          const subData = doc.data();
+          return subData.status === 'pending';
+        }).length;
+        
         const totalPayments = paymentsSnapshot.size;
+        const pendingPayments = paymentsSnapshot.docs.filter(doc => {
+          const payData = doc.data();
+          return payData.status === 'pending';
+        }).length;
+        
         const totalServices = servicesSnapshot.size;
 
         const adminMessage = `🌟 **BirrPay Admin Dashboard** 🌟
@@ -619,11 +642,10 @@ process.on('unhandledRejection', (reason, promise) => {
 
 📊 **Real-Time Analytics**
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Total Users:** ${totalUsers}
-┃ ✅ **Verified Users:** ${verifiedUsers}
-┃ 🟢 **Active Subscriptions:** ${activeSubscriptions}
-┃ 💳 **Total Payments:** ${totalPayments}
-┃ 🎆 **Available Services:** ${totalServices}
+┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
+┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
+┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
+┃ 🎆 **Services:** ${totalServices} available
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
 🔧 **Management Center** - Complete control over your platform`;
@@ -1673,13 +1695,12 @@ process.on('unhandledRejection', (reason, promise) => {
          const message = `📊 **Subscription Management** 📊\n\n` +
            `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
            `📈 **Overview:**\n` +
-           `┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n` +
-           `┃ 🟢 Active: ${activeCount}\n` +
-           `┃ 🟡 Pending Payments: ${pendingCount}\n` +
-           `┃ 🎯 Custom Plan Requests: ${customPlanCount}\n` +
-           `┃ 🔴 Expired: ${expiredCount}\n` +
-           `┃ 📊 Total: ${totalCount}\n` +
-           `┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
+           `┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
+┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
+┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
+┃ 🎆 **Services:** ${totalServices} available
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
            `🎯 **Quick Actions:**\n` +
            `• View and manage active subscriptions\n` +
            `• Review pending payment proofs\n` +
@@ -1736,11 +1757,12 @@ process.on('unhandledRejection', (reason, promise) => {
          const message = `👥 **User Management** 👥\n\n` +
            `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
            `📊 **User Statistics:**\n` +
-           `┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n` +
-           `┃ 👥 Total Users: ${totalUsers}\n` +
-           `┃ ✅ Verified: ${verifiedUsers}\n` +
-           `┃ ⏳ Unverified: ${unverifiedUsers}\n` +
-           `┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
+           `┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
+┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
+┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
+┃ 🎆 **Services:** ${totalServices} available
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
            `🎯 **Quick Actions:**\n` +
            `• View all users\n` +
            `• Manage user verification\n` +
@@ -1787,21 +1809,19 @@ process.on('unhandledRejection', (reason, promise) => {
          const message = `📊 **Performance Metrics** 📊\n\n` +
            `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
            `⏱️ **System Performance:**\n` +
-           `┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n` +
-           `┃ 🕐 Uptime: ${metrics.uptime}\n` +
-           `┃ 📊 Requests: ${metrics.requests.total}\n` +
-           `┃ ✅ Success Rate: ${metrics.requests.successRate}\n` +
-           `┃ ⚡ Avg Response: ${metrics.requests.avgResponseTime}\n` +
-           `┃ 🔥 Cache Hit Rate: ${metrics.requests.cacheHitRate}\n` +
-           `┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
+           `┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
+┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
+┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
+┃ 🎆 **Services:** ${totalServices} available
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
            `💾 **Resource Usage:**\n` +
-           `┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n` +
-           `┃ 🧠 Memory: ${metrics.memory.usage}\n` +
-           `┃ 📈 Peak Memory: ${metrics.memory.peak}\n` +
-           `┃ 🔥 Firestore Reads: ${metrics.firestore.reads}\n` +
-           `┃ ✍️ Firestore Writes: ${metrics.firestore.writes}\n` +
-           `┃ 💰 Estimated Cost: ${metrics.firestore.estimatedCost}\n` +
-           `┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
+           `┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
+┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
+┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
+┃ 🎆 **Services:** ${totalServices} available
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
            `❌ **Errors:** ${metrics.errors}`;
 
          const keyboard = {
@@ -1935,14 +1955,26 @@ process.on('unhandledRejection', (reason, promise) => {
          ]);
 
          // Calculate statistics
-         const totalUsers = usersSnapshot.size;
-         const verifiedUsers = usersSnapshot.docs.filter(doc => doc.data().phoneVerified).length;
-         const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
-           const subData = doc.data();
-           return subData.status === 'active';
-         }).length;
-         const totalPayments = paymentsSnapshot.size;
-         const totalServices = servicesSnapshot.size;
+        const totalUsers = usersSnapshot.size;
+        const verifiedUsers = usersSnapshot.docs.filter(doc => doc.data().phoneVerified).length;
+        const unverifiedUsers = totalUsers - verifiedUsers;
+        
+        const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
+          const subData = doc.data();
+          return subData.status === 'active';
+        }).length;
+        const pendingSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
+          const subData = doc.data();
+          return subData.status === 'pending';
+        }).length;
+        
+        const totalPayments = paymentsSnapshot.size;
+        const pendingPayments = paymentsSnapshot.docs.filter(doc => {
+          const payData = doc.data();
+          return payData.status === 'pending';
+        }).length;
+        
+        const totalServices = servicesSnapshot.size;
 
          const adminMessage = `🌟 **BirrPay Admin Dashboard** 🌟
 
@@ -1952,11 +1984,10 @@ process.on('unhandledRejection', (reason, promise) => {
 
 📊 **Real-Time Analytics**
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Total Users:** ${totalUsers}
-┃ ✅ **Verified Users:** ${verifiedUsers}
-┃ 🟢 **Active Subscriptions:** ${activeSubscriptions}
-┃ 💳 **Total Payments:** ${totalPayments}
-┃ 🎆 **Available Services:** ${totalServices}
+┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
+┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
+┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
+┃ 🎆 **Services:** ${totalServices} available
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
 🔧 **Management Center** - Complete control over your platform`;
@@ -2522,11 +2553,23 @@ You don't have any subscriptions yet. To start a new subscription, please select
         // Calculate statistics
         const totalUsers = usersSnapshot.size;
         const verifiedUsers = usersSnapshot.docs.filter(doc => doc.data().phoneVerified).length;
+        const unverifiedUsers = totalUsers - verifiedUsers;
+        
         const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
           const subData = doc.data();
           return subData.status === 'active';
         }).length;
+        const pendingSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
+          const subData = doc.data();
+          return subData.status === 'pending';
+        }).length;
+        
         const totalPayments = paymentsSnapshot.size;
+        const pendingPayments = paymentsSnapshot.docs.filter(doc => {
+          const payData = doc.data();
+          return payData.status === 'pending';
+        }).length;
+        
         const totalServices = servicesSnapshot.size;
 
         const adminMessage = `🌟 **BirrPay Admin Dashboard** 🌟
@@ -2537,11 +2580,10 @@ You don't have any subscriptions yet. To start a new subscription, please select
 
 📊 **Real-Time Analytics**
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Total Users:** ${totalUsers}
-┃ ✅ **Verified Users:** ${verifiedUsers}
-┃ 🟢 **Active Subscriptions:** ${activeSubscriptions}
-┃ 💳 **Total Payments:** ${totalPayments}
-┃ 🎆 **Available Services:** ${totalServices}
+┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
+┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
+┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
+┃ 🎆 **Services:** ${totalServices} available
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
 🔧 **Management Center** - Complete control over your platform`;
@@ -2703,7 +2745,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
           platform: 'render-free-tier',
           botStatus: 'running',
           webhook: {
-            url: process.env.WEBHOOK_URL || 'https://bpayb.onrender.com/webhook',
+            url: process.env.WEBHOOK_URL || 'https://bpayb.onrender.com/telegram',
             mode: 'webhook',
             responseTime: '50-100ms',
             status: 'active'
@@ -2766,359 +2808,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
       }
     });
 
-    // Add missing admin handlers
-    bot.action('admin_active_subscriptions', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
 
-        // Get active subscriptions
-        const subscriptionsSnapshot = await firestore.collection('subscriptions')
-          .where('status', '==', 'active')
-          .get();
-
-        const activeSubs = subscriptionsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        const message = `🟢 **Active Subscriptions** 🟢\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `📊 **Active Subscriptions: ${activeSubs.length}**\n\n`;
-
-        if (activeSubs.length === 0) {
-          message += `📭 No active subscriptions found.`;
-        } else {
-          activeSubs.forEach((sub, index) => {
-            message += `${index + 1}. **${sub.serviceName}** - ${sub.userName}\n`;
-            message += `   💰 ${sub.amount} ETB - Expires: ${sub.expiryDate}\n\n`;
-          });
-        }
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '🔙 Back to Subscriptions', callback_data: 'admin_subscriptions' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in admin_active_subscriptions:', error);
-        await ctx.answerCbQuery('❌ Error loading active subscriptions');
-      }
-    });
-
-    bot.action('admin_pending_subscriptions', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        // Get pending subscriptions
-        const subscriptionsSnapshot = await firestore.collection('subscriptions')
-          .where('status', '==', 'pending')
-          .get();
-
-        const pendingSubs = subscriptionsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        const message = `🟡 **Pending Subscriptions** 🟡\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `📊 **Pending Subscriptions: ${pendingSubs.length}**\n\n`;
-
-        if (pendingSubs.length === 0) {
-          message += `📭 No pending subscriptions found.`;
-        } else {
-          pendingSubs.forEach((sub, index) => {
-            message += `${index + 1}. **${sub.serviceName}** - ${sub.userName}\n`;
-            message += `   💰 ${sub.amount} ETB - Requested: ${sub.createdAt}\n\n`;
-          });
-        }
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '🔙 Back to Subscriptions', callback_data: 'admin_subscriptions' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in admin_pending_subscriptions:', error);
-        await ctx.answerCbQuery('❌ Error loading pending subscriptions');
-      }
-    });
-
-    bot.action('admin_custom_plans', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        // Get custom plan requests
-        const subscriptionsSnapshot = await firestore.collection('subscriptions')
-          .where('isCustomPlan', '==', true)
-          .get();
-
-        const customPlans = subscriptionsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        const message = `🎯 **Custom Plan Requests** 🎯\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `📊 **Custom Plans: ${customPlans.length}**\n\n`;
-
-        if (customPlans.length === 0) {
-          message += `📭 No custom plan requests found.`;
-        } else {
-          customPlans.forEach((plan, index) => {
-            message += `${index + 1}. **${plan.serviceName}** - ${plan.userName}\n`;
-            message += `   💰 ${plan.amount} ETB - Duration: ${plan.duration}\n`;
-            message += `   📝 ${plan.customRequest}\n\n`;
-          });
-        }
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '🔙 Back to Subscriptions', callback_data: 'admin_subscriptions' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in admin_custom_plans:', error);
-        await ctx.answerCbQuery('❌ Error loading custom plans');
-      }
-    });
-
-    // User management sub-handlers
-    bot.action('view_all_users', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        // Get all users
-        const usersSnapshot = await firestore.collection('users').get();
-        const users = usersSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        let message = `👥 **All Users** 👥\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `📊 **Total Users: ${users.length}**\n\n`;
-
-        if (users.length === 0) {
-          message += `📭 No users found.`;
-        } else {
-          users.forEach((user, index) => {
-            const status = user.phoneVerified ? '✅' : '⏳';
-            const name = user.firstName || user.username || 'Unknown';
-            message += `${index + 1}. ${status} **${name}**\n`;
-            message += `   🆔 ${user.id} | 📱 ${user.phoneNumber || 'Not verified'}\n\n`;
-          });
-        }
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '🔙 Back to User Management', callback_data: 'admin_users' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in view_all_users:', error);
-        await ctx.answerCbQuery('❌ Error loading all users');
-      }
-    });
-
-    bot.action('view_verified_users', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        // Get verified users
-        const usersSnapshot = await firestore.collection('users')
-          .where('phoneVerified', '==', true)
-          .get();
-
-        const verifiedUsers = usersSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        let message = `✅ **Verified Users** ✅\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `📊 **Verified Users: ${verifiedUsers.length}**\n\n`;
-
-        if (verifiedUsers.length === 0) {
-          message += `📭 No verified users found.`;
-        } else {
-          verifiedUsers.forEach((user, index) => {
-            const name = user.firstName || user.username || 'Unknown';
-            message += `${index + 1}. ✅ **${name}**\n`;
-            message += `   🆔 ${user.id} | 📱 ${user.phoneNumber}\n\n`;
-          });
-        }
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '🔙 Back to User Management', callback_data: 'admin_users' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in view_verified_users:', error);
-        await ctx.answerCbQuery('❌ Error loading verified users');
-      }
-    });
-
-    bot.action('view_unverified_users', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        // Get unverified users
-        const usersSnapshot = await firestore.collection('users')
-          .where('phoneVerified', '==', false)
-          .get();
-
-        const unverifiedUsers = usersSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        let message = `⏳ **Unverified Users** ⏳\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `📊 **Unverified Users: ${unverifiedUsers.length}**\n\n`;
-
-        if (unverifiedUsers.length === 0) {
-          message += `📭 No unverified users found.`;
-        } else {
-          unverifiedUsers.forEach((user, index) => {
-            const name = user.firstName || user.username || 'Unknown';
-            message += `${index + 1}. ⏳ **${name}**\n`;
-            message += `   🆔 ${user.id} | 📱 Not verified\n\n`;
-          });
-        }
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '🔙 Back to User Management', callback_data: 'admin_users' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in view_unverified_users:', error);
-        await ctx.answerCbQuery('❌ Error loading unverified users');
-      }
-    });
-
-    bot.action('admin_expired_subscriptions', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        // Get expired subscriptions
-        const now = new Date();
-        const subscriptionsSnapshot = await firestore.collection('subscriptions')
-          .where('status', '==', 'active')
-          .get();
-
-        const expiredSubs = subscriptionsSnapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(sub => new Date(sub.expiryDate) < now);
-
-        const message = `🔴 **Expired Subscriptions** 🔴\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `📊 **Expired Subscriptions: ${expiredSubs.length}**\n\n`;
-
-        if (expiredSubs.length === 0) {
-          message += `📭 No expired subscriptions found.`;
-        } else {
-          expiredSubs.forEach((sub, index) => {
-            message += `${index + 1}. **${sub.serviceName}** - ${sub.userName}\n`;
-            message += `   💰 ${sub.amount} ETB - Expired: ${sub.expiryDate}\n\n`;
-          });
-        }
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '🔙 Back to Subscriptions', callback_data: 'admin_subscriptions' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in admin_expired_subscriptions:', error);
-        await ctx.answerCbQuery('❌ Error loading expired subscriptions');
-      }
-    });
 
     // Start the bot with webhooks for Render
     console.log("🚀 Starting bot with webhooks for Render deployment...");
