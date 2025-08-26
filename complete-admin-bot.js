@@ -2918,6 +2918,158 @@ You don't have any subscriptions yet. To start a new subscription, please select
       }
     });
 
+    // User management sub-handlers
+    bot.action('view_all_users', async (ctx) => {
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          await ctx.answerCbQuery('❌ Access denied. Admin only.');
+          return;
+        }
+
+        // Get all users
+        const usersSnapshot = await firestore.collection('users').get();
+        const users = usersSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        let message = `👥 **All Users** 👥\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📊 **Total Users: ${users.length}**\n\n`;
+
+        if (users.length === 0) {
+          message += `📭 No users found.`;
+        } else {
+          users.forEach((user, index) => {
+            const status = user.phoneVerified ? '✅' : '⏳';
+            const name = user.firstName || user.username || 'Unknown';
+            message += `${index + 1}. ${status} **${name}**\n`;
+            message += `   🆔 ${user.id} | 📱 ${user.phoneNumber || 'Not verified'}\n\n`;
+          });
+        }
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '🔙 Back to User Management', callback_data: 'admin_users' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        };
+
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        await ctx.answerCbQuery();
+
+      } catch (error) {
+        console.error('Error in view_all_users:', error);
+        await ctx.answerCbQuery('❌ Error loading all users');
+      }
+    });
+
+    bot.action('view_verified_users', async (ctx) => {
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          await ctx.answerCbQuery('❌ Access denied. Admin only.');
+          return;
+        }
+
+        // Get verified users
+        const usersSnapshot = await firestore.collection('users')
+          .where('phoneVerified', '==', true)
+          .get();
+
+        const verifiedUsers = usersSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        let message = `✅ **Verified Users** ✅\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📊 **Verified Users: ${verifiedUsers.length}**\n\n`;
+
+        if (verifiedUsers.length === 0) {
+          message += `📭 No verified users found.`;
+        } else {
+          verifiedUsers.forEach((user, index) => {
+            const name = user.firstName || user.username || 'Unknown';
+            message += `${index + 1}. ✅ **${name}**\n`;
+            message += `   🆔 ${user.id} | 📱 ${user.phoneNumber}\n\n`;
+          });
+        }
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '🔙 Back to User Management', callback_data: 'admin_users' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        };
+
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        await ctx.answerCbQuery();
+
+      } catch (error) {
+        console.error('Error in view_verified_users:', error);
+        await ctx.answerCbQuery('❌ Error loading verified users');
+      }
+    });
+
+    bot.action('view_unverified_users', async (ctx) => {
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          await ctx.answerCbQuery('❌ Access denied. Admin only.');
+          return;
+        }
+
+        // Get unverified users
+        const usersSnapshot = await firestore.collection('users')
+          .where('phoneVerified', '==', false)
+          .get();
+
+        const unverifiedUsers = usersSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        let message = `⏳ **Unverified Users** ⏳\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📊 **Unverified Users: ${unverifiedUsers.length}**\n\n`;
+
+        if (unverifiedUsers.length === 0) {
+          message += `📭 No unverified users found.`;
+        } else {
+          unverifiedUsers.forEach((user, index) => {
+            const name = user.firstName || user.username || 'Unknown';
+            message += `${index + 1}. ⏳ **${name}**\n`;
+            message += `   🆔 ${user.id} | 📱 Not verified\n\n`;
+          });
+        }
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '🔙 Back to User Management', callback_data: 'admin_users' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        };
+
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        await ctx.answerCbQuery();
+
+      } catch (error) {
+        console.error('Error in view_unverified_users:', error);
+        await ctx.answerCbQuery('❌ Error loading unverified users');
+      }
+    });
+
     bot.action('admin_expired_subscriptions', async (ctx) => {
       try {
         const isAdmin = await isAuthorizedAdmin(ctx);
@@ -2980,7 +3132,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
     }
     
     // Use webhooks instead of polling to avoid conflicts
-    const webhookUrl = process.env.WEBHOOK_URL || `https://bpayb.onrender.com/webhook`;
+    const webhookUrl = process.env.WEBHOOK_URL || `https://bpayb.onrender.com/telegram`;
     
     try {
       // Delete any existing webhook first
