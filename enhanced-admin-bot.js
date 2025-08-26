@@ -146,22 +146,22 @@ console.log('🚀 BirrPay Bot - COMPLETE Enhanced Version');
 
 📊 **Real-Time Analytics**
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Users:** ${totalUsers.toLocaleString()} total • ${activeUsers.toLocaleString()} active
-┃ 📱 **Subscriptions:** ${activeSubscriptions.toLocaleString()} active • ${pendingSubscriptions.toLocaleString()} pending  
-┃ 💳 **Payments:** ${totalPayments.toLocaleString()} total • ${pendingPayments.toLocaleString()} pending
-┃ 💰 **Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}
-┃ 🛍️ **Services:** ${servicesSnapshot.size} available
+┃ 👥 **Total Users:** ${totalUsers}
+┃ ✅ **Verified Users:** ${activeUsers}
+┃ 🟢 **Active Subscriptions:** ${activeSubscriptions}
+┃ 💳 **Total Payments:** ${totalPayments}
+┃ 🎆 **Available Services:** ${servicesSnapshot.size}
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-🌐 **Web Admin Panel:** [Open Dashboard](https://bpayb.onrender.com/panel)
-
-🎯 **Management Center:**`;
+🔧 **Management Center** - Complete control over your platform`;
 
         const keyboard = {
           inline_keyboard: [
             [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
-            [{ text: '🎯 Custom Plans', callback_data: 'admin_custom_plans' }, { text: '💳 Payment Methods', callback_data: 'admin_payments' }],
-            [{ text: '💬 Broadcast Message', callback_data: 'admin_broadcast' }],
+            [{ text: '🔧 Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
+            [{ text: '💰 Revenue Management', callback_data: 'admin_payments' }, { text: '💳 Payment Methods', callback_data: 'admin_payment_methods' }],
+            [{ text: '📊 Performance', callback_data: 'admin_performance' }],
+            [{ text: '📢 Broadcast Message', callback_data: 'admin_broadcast' }],
             [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
           ]
         };
@@ -521,22 +521,22 @@ Send a message to all active users of the bot.
 
 📊 **Real-Time Analytics**
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Users:** ${totalUsers.toLocaleString()} total • ${activeUsers.toLocaleString()} active
-┃ 📱 **Subscriptions:** ${activeSubscriptions.toLocaleString()} active • ${pendingSubscriptions.toLocaleString()} pending  
-┃ 💳 **Payments:** ${totalPayments.toLocaleString()} total • ${pendingPayments.toLocaleString()} pending
-┃ 💰 **Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}
-┃ 🛍️ **Services:** ${servicesSnapshot.size} available
+┃ 👥 **Total Users:** ${totalUsers}
+┃ ✅ **Verified Users:** ${activeUsers}
+┃ 🟢 **Active Subscriptions:** ${activeSubscriptions}
+┃ 💳 **Total Payments:** ${totalPayments}
+┃ 🎆 **Available Services:** ${servicesSnapshot.size}
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-🌐 **Web Admin Panel:** [Open Dashboard](https://bpayb.onrender.com/panel)
-
-🎯 **Management Center:**`;
+🔧 **Management Center** - Complete control over your platform`;
 
         const keyboard = {
           inline_keyboard: [
             [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
-            [{ text: '🎯 Custom Plans', callback_data: 'admin_custom_plans' }, { text: '💳 Payment Methods', callback_data: 'admin_payments' }],
-            [{ text: '💬 Broadcast Message', callback_data: 'admin_broadcast' }],
+            [{ text: '🔧 Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
+            [{ text: '💰 Revenue Management', callback_data: 'admin_payments' }, { text: '💳 Payment Methods', callback_data: 'admin_payment_methods' }],
+            [{ text: '📊 Performance', callback_data: 'admin_performance' }],
+            [{ text: '📢 Broadcast Message', callback_data: 'admin_broadcast' }],
             [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
           ]
         };

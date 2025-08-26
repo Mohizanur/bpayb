@@ -303,6 +303,24 @@ async function startApp() {
       // CRITICAL: Register ALL handlers AFTER bot launch
       console.log("🚀 REGISTERING ALL HANDLERS...");
       
+      // Add language middleware to set ctx.userLang for all handlers
+      bot.use(async (ctx, next) => {
+        try {
+          if (ctx.from?.id) {
+            // Get user's saved language preference from database
+            const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+            const userData = userDoc.data() || {};
+            ctx.userLang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+          } else {
+            ctx.userLang = 'en';
+          }
+        } catch (error) {
+          console.log('Could not get user language, using default:', error.message);
+          ctx.userLang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+        }
+        return next();
+      });
+      
       try {
         // Register admin handler first so /admin works and inline buttons are available
         adminHandler(bot);
@@ -312,9 +330,75 @@ async function startApp() {
       }
 
       try {
+        // Override the showMainMenu function to include admin check
+        const originalShowMainMenu = (await import('./utils/navigation.js')).showMainMenu;
+        const enhancedShowMainMenu = async (ctx, isNewUser = false) => {
+          try {
+            // Get user's saved language preference from database
+            const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+            const userData = userDoc.data() || {};
+            const lang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+            
+            // Check if user is admin
+            let isAdmin = false;
+            try {
+              const { isAuthorizedAdmin } = await import('./handlers/admin.js');
+              isAdmin = await isAuthorizedAdmin(ctx);
+            } catch (error) {
+              console.log('Could not check admin status:', error.message);
+            }
+            
+            // Import and call the original function with admin status
+            const { getMainMenuContent } = await import('./utils/menuContent.js');
+            const { message, keyboard } = getMainMenuContent(lang, isNewUser, isAdmin);
+            
+            // Try to edit the existing message if it's a callback query
+            if (ctx.updateType === 'callback_query') {
+              try {
+                await ctx.editMessageText(message, {
+                  reply_markup: { inline_keyboard: keyboard },
+                  parse_mode: 'Markdown',
+                  disable_web_page_preview: true
+                });
+                return;
+              } catch (editError) {
+                // If editing fails due to identical content, just answer the callback query
+                if (editError.description && editError.description.includes('message is not modified')) {
+                  try {
+                    await ctx.answerCbQuery();
+                    return;
+                  } catch (answerError) {
+                    // Ignore answer callback errors
+                  }
+                }
+                // For other edit errors, fall through to send new message
+                console.log('Could not edit message, sending new one:', editError.message || editError);
+              }
+            }
+            
+            // Otherwise, send a new message
+            await ctx.reply(message, {
+              reply_markup: { inline_keyboard: keyboard },
+              parse_mode: 'Markdown',
+              disable_web_page_preview: true
+            });
+          } catch (error) {
+            console.error('Error showing main menu:', error);
+            // Fallback to a simple message
+            const fallbackMsg = userData.language === 'am' ? 
+              '🏠 ዋና ገጽ' : 
+              '🏠 Main Menu';
+            try {
+              await ctx.reply(fallbackMsg);
+            } catch (fallbackError) {
+              console.error('Failed to send fallback message:', fallbackError);
+            }
+          }
+        };
+        
         // Register all other handlers
         setupStartHandler(bot);
-        console.log("✅ Start handler registered");
+        console.log("✅ Start handler registered with enhanced admin check");
       } catch (e) {
         console.error("❌ Failed to register start handler:", e.message);
       }

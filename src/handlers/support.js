@@ -4,7 +4,18 @@ export default function supportHandler(bot) {
   // Handle /support command
   bot.command("support", async (ctx) => {
     try {
-      const lang = ctx.userLang;
+      // Get user's language preference from database
+      let lang = 'en';
+      try {
+        const { firestore } = await import('../utils/firestore.js');
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        lang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+      } catch (error) {
+        console.log('Could not get user language, using default:', error.message);
+        lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      }
+      
       const supportText = lang === "en"
         ? `💬 **BirrPay Support**\n\nWe're here to help! You can:\n\n📧 **Contact us directly:**\nsupport@admin.birr‑pay\n\n💬 **Send a message:**\nJust type your question or issue and send it. Our admin will review and respond.\n\n⚡ **Quick Help:**\n• /help - View all commands\n• /faq - Common questions\n• /mysubs - View subscriptions\n\n🕐 **Response time:** Usually within 24 hours`
         : `💬 **BirrPay ድጋፍ**\n\nእርዳታ ለመስጠት እዚህ ነን! ይችላሉ:\n\n📧 **በቀጥታ ያግኙን:**\nsupport@admin.birr‑pay\n\n💬 **መልእክት ይላኩ:**\nጥያቄዎን ወይም ችግሮን ብቻ ይተይቡ እና ይላኩ። አስተዳዳሪያችን ያገኝ እና ይመልሳል።\n\n⚡ **ፈጣን እርዳታ:**\n• /help - ሁሉንም ትዕዛዞች ይመልከቱ\n• /faq - የተለመዱ ጥያቄዎች\n• /mysubs - መዋቅሮችን ይመልከቱ\n\n🕐 **የምላሽ ጊዜ:** አብዛኛውን ጊዜ በ24 ሰዓት ውስጥ`;
@@ -12,8 +23,7 @@ export default function supportHandler(bot) {
       await ctx.reply(supportText, { parse_mode: "Markdown" });
     } catch (error) {
       console.error("Error in support command:", error);
-      const errorMsg = ctx.i18n?.error_generic?.[ctx.userLang] || "Sorry, something went wrong. Please try again.";
-      await ctx.reply(errorMsg);
+      await ctx.reply("Sorry, something went wrong. Please try again.");
     }
   });
   
@@ -25,7 +35,16 @@ export default function supportHandler(bot) {
         return;
       }
 
-      const lang = ctx.userLang;
+      // Get user's language preference from database
+      let lang = 'en';
+      try {
+        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
+        const userData = userDoc.data() || {};
+        lang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+      } catch (error) {
+        console.log('Could not get user language, using default:', error.message);
+        lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      }
       const userInfo = {
         id: ctx.from.id,
         firstName: ctx.from.first_name,
@@ -44,7 +63,9 @@ export default function supportHandler(bot) {
       });
       
       // Send confirmation to user
-      const confirmationMsg = ctx.i18n.support_received[lang];
+      const confirmationMsg = lang === 'am' 
+        ? '✅ የድጋፍ መልእክትዎ ተቀብሏል! በቅርቡ እንመልሳለን።'
+        : '✅ Your support message has been received! We will respond soon.';
       await ctx.reply(confirmationMsg);
       
       // Notify admin if available
@@ -68,8 +89,7 @@ export default function supportHandler(bot) {
       
     } catch (error) {
       console.error("Error in support handler:", error);
-      const errorMsg = ctx.i18n?.error_generic?.[ctx.userLang] || "Sorry, something went wrong. Please try again.";
-      await ctx.reply(errorMsg);
+      await ctx.reply("Sorry, something went wrong. Please try again.");
     }
   });
 }
