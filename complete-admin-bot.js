@@ -1987,20 +1987,20 @@ process.on('unhandledRejection', (reason, promise) => {
 
      // Add debug middleware to see all commands (only in debug mode)
     if (process.env.DEBUG_MODE === 'true') {
-      bot.use(async (ctx, next) => {
+    bot.use(async (ctx, next) => {
         console.log('🔍 Bot middleware processing update');
         console.log('📋 ctx.from:', ctx.from);
         console.log('📋 ctx.message:', ctx.message);
         console.log('📋 ctx.callbackQuery:', ctx.callbackQuery);
         
-        if (ctx.message && ctx.message.text) {
-          console.log(`📥 Command: "${ctx.message.text}" from user ${ctx.from.id}`);
-        }
+      if (ctx.message && ctx.message.text) {
+        console.log(`📥 Command: "${ctx.message.text}" from user ${ctx.from.id}`);
+      }
         if (ctx.callbackQuery) {
           console.log(`🔄 Callback: "${ctx.callbackQuery.data}" from user ${ctx.from.id}`);
         }
-        return next();
-      });
+      return next();
+    });
     }
 
     // Phone verification middleware - MUST BE BEFORE OTHER MIDDLEWARE
@@ -2763,6 +2763,208 @@ You don't have any subscriptions yet. To start a new subscription, please select
       } else {
         res.writeHead(404);
         res.end('Not Found');
+      }
+    });
+
+    // Add missing admin handlers
+    bot.action('admin_active_subscriptions', async (ctx) => {
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          await ctx.answerCbQuery('❌ Access denied. Admin only.');
+          return;
+        }
+
+        // Get active subscriptions
+        const subscriptionsSnapshot = await firestore.collection('subscriptions')
+          .where('status', '==', 'active')
+          .get();
+
+        const activeSubs = subscriptionsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        const message = `🟢 **Active Subscriptions** 🟢\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📊 **Active Subscriptions: ${activeSubs.length}**\n\n`;
+
+        if (activeSubs.length === 0) {
+          message += `📭 No active subscriptions found.`;
+        } else {
+          activeSubs.forEach((sub, index) => {
+            message += `${index + 1}. **${sub.serviceName}** - ${sub.userName}\n`;
+            message += `   💰 ${sub.amount} ETB - Expires: ${sub.expiryDate}\n\n`;
+          });
+        }
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Subscriptions', callback_data: 'admin_subscriptions' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        };
+
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        await ctx.answerCbQuery();
+
+      } catch (error) {
+        console.error('Error in admin_active_subscriptions:', error);
+        await ctx.answerCbQuery('❌ Error loading active subscriptions');
+      }
+    });
+
+    bot.action('admin_pending_subscriptions', async (ctx) => {
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          await ctx.answerCbQuery('❌ Access denied. Admin only.');
+          return;
+        }
+
+        // Get pending subscriptions
+        const subscriptionsSnapshot = await firestore.collection('subscriptions')
+          .where('status', '==', 'pending')
+          .get();
+
+        const pendingSubs = subscriptionsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        const message = `🟡 **Pending Subscriptions** 🟡\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📊 **Pending Subscriptions: ${pendingSubs.length}**\n\n`;
+
+        if (pendingSubs.length === 0) {
+          message += `📭 No pending subscriptions found.`;
+        } else {
+          pendingSubs.forEach((sub, index) => {
+            message += `${index + 1}. **${sub.serviceName}** - ${sub.userName}\n`;
+            message += `   💰 ${sub.amount} ETB - Requested: ${sub.createdAt}\n\n`;
+          });
+        }
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Subscriptions', callback_data: 'admin_subscriptions' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        };
+
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        await ctx.answerCbQuery();
+
+      } catch (error) {
+        console.error('Error in admin_pending_subscriptions:', error);
+        await ctx.answerCbQuery('❌ Error loading pending subscriptions');
+      }
+    });
+
+    bot.action('admin_custom_plans', async (ctx) => {
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          await ctx.answerCbQuery('❌ Access denied. Admin only.');
+          return;
+        }
+
+        // Get custom plan requests
+        const subscriptionsSnapshot = await firestore.collection('subscriptions')
+          .where('isCustomPlan', '==', true)
+          .get();
+
+        const customPlans = subscriptionsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        const message = `🎯 **Custom Plan Requests** 🎯\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📊 **Custom Plans: ${customPlans.length}**\n\n`;
+
+        if (customPlans.length === 0) {
+          message += `📭 No custom plan requests found.`;
+        } else {
+          customPlans.forEach((plan, index) => {
+            message += `${index + 1}. **${plan.serviceName}** - ${plan.userName}\n`;
+            message += `   💰 ${plan.amount} ETB - Duration: ${plan.duration}\n`;
+            message += `   📝 ${plan.customRequest}\n\n`;
+          });
+        }
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Subscriptions', callback_data: 'admin_subscriptions' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        };
+
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        await ctx.answerCbQuery();
+
+      } catch (error) {
+        console.error('Error in admin_custom_plans:', error);
+        await ctx.answerCbQuery('❌ Error loading custom plans');
+      }
+    });
+
+    bot.action('admin_expired_subscriptions', async (ctx) => {
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        if (!isAdmin) {
+          await ctx.answerCbQuery('❌ Access denied. Admin only.');
+          return;
+        }
+
+        // Get expired subscriptions
+        const now = new Date();
+        const subscriptionsSnapshot = await firestore.collection('subscriptions')
+          .where('status', '==', 'active')
+          .get();
+
+        const expiredSubs = subscriptionsSnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(sub => new Date(sub.expiryDate) < now);
+
+        const message = `🔴 **Expired Subscriptions** 🔴\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📊 **Expired Subscriptions: ${expiredSubs.length}**\n\n`;
+
+        if (expiredSubs.length === 0) {
+          message += `📭 No expired subscriptions found.`;
+        } else {
+          expiredSubs.forEach((sub, index) => {
+            message += `${index + 1}. **${sub.serviceName}** - ${sub.userName}\n`;
+            message += `   💰 ${sub.amount} ETB - Expired: ${sub.expiryDate}\n\n`;
+          });
+        }
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Subscriptions', callback_data: 'admin_subscriptions' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        };
+
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+        await ctx.answerCbQuery();
+
+      } catch (error) {
+        console.error('Error in admin_expired_subscriptions:', error);
+        await ctx.answerCbQuery('❌ Error loading expired subscriptions');
       }
     });
 
