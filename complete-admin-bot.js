@@ -693,11 +693,15 @@ process.on('unhandledRejection', (reason, promise) => {
 
         // Load payment data
         const paymentsSnapshot = await firestore.collection('payments').get();
+        if (process.env.DEBUG_MODE === 'true') {
         console.log('🔍 Found', paymentsSnapshot.docs.length, 'payments in database');
+      }
         
         // Also check subscriptions collection
         const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
+        if (process.env.DEBUG_MODE === 'true') {
         console.log('🔍 Found', subscriptionsSnapshot.docs.length, 'subscriptions in database');
+      }
         
         // Debug: Show all subscription data
         subscriptionsSnapshot.docs.forEach(doc => {
@@ -1981,21 +1985,23 @@ process.on('unhandledRejection', (reason, promise) => {
        }
      });
 
-     // Add debug middleware to see all commands
-    bot.use(async (ctx, next) => {
-      console.log('🔍 Bot middleware processing update');
-      console.log('📋 ctx.from:', ctx.from);
-      console.log('📋 ctx.message:', ctx.message);
-      console.log('📋 ctx.callbackQuery:', ctx.callbackQuery);
-      
-      if (ctx.message && ctx.message.text) {
-        console.log(`📥 Command: "${ctx.message.text}" from user ${ctx.from.id}`);
-      }
-      if (ctx.callbackQuery) {
-        console.log(`🔄 Callback: "${ctx.callbackQuery.data}" from user ${ctx.from.id}`);
-      }
-      return next();
-    });
+     // Add debug middleware to see all commands (only in debug mode)
+    if (process.env.DEBUG_MODE === 'true') {
+      bot.use(async (ctx, next) => {
+        console.log('🔍 Bot middleware processing update');
+        console.log('📋 ctx.from:', ctx.from);
+        console.log('📋 ctx.message:', ctx.message);
+        console.log('📋 ctx.callbackQuery:', ctx.callbackQuery);
+        
+        if (ctx.message && ctx.message.text) {
+          console.log(`📥 Command: "${ctx.message.text}" from user ${ctx.from.id}`);
+        }
+        if (ctx.callbackQuery) {
+          console.log(`🔄 Callback: "${ctx.callbackQuery.data}" from user ${ctx.from.id}`);
+        }
+        return next();
+      });
+    }
 
     // Phone verification middleware - MUST BE BEFORE OTHER MIDDLEWARE
     bot.use(phoneVerificationMiddleware);

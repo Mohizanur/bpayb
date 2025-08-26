@@ -9,6 +9,7 @@ const require = createRequire(import.meta.url);
 import "dotenv/config";
 import { bot } from "./bot.js";
 import { loadI18n, getUserLang, setUserLang, getErrorMessage, getTranslatedMessage, setLanguageCache } from "./utils/i18n.js";
+import { debug } from "./utils/debug.js";
 import { loadServices } from "./utils/loadServices.js";
 import { startScheduler } from "./utils/scheduler.js";
 import { handleRenewalCallback, triggerExpirationCheck } from "./utils/expirationReminder.js";
@@ -108,7 +109,7 @@ const server = http.createServer((req, res) => {
       req.on('end', async () => {
         try {
           const update = JSON.parse(body);
-          console.log('📥 Received Telegram update:', update.update_id);
+          debug.trace('Received Telegram update:', update.update_id);
           
           // Process the update through the bot
           await bot.handleUpdate(update);
