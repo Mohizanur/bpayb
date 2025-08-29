@@ -4,7 +4,7 @@
 class WebhookManager {
   constructor(bot) {
     this.bot = bot;
-    this.webhookUrl = process.env.WEBHOOK_URL || 'https://bpayb.onrender.com/webhook';
+    this.webhookUrl = process.env.WEBHOOK_URL || 'https://bpayb.onrender.com/telegram';
     this.isWebhookActive = false;
   }
 
@@ -85,3 +85,90 @@ class WebhookManager {
 }
 
 export default WebhookManager;
+
+
+      const webhookInfo = await this.bot.telegram.getWebhookInfo();
+
+      return {
+
+        isActive: webhookInfo.url === this.webhookUrl,
+
+        url: webhookInfo.url,
+
+        pendingUpdates: webhookInfo.pending_update_count,
+
+        lastError: webhookInfo.last_error_message,
+
+        lastErrorDate: webhookInfo.last_error_date
+
+      };
+
+    } catch (error) {
+
+      console.error('❌ Failed to check webhook status:', error.message);
+
+      return {
+
+        isActive: false,
+
+        error: error.message
+
+      };
+
+    }
+
+  }
+
+
+
+  // Delete webhook
+
+  async deleteWebhook() {
+
+    try {
+
+      await this.bot.telegram.deleteWebhook();
+
+      console.log('🗑️ Webhook deleted successfully');
+
+      this.isWebhookActive = false;
+
+      return true;
+
+    } catch (error) {
+
+      console.error('❌ Failed to delete webhook:', error.message);
+
+      return false;
+
+    }
+
+  }
+
+
+
+  // Get webhook URL
+
+  getWebhookUrl() {
+
+    return this.webhookUrl;
+
+  }
+
+
+
+  // Check if webhook is active
+
+  isActive() {
+
+    return this.isWebhookActive;
+
+  }
+
+}
+
+
+
+export default WebhookManager;
+
+

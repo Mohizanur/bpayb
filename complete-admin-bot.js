@@ -11,7 +11,7 @@ import { setupStartHandler } from './src/handlers/start.js';
 import setupSubscribeHandler from './src/handlers/subscribe.js';
 import { loadI18n } from './src/utils/i18n.js';
 import { loadServices } from './src/utils/loadServices.js';
-import adminHandler, { isAuthorizedAdmin } from './src/handlers/admin.js';
+import adminHandler from './src/handlers/admin.js';
 import { keepAliveManager } from './src/utils/keepAlive.js';
 import { resilienceManager } from './src/utils/resilience.js';
 import { startScheduler } from './src/utils/scheduler.js';
@@ -20,7 +20,40 @@ import supportHandler from './src/handlers/support.js';
 import langHandler from './src/handlers/lang.js';
 import helpHandler from './src/handlers/help.js';
 import mySubscriptionsHandler from './src/handlers/mySubscriptions.js';
+import faqHandler from './src/handlers/faq.js';
+import cancelSubscriptionHandler from './src/handlers/cancelSubscription.js';
+import screenshotUploadHandler from './src/handlers/screenshotUpload.js';
+import { registerAdminPaymentHandlers } from './src/handlers/adminPaymentHandlers.js';
+import firestoreListener from './src/handlers/firestoreListener.js';
 import { t, getUserLanguage, tf } from './src/utils/translations.js';
+
+// Helper function for admin security check (copied from admin.js)
+const isAuthorizedAdmin = async (ctx) => {
+  try {
+    const userId = ctx.from?.id?.toString();
+    if (!userId) return false;
+    
+    // Check against environment variable first (for backward compatibility)
+    if (process.env.ADMIN_TELEGRAM_ID && userId === process.env.ADMIN_TELEGRAM_ID) {
+      return true;
+    }
+    
+    // Check against Firestore config
+    const adminDoc = await firestore.collection('config').doc('admins').get();
+    if (adminDoc.exists) {
+      const admins = adminDoc.data().userIds || [];
+      if (admins.includes(userId)) {
+        return true;
+      }
+    }
+    
+    console.warn(`Unauthorized admin access attempt from user ${userId} (${ctx.from?.username || 'no username'})`);
+    return false;
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    return false;
+  }
+};
 
 // Enhanced translation helper with user language persistence
 const getUserLanguageWithPersistence = async (ctx) => {
@@ -513,10 +546,10 @@ process.on('unhandledRejection', (reason, promise) => {
         }
         
         // Load real-time statistics
-        const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, servicesSnapshot] = await Promise.all([
+        const [usersSnapshot, subscriptionsSnapshot, pendingPaymentsSnapshot, servicesSnapshot] = await Promise.all([
           firestore.collection('users').get(),
           firestore.collection('subscriptions').get(),
-          firestore.collection('payments').get(),
+          firestore.collection('pendingPayments').get(),
           firestore.collection('services').get()
         ]);
 
@@ -534,11 +567,14 @@ process.on('unhandledRejection', (reason, promise) => {
           return subData.status === 'pending';
         }).length;
         
-        const totalPayments = paymentsSnapshot.size;
-        const pendingPayments = paymentsSnapshot.docs.filter(doc => {
+        // Count pending payments (users who uploaded proof but waiting for approval)
+        const pendingPayments = pendingPaymentsSnapshot.docs.filter(doc => {
           const payData = doc.data();
-          return payData.status === 'pending';
+          return payData.status === 'pending' || payData.status === 'proof_submitted';
         }).length;
+        
+        // Count total payment transactions
+        const totalPayments = pendingPaymentsSnapshot.size;
         
         const totalServices = servicesSnapshot.size;
 
@@ -552,7 +588,7 @@ process.on('unhandledRejection', (reason, promise) => {
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
 ┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
-┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
+┃ 💳 **Payment Proofs:** ${totalPayments} total • ${pendingPayments} awaiting approval
 ┃ 🎆 **Services:** ${totalServices} available
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
@@ -562,7 +598,7 @@ process.on('unhandledRejection', (reason, promise) => {
           inline_keyboard: [
             [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
             [{ text: '🔧 Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
-            [{ text: '💰 Revenue Management', callback_data: 'admin_payments' }, { text: '💳 Payment Methods', callback_data: 'admin_payment_methods' }],
+            [{ text: '💰 Revenue Management', callback_data: 'admin_revenue' }, { text: '💳 Payment Methods', callback_data: 'admin_payment_methods' }],
             [{ text: '📊 Performance', callback_data: 'admin_performance' }],
             [{ text: '📢 Broadcast Message', callback_data: 'admin_broadcast' }],
             [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
@@ -596,19 +632,19 @@ process.on('unhandledRejection', (reason, promise) => {
           await ctx.reply('❌ Access denied. Admin only.');
           return;
         }
-        
+
         console.log("✅ Admin access granted for user:", ctx.from.id);
         
         // Get user's language preference first
         const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
         const userData = userDoc.data() || {};
         const lang = userData.language || 'en';
-        
+
         // Load real-time statistics
-        const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, servicesSnapshot] = await Promise.all([
+        const [usersSnapshot, subscriptionsSnapshot, pendingPaymentsSnapshot, servicesSnapshot] = await Promise.all([
           firestore.collection('users').get(),
           firestore.collection('subscriptions').get(),
-          firestore.collection('payments').get(),
+          firestore.collection('pendingPayments').get(),
           firestore.collection('services').get()
         ]);
 
@@ -626,11 +662,14 @@ process.on('unhandledRejection', (reason, promise) => {
           return subData.status === 'pending';
         }).length;
         
-        const totalPayments = paymentsSnapshot.size;
-        const pendingPayments = paymentsSnapshot.docs.filter(doc => {
+        // Count pending payments (users who uploaded proof but waiting for approval)
+        const pendingPayments = pendingPaymentsSnapshot.docs.filter(doc => {
           const payData = doc.data();
-          return payData.status === 'pending';
+          return payData.status === 'pending' || payData.status === 'proof_submitted';
         }).length;
+        
+        // Count total payment transactions
+        const totalPayments = pendingPaymentsSnapshot.size;
         
         const totalServices = servicesSnapshot.size;
 
@@ -644,7 +683,7 @@ process.on('unhandledRejection', (reason, promise) => {
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
 ┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
-┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
+┃ 💳 **Payment Proofs:** ${totalPayments} total • ${pendingPayments} awaiting approval
 ┃ 🎆 **Services:** ${totalServices} available
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
@@ -654,7 +693,7 @@ process.on('unhandledRejection', (reason, promise) => {
           inline_keyboard: [
             [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
             [{ text: '🔧 Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
-            [{ text: '💰 Revenue Management', callback_data: 'admin_payments' }, { text: '💳 Payment Methods', callback_data: 'admin_payment_methods' }],
+            [{ text: '💰 Revenue Management', callback_data: 'admin_revenue' }, { text: '💳 Payment Methods', callback_data: 'admin_payment_methods' }],
             [{ text: '📊 Performance', callback_data: 'admin_performance' }],
             [{ text: '📢 Broadcast Message', callback_data: 'admin_broadcast' }],
             [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
@@ -665,1358 +704,14 @@ process.on('unhandledRejection', (reason, promise) => {
           parse_mode: 'Markdown',
           reply_markup: keyboard
         });
-        
+
       } catch (error) {
         console.error('Error in admin command:', error);
         await ctx.reply('❌ Error loading admin panel');
       }
     });
 
-    // Admin expiration check command
-    bot.command('admin_expiring', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.reply('❌ Access denied. Admin only.');
-          return;
-        }
-
-        await ctx.reply('🔍 Checking expiring subscriptions...');
-        const result = await expirationReminder.checkExpirationReminders();
-        
-        const message = `📊 **Expiration Check Results**\n\n` +
-          `⏰ **Total Expiring:** ${result.totalExpiring || 0}\n` +
-          `📱 **Reminders Sent:** ${result.remindersSent || 0}\n` +
-          `📊 **Admin Alert:** ${result.adminAlertSent ? 'Yes' : 'No'}\n` +
-          `🕐 **Checked At:** ${new Date().toLocaleString()}\n\n` +
-          `✅ Check completed successfully!`;
-
-        await ctx.reply(message, { parse_mode: 'Markdown' });
-        
-      } catch (error) {
-        console.error('Error in admin_expiring command:', error);
-        await ctx.reply('❌ Error checking expiring subscriptions');
-      }
-    });
-
-    // Admin payments handler
-    bot.action('admin_payments', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        // Get user language
-        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-        const userData = userDoc.data() || {};
-        const lang = userData.language || 'en';
-
-        // Load payment data
-        const paymentsSnapshot = await firestore.collection('payments').get();
-        if (process.env.DEBUG_MODE === 'true') {
-        console.log('🔍 Found', paymentsSnapshot.docs.length, 'payments in database');
-      }
-        
-        // Also check subscriptions collection
-        const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
-        if (process.env.DEBUG_MODE === 'true') {
-        console.log('🔍 Found', subscriptionsSnapshot.docs.length, 'subscriptions in database');
-      }
-        
-        // Debug: Show all subscription data
-        subscriptionsSnapshot.docs.forEach(doc => {
-          const subData = doc.data();
-          console.log('🔍 Subscription:', doc.id, 'Status:', subData.status, 'Amount:', subData.amount, 'Plan:', subData.plan);
-        });
-        
-        // Transaction checking removed to avoid duplicates
-        console.log('🔍 Skipping transactions to avoid potential duplicates with subscriptions');
-        
-        // Calculate revenue statistics
-        let totalRevenue = 0;
-        let approvedPayments = 0;
-        let pendingPayments = 0;
-        let rejectedPayments = 0;
-        let recentPayments = [];
-
-        // Add revenue from active subscriptions (these are approved payments)
-        subscriptionsSnapshot.docs.forEach(doc => {
-          const subscription = doc.data();
-          console.log('🔍 Checking subscription:', doc.id, 'Status:', subscription.status, 'Amount:', subscription.amount, 'Full data:', JSON.stringify(subscription));
-          
-          if (subscription.status === 'active') {
-            let amount = 0;
-            
-            // Try different possible amount fields
-            if (subscription.amount) {
-              amount = parseFloat(subscription.amount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subscription.price) {
-              amount = parseFloat(subscription.price.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subscription.cost) {
-              amount = parseFloat(subscription.cost.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subscription.paymentAmount) {
-              amount = parseFloat(subscription.paymentAmount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            }
-            
-            if (amount > 0) {
-              totalRevenue += amount;
-              approvedPayments++;
-              console.log('🔍 Active subscription (approved payment):', doc.id, 'Amount:', amount);
-            } else {
-              console.log('🔍 Active subscription with no amount:', doc.id);
-            }
-          }
-        });
-
-        // Add revenue from approved payments in payments collection
-        paymentsSnapshot.docs.forEach(doc => {
-          const paymentData = doc.data();
-          console.log('🔍 Payment:', doc.id, 'Status:', paymentData.status, 'Amount:', paymentData.amount);
-          
-          if ((paymentData.status === 'approved' || paymentData.status === 'approved_verification') && paymentData.amount) {
-            totalRevenue += parseFloat(paymentData.amount) || 0;
-            approvedPayments++;
-          } else if (paymentData.status === 'pending' || paymentData.status === 'pending_verification') {
-            pendingPayments++;
-          } else if (paymentData.status === 'rejected' || paymentData.status === 'rejected_verification') {
-            rejectedPayments++;
-          }
-          
-          recentPayments.push({
-            id: doc.id,
-            ...paymentData
-          });
-        });
-
-        console.log('💰 Revenue calculation:', { totalRevenue, approvedPayments, pendingPayments, rejectedPayments });
-
-        let message = `💳 **Payment Management**\n\n` +
-          `💰 **REAL REVENUE:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n\n` +
-          `📊 **Payment Statistics:**\n` +
-          `✅ **Approved:** ${approvedPayments} payments\n` +
-          `⏳ **Pending:** ${pendingPayments} payments\n` +
-          `❌ **Rejected:** ${rejectedPayments} payments\n\n` +
-          `📋 **Recent Payments (Last 20):**\n`;
-
-        // Add recent payments to message
-        recentPayments.slice(0, 10).forEach((payment, index) => {
-          const statusIcon = (payment.status === 'approved' || payment.status === 'approved_verification') ? '✅' : 
-                           (payment.status === 'pending' || payment.status === 'pending_verification') ? '⏳' : '❌';
-          const amount = payment.amount ? `ETB ${parseFloat(payment.amount).toFixed(2)}` : 'N/A';
-          
-          // Safe date handling
-          let date = 'N/A';
-          try {
-            if (payment.createdAt) {
-              if (typeof payment.createdAt.toDate === 'function') {
-                date = new Date(payment.createdAt.toDate()).toLocaleDateString();
-              } else if (payment.createdAt instanceof Date) {
-                date = payment.createdAt.toLocaleDateString();
-              } else {
-                date = new Date(payment.createdAt).toLocaleDateString();
-              }
-            }
-          } catch (error) {
-            date = 'N/A';
-          }
-          
-          message += `${statusIcon} **${amount}** - ${payment.status} (${date})\n`;
-        });
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '✅ Approved Payments', callback_data: 'admin_approved' }, { text: '⏳ Pending Payments', callback_data: 'admin_pending' }],
-            [{ text: '❌ Rejected Payments', callback_data: 'admin_rejected' }, { text: '📊 Revenue Stats', callback_data: 'admin_revenue' }],
-            [{ text: '🔄 Refresh', callback_data: 'admin_payments' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in admin_payments:', error);
-        await ctx.answerCbQuery('❌ Error loading payments');
-      }
-    });
-
-    // Admin revenue stats handler
-    bot.action('admin_revenue', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        // Load all payments for comprehensive revenue analysis
-        const paymentsSnapshot = await firestore.collection('payments').get();
-        const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
-        
-        // Calculate comprehensive revenue statistics
-        let totalRevenue = 0;
-        let approvedPayments = 0;
-        let pendingPayments = 0;
-        let rejectedPayments = 0;
-        let regularPlanRevenue = 0;
-        let monthlyRevenue = 0;
-        let yearlyRevenue = 0;
-
-        const now = new Date();
-        const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-        paymentsSnapshot.docs.forEach(doc => {
-          const paymentData = doc.data();
-          
-          // Safe date handling
-          let paymentDate = new Date();
-          try {
-            if (paymentData.createdAt) {
-              if (typeof paymentData.createdAt.toDate === 'function') {
-                paymentDate = paymentData.createdAt.toDate();
-              } else if (paymentData.createdAt instanceof Date) {
-                paymentDate = paymentData.createdAt;
-              } else {
-                paymentDate = new Date(paymentData.createdAt);
-              }
-            }
-          } catch (error) {
-            paymentDate = new Date();
-          }
-          
-          if ((paymentData.status === 'approved' || paymentData.status === 'approved_verification') && paymentData.amount) {
-            const amount = parseFloat(paymentData.amount) || 0;
-            totalRevenue += amount;
-            approvedPayments++;
-
-            // Check if it's a custom plan
-            if (paymentData.isCustomPlan) {
-              customPlanRevenue += amount;
-            } else {
-              regularPlanRevenue += amount;
-            }
-
-            // Check if it's this month's revenue
-            if (paymentDate >= thisMonth) {
-              monthlyRevenue += amount;
-            }
-
-            // Check plan duration
-            if (paymentData.planDuration === 'year' || paymentData.planDuration === '12') {
-              yearlyRevenue += amount;
-            }
-          } else if (paymentData.status === 'pending' || paymentData.status === 'pending_verification') {
-            pendingPayments++;
-          } else if (paymentData.status === 'rejected' || paymentData.status === 'rejected_verification') {
-            rejectedPayments++;
-          }
-        });
-
-        // Add revenue from active subscriptions (using same enhanced logic as admin_payments)
-        let subscriptionRevenue = 0;
-        let customPlanRevenue = 0;
-        let processedAmounts = new Set(); // Track processed amounts to avoid duplicates
-        
-        subscriptionsSnapshot.docs.forEach(doc => {
-          const subData = doc.data();
-          console.log('🔍 Checking subscription for revenue:', doc.id, 'Status:', subData.status, 'Amount:', subData.amount, 'Price:', subData.price, 'PaymentId:', subData.paymentId, 'IsCustom:', subData.isCustomPlan || subData.serviceID === 'custom_plan');
-          
-          if (subData.status === 'active') {
-            let amount = 0;
-            
-            // Try different possible amount fields (same logic as admin_payments)
-            if (subData.amount) {
-              amount = parseFloat(subData.amount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subData.price) {
-              amount = parseFloat(subData.price.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subData.cost) {
-              amount = parseFloat(subData.cost.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subData.paymentAmount) {
-              amount = parseFloat(subData.paymentAmount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            }
-            
-            if (amount > 0) {
-              subscriptionRevenue += amount;
-              totalRevenue += amount;
-              approvedPayments++; // Count active subscriptions as approved payments
-              processedAmounts.add(amount); // Track this amount
-              
-              // Check if it's a custom plan
-              if (subData.isCustomPlan || subData.serviceID === 'custom_plan' || subData.serviceName === 'Custom Plan') {
-                customPlanRevenue += amount;
-                console.log('🔍 Custom plan revenue:', doc.id, 'Amount:', amount, 'Duration:', subData.duration || subData.durationName);
-              } else {
-                console.log('🔍 Regular subscription revenue:', doc.id, 'Amount:', amount, 'Service:', subData.serviceName);
-              }
-            } else {
-              console.log('🔍 Active subscription with no amount:', doc.id);
-            }
-          }
-        });
-
-        // Also check for pending custom plans that might have amounts
-        console.log('🔍 Checking for pending custom plans...');
-        subscriptionsSnapshot.docs.forEach(doc => {
-          const subData = doc.data();
-          if (subData.status === 'pending' && (subData.isCustomPlan || subData.serviceID === 'custom_plan' || subData.serviceName === 'Custom Plan')) {
-            let amount = 0;
-            if (subData.amount) {
-              amount = parseFloat(subData.amount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            }
-            console.log('🔍 Pending custom plan:', doc.id, 'Amount:', amount, 'Duration:', subData.duration || subData.durationName);
-          }
-        });
-
-        // Transaction revenue calculation removed to avoid duplicates
-        console.log('🔍 Skipping transactions to avoid potential duplicates with subscriptions');
-
-        // Calculate subscription statistics
-        const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
-          const subData = doc.data();
-          return subData.status === 'active';
-        }).length;
-
-        const avgRevenuePerUser = approvedPayments > 0 ? totalRevenue / approvedPayments : 0;
-        const avgRevenuePerSubscription = activeSubscriptions > 0 ? totalRevenue / activeSubscriptions : 0;
-
-        const message = `📊 **DETAILED REVENUE ANALYSIS**\n\n` +
-          `💰 **TOTAL REAL REVENUE:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n\n` +
-          `📈 **Revenue Breakdown:**\n` +
-          `• Active Subscriptions: ETB ${subscriptionRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n` +
-          `• Approved Payments: ETB ${regularPlanRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n` +
-          `• Custom Plans: ETB ${customPlanRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n` +
-          `• This Month: ETB ${monthlyRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n` +
-          `• Yearly Plans: ETB ${yearlyRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n\n` +
-          `📊 **Payment Statistics:**\n` +
-          `✅ **Approved:** ${approvedPayments} payments\n` +
-          `⏳ **Pending:** ${pendingPayments} payments\n` +
-          `❌ **Rejected:** ${rejectedPayments} payments\n\n` +
-          `📈 **Performance Metrics:**\n` +
-          `• Avg Revenue/User: ETB ${avgRevenuePerUser.toFixed(2)}\n` +
-          `• Avg Revenue/Subscription: ETB ${avgRevenuePerSubscription.toFixed(2)}\n` +
-          `• Active Subscriptions: ${activeSubscriptions}\n\n` +
-          `💡 **Note:** This includes active subscriptions, approved payments, and completed transactions.`;
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '📊 Export Report', callback_data: 'export_revenue' }, { text: '📈 Charts', callback_data: 'revenue_charts' }],
-            [{ text: '🔄 Refresh', callback_data: 'admin_revenue' }],
-            [{ text: '🔙 Back to Payments', callback_data: 'admin_payments' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in admin_revenue:', error);
-        await ctx.answerCbQuery('❌ Error loading revenue stats');
-      }
-    });
-
-    // Admin approved payments handler
-    bot.action('admin_approved', async (ctx) => {
-      console.log('🔍 admin_approved callback triggered');
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        const [paymentsSnapshot, subscriptionsSnapshot] = await Promise.all([
-          firestore.collection('payments').get(),
-          firestore.collection('subscriptions').get()
-        ]);
-        
-        let message = `✅ **Approved Payments & Active Subscriptions**\n\n`;
-        let approvedCount = 0;
-        let totalRevenue = 0;
-
-        // Add approved payments from payments collection
-        paymentsSnapshot.docs.forEach(doc => {
-          const payment = doc.data();
-          if (payment.status === 'approved' || payment.status === 'approved_verification') {
-            approvedCount++;
-            const amount = parseFloat(payment.amount) || 0;
-            totalRevenue += amount;
-            
-            const statusIcon = '✅';
-            const amountText = `ETB ${amount.toFixed(2)}`;
-            
-            // Safe date handling
-            let date = 'N/A';
-            try {
-              if (payment.createdAt) {
-                if (typeof payment.createdAt.toDate === 'function') {
-                  date = new Date(payment.createdAt.toDate()).toLocaleDateString();
-                } else if (payment.createdAt instanceof Date) {
-                  date = payment.createdAt.toLocaleDateString();
-                } else {
-                  date = new Date(payment.createdAt).toLocaleDateString();
-                }
-              }
-            } catch (error) {
-              date = 'N/A';
-            }
-            
-            message += `${statusIcon} **${amountText}** - Payment (${date})\n`;
-          }
-        });
-
-        // Add active subscriptions (these are approved payments)
-        subscriptionsSnapshot.docs.forEach(doc => {
-          const subscription = doc.data();
-          if (subscription.status === 'active') {
-            let amount = 0;
-            
-            // Try different possible amount fields
-            if (subscription.amount) {
-              amount = parseFloat(subscription.amount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subscription.price) {
-              amount = parseFloat(subscription.price.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subscription.cost) {
-              amount = parseFloat(subscription.cost.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subscription.paymentAmount) {
-              amount = parseFloat(subscription.paymentAmount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            }
-            
-            if (amount > 0) {
-              approvedCount++;
-              totalRevenue += amount;
-              
-              const statusIcon = '✅';
-              const amountText = `ETB ${amount.toFixed(2)}`;
-              const serviceName = subscription.serviceName || subscription.serviceId || 'Unknown Service';
-              
-              message += `${statusIcon} **${amountText}** - ${serviceName} (Active)\n`;
-            }
-          }
-        });
-
-        if (approvedCount === 0) {
-          message += `📝 No approved payments found.`;
-        } else {
-          message += `\n💰 **Total Revenue:** ETB ${totalRevenue.toFixed(2)}`;
-        }
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '🔙 Back to Payments', callback_data: 'admin_payments' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in admin_approved:', error);
-        await ctx.answerCbQuery('❌ Error loading approved payments');
-      }
-    });
-
-    // Admin pending payments handler
-    bot.action('admin_pending', async (ctx) => {
-      console.log('🔍 admin_pending callback triggered');
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        const paymentsSnapshot = await firestore.collection('payments').get();
-        let message = `⏳ **Pending Payments**\n\n`;
-        let pendingCount = 0;
-
-        paymentsSnapshot.docs.forEach(doc => {
-          const payment = doc.data();
-          if (payment.status === 'pending' || payment.status === 'pending_verification') {
-            pendingCount++;
-            
-            const statusIcon = '⏳';
-            const amount = payment.amount ? `ETB ${parseFloat(payment.amount).toFixed(2)}` : 'N/A';
-            
-            // Safe date handling
-            let date = 'N/A';
-            try {
-              if (payment.createdAt) {
-                if (typeof payment.createdAt.toDate === 'function') {
-                  date = new Date(payment.createdAt.toDate()).toLocaleDateString();
-                } else if (payment.createdAt instanceof Date) {
-                  date = payment.createdAt.toLocaleDateString();
-                } else {
-                  date = new Date(payment.createdAt).toLocaleDateString();
-                }
-              }
-            } catch (error) {
-              date = 'N/A';
-            }
-            
-            message += `${statusIcon} **${amount}** - ${payment.status} (${date})\n`;
-          }
-        });
-
-        if (pendingCount === 0) {
-          message += `📝 No pending payments found.`;
-        }
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '🔙 Back to Payments', callback_data: 'admin_payments' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in admin_pending:', error);
-        await ctx.answerCbQuery('❌ Error loading pending payments');
-      }
-    });
-
-    // Admin rejected payments handler
-    bot.action('admin_rejected', async (ctx) => {
-      console.log('🔍 admin_rejected callback triggered');
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        const paymentsSnapshot = await firestore.collection('payments').get();
-        let message = `❌ **Rejected Payments**\n\n`;
-        let rejectedCount = 0;
-
-        paymentsSnapshot.docs.forEach(doc => {
-          const payment = doc.data();
-          if (payment.status === 'rejected' || payment.status === 'rejected_verification') {
-            rejectedCount++;
-            
-            const statusIcon = '❌';
-            const amount = payment.amount ? `ETB ${parseFloat(payment.amount).toFixed(2)}` : 'N/A';
-            
-            // Safe date handling
-            let date = 'N/A';
-            try {
-              if (payment.createdAt) {
-                if (typeof payment.createdAt.toDate === 'function') {
-                  date = new Date(payment.createdAt.toDate()).toLocaleDateString();
-                } else if (payment.createdAt instanceof Date) {
-                  date = payment.createdAt.toLocaleDateString();
-                } else {
-                  date = new Date(payment.createdAt).toLocaleDateString();
-                }
-              }
-            } catch (error) {
-              date = 'N/A';
-            }
-            
-            message += `${statusIcon} **${amount}** - ${payment.status} (${date})\n`;
-          }
-        });
-
-        if (rejectedCount === 0) {
-          message += `📝 No rejected payments found.`;
-        }
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '🔙 Back to Payments', callback_data: 'admin_payments' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in admin_rejected:', error);
-        await ctx.answerCbQuery('❌ Error loading rejected payments');
-      }
-    });
-
-    // Admin payment methods handler
-    bot.action('admin_payment_methods', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        // Get user language
-        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-        const userData = userDoc.data() || {};
-        const lang = userData.language || 'en';
-
-        // Load payment methods from database
-        const paymentMethodsSnapshot = await firestore.collection('payment_methods').get();
-        const paymentMethods = paymentMethodsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        let message = `💳 **Payment Methods Management**\n\n`;
-        
-        if (paymentMethods.length === 0) {
-          message += `📝 **No payment methods configured yet.**\n\n`;
-          message += `➕ **Add your first payment method to start accepting payments.**`;
-        } else {
-          message += `📋 **Configured Payment Methods:**\n\n`;
-          
-          paymentMethods.forEach((method, index) => {
-            const statusIcon = method.active ? '✅' : '❌';
-            const statusText = method.active ? 'Active' : 'Inactive';
-            message += `${statusIcon} **${method.name}** (${statusText})\n`;
-            message += `   • Account: ${method.account || 'N/A'}\n`;
-            message += `   • Type: ${method.type || 'N/A'}\n\n`;
-          });
-        }
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '➕ Add Payment Method', callback_data: 'add_payment_method' }],
-            [{ text: '✏️ Edit Payment Methods', callback_data: 'edit_payment_methods' }],
-            [{ text: '🔄 Toggle Method Status', callback_data: 'toggle_payment_methods' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'refresh_admin' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in admin_payment_methods:', error);
-        await ctx.answerCbQuery('❌ Error loading payment methods');
-      }
-    });
-
-    // Export revenue handler
-    bot.action('export_revenue', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        // Get revenue data (same logic as admin_revenue)
-        const [paymentsSnapshot, subscriptionsSnapshot] = await Promise.all([
-          firestore.collection('payments').get(),
-          firestore.collection('subscriptions').get()
-        ]);
-
-        let totalRevenue = 0;
-        let approvedPayments = 0;
-        let pendingPayments = 0;
-        let rejectedPayments = 0;
-        let customPlanRevenue = 0;
-        let regularPlanRevenue = 0;
-        let monthlyRevenue = 0;
-        let yearlyRevenue = 0;
-
-        // Add revenue from active subscriptions
-        let subscriptionRevenue = 0;
-        let processedAmounts = new Set();
-
-        subscriptionsSnapshot.docs.forEach(doc => {
-          const subData = doc.data();
-          if (subData.status === 'active') {
-            let amount = 0;
-            
-            if (subData.amount) {
-              amount = parseFloat(subData.amount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subData.price) {
-              amount = parseFloat(subData.price.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subData.cost) {
-              amount = parseFloat(subData.cost.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subData.paymentAmount) {
-              amount = parseFloat(subData.paymentAmount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            }
-            
-                         if (amount > 0) {
-               subscriptionRevenue += amount;
-               totalRevenue += amount;
-               // Don't count active subscriptions as approved payments - they're separate
-               processedAmounts.add(amount);
-               
-               if (subData.isCustomPlan || subData.serviceID === 'custom_plan' || subData.serviceName === 'Custom Plan') {
-                 customPlanRevenue += amount;
-               }
-             }
-          }
-        });
-
-        // Add revenue from approved payments (separate from active subscriptions)
-        paymentsSnapshot.docs.forEach(doc => {
-          const paymentData = doc.data();
-          if ((paymentData.status === 'approved' || paymentData.status === 'approved_verification') && paymentData.amount) {
-            const amount = parseFloat(paymentData.amount) || 0;
-            totalRevenue += amount;
-            approvedPayments++;
-            regularPlanRevenue += amount;
-            console.log('🔍 Approved payment revenue:', doc.id, 'Amount:', amount);
-          } else if (paymentData.status === 'pending' || paymentData.status === 'pending_verification') {
-            pendingPayments++;
-          } else if (paymentData.status === 'rejected' || paymentData.status === 'rejected_verification') {
-            rejectedPayments++;
-          }
-        });
-
-        // Create export data
-        const exportData = {
-          exportDate: new Date().toISOString(),
-          totalRevenue: totalRevenue,
-          breakdown: {
-            activeSubscriptions: subscriptionRevenue,
-            approvedPayments: regularPlanRevenue,
-            customPlans: customPlanRevenue,
-            monthlyRevenue: monthlyRevenue,
-            yearlyRevenue: yearlyRevenue
-          },
-          statistics: {
-            approvedPayments: approvedPayments,
-            pendingPayments: pendingPayments,
-            rejectedPayments: rejectedPayments
-          }
-        };
-
-        const message = `📊 **REVENUE EXPORT REPORT**\n\n` +
-          `📅 **Export Date:** ${new Date().toLocaleDateString()}\n` +
-          `💰 **Total Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n\n` +
-          `📈 **Revenue Breakdown:**\n` +
-          `• Active Subscriptions: ETB ${subscriptionRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n` +
-          `• Approved Payments: ETB ${regularPlanRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n` +
-          `• Custom Plans: ETB ${customPlanRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n\n` +
-          `📊 **Payment Statistics:**\n` +
-          `✅ Approved: ${approvedPayments} payments\n` +
-          `⏳ Pending: ${pendingPayments} payments\n` +
-          `❌ Rejected: ${rejectedPayments} payments\n\n` +
-          `💾 **Export Data:**\n` +
-          `\`\`\`json\n${JSON.stringify(exportData, null, 2)}\n\`\`\``;
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '📥 Download JSON', callback_data: 'download_revenue_json' }],
-            [{ text: '📊 Back to Revenue', callback_data: 'admin_revenue' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-      } catch (error) {
-        console.error('Error in export_revenue:', error);
-        await ctx.answerCbQuery('❌ Error exporting revenue data');
-      }
-    });
-
-    // Revenue charts handler
-    bot.action('revenue_charts', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied. Admin only.');
-          return;
-        }
-
-        // Get revenue data (same logic as admin_revenue)
-        const [paymentsSnapshot, subscriptionsSnapshot] = await Promise.all([
-          firestore.collection('payments').get(),
-          firestore.collection('subscriptions').get()
-        ]);
-
-        let totalRevenue = 0;
-        let subscriptionRevenue = 0;
-        let customPlanRevenue = 0;
-        let regularPlanRevenue = 0;
-
-        // Calculate revenue from active subscriptions
-        subscriptionsSnapshot.docs.forEach(doc => {
-          const subData = doc.data();
-          if (subData.status === 'active') {
-            let amount = 0;
-            
-            if (subData.amount) {
-              amount = parseFloat(subData.amount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subData.price) {
-              amount = parseFloat(subData.price.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subData.cost) {
-              amount = parseFloat(subData.cost.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            } else if (subData.paymentAmount) {
-              amount = parseFloat(subData.paymentAmount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-            }
-            
-            if (amount > 0) {
-              subscriptionRevenue += amount;
-              totalRevenue += amount;
-              
-              if (subData.isCustomPlan || subData.serviceID === 'custom_plan' || subData.serviceName === 'Custom Plan') {
-                customPlanRevenue += amount;
-              }
-            }
-          }
-        });
-
-        // Calculate revenue from approved payments
-        paymentsSnapshot.docs.forEach(doc => {
-          const paymentData = doc.data();
-          if ((paymentData.status === 'approved' || paymentData.status === 'approved_verification') && paymentData.amount) {
-            const amount = parseFloat(paymentData.amount) || 0;
-            totalRevenue += amount;
-            regularPlanRevenue += amount;
-          }
-        });
-
-        // Create simple ASCII charts
-        const subscriptionPercentage = totalRevenue > 0 ? Math.round((subscriptionRevenue / totalRevenue) * 100) : 0;
-        const customPlanPercentage = totalRevenue > 0 ? Math.round((customPlanRevenue / totalRevenue) * 100) : 0;
-        const regularPlanPercentage = totalRevenue > 0 ? Math.round((regularPlanRevenue / totalRevenue) * 100) : 0;
-
-        const subscriptionBar = '█'.repeat(Math.floor(subscriptionPercentage / 5));
-        const customPlanBar = '█'.repeat(Math.floor(customPlanPercentage / 5));
-        const regularPlanBar = '█'.repeat(Math.floor(regularPlanPercentage / 5));
-
-        const message = `📈 **REVENUE CHARTS & ANALYTICS**\n\n` +
-          `💰 **Total Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n\n` +
-          `📊 **Revenue Distribution:**\n\n` +
-          `📱 **Active Subscriptions** (${subscriptionPercentage}%)\n` +
-          `${subscriptionBar} ETB ${subscriptionRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n\n` +
-          `🎯 **Custom Plans** (${customPlanPercentage}%)\n` +
-          `${customPlanBar} ETB ${customPlanRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n\n` +
-          `💳 **Approved Payments** (${regularPlanPercentage}%)\n` +
-          `${regularPlanBar} ETB ${regularPlanRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n\n` +
-          `📈 **Performance Insights:**\n` +
-          `• Primary Revenue Source: ${subscriptionRevenue > regularPlanRevenue ? 'Active Subscriptions' : 'Approved Payments'}\n` +
-          `• Custom Plans Contribution: ${customPlanPercentage}%\n` +
-          `• Revenue Efficiency: ${totalRevenue > 0 ? 'High' : 'Low'}`;
-
-        const keyboard = {
-          inline_keyboard: [
-            [{ text: '📊 Back to Revenue', callback_data: 'admin_revenue' }],
-            [{ text: '🔄 Refresh Charts', callback_data: 'revenue_charts' }]
-          ]
-        };
-
-        await ctx.editMessageText(message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
-        await ctx.answerCbQuery();
-
-             } catch (error) {
-         console.error('Error in revenue_charts:', error);
-         await ctx.answerCbQuery('❌ Error loading revenue charts');
-       }
-     });
-
-     // Download revenue JSON handler
-     bot.action('download_revenue_json', async (ctx) => {
-       try {
-         const isAdmin = await isAuthorizedAdmin(ctx);
-         if (!isAdmin) {
-           await ctx.answerCbQuery('❌ Access denied. Admin only.');
-           return;
-         }
-
-         // Get revenue data (same logic as export_revenue)
-         const [paymentsSnapshot, subscriptionsSnapshot] = await Promise.all([
-           firestore.collection('payments').get(),
-           firestore.collection('subscriptions').get()
-         ]);
-
-         let totalRevenue = 0;
-         let approvedPayments = 0;
-         let pendingPayments = 0;
-         let rejectedPayments = 0;
-         let customPlanRevenue = 0;
-         let regularPlanRevenue = 0;
-         let monthlyRevenue = 0;
-         let yearlyRevenue = 0;
-
-         // Add revenue from active subscriptions
-         let subscriptionRevenue = 0;
-         let processedAmounts = new Set();
-
-         subscriptionsSnapshot.docs.forEach(doc => {
-           const subData = doc.data();
-           if (subData.status === 'active') {
-             let amount = 0;
-             
-             if (subData.amount) {
-               amount = parseFloat(subData.amount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-             } else if (subData.price) {
-               amount = parseFloat(subData.price.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-             } else if (subData.cost) {
-               amount = parseFloat(subData.cost.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-             } else if (subData.paymentAmount) {
-               amount = parseFloat(subData.paymentAmount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
-             }
-             
-             if (amount > 0) {
-               subscriptionRevenue += amount;
-               totalRevenue += amount;
-               // Don't count active subscriptions as approved payments - they're separate
-               processedAmounts.add(amount);
-               
-               if (subData.isCustomPlan || subData.serviceID === 'custom_plan' || subData.serviceName === 'Custom Plan') {
-                 customPlanRevenue += amount;
-               }
-             }
-           }
-         });
-
-         // Add revenue from approved payments
-         paymentsSnapshot.docs.forEach(doc => {
-           const paymentData = doc.data();
-           if ((paymentData.status === 'approved' || paymentData.status === 'approved_verification') && paymentData.amount) {
-             const amount = parseFloat(paymentData.amount) || 0;
-             totalRevenue += amount;
-             approvedPayments++;
-             regularPlanRevenue += amount;
-           } else if (paymentData.status === 'pending' || paymentData.status === 'pending_verification') {
-             pendingPayments++;
-           } else if (paymentData.status === 'rejected' || paymentData.status === 'rejected_verification') {
-             rejectedPayments++;
-           }
-         });
-
-         // Create export data
-         const exportData = {
-           exportDate: new Date().toISOString(),
-           totalRevenue: totalRevenue,
-           breakdown: {
-             activeSubscriptions: subscriptionRevenue,
-             approvedPayments: regularPlanRevenue,
-             customPlans: customPlanRevenue,
-             monthlyRevenue: monthlyRevenue,
-             yearlyRevenue: yearlyRevenue
-           },
-           statistics: {
-             approvedPayments: approvedPayments,
-             pendingPayments: pendingPayments,
-             rejectedPayments: rejectedPayments
-           }
-         };
-
-         // Create JSON file content
-         const jsonContent = JSON.stringify(exportData, null, 2);
-         const fileName = `revenue_export_${new Date().toISOString().split('T')[0]}.json`;
-
-         // Send as document
-         await ctx.replyWithDocument({
-           source: Buffer.from(jsonContent, 'utf8'),
-           filename: fileName
-         }, {
-           caption: `📊 **Revenue Export Report**\n\n` +
-             `📅 **Date:** ${new Date().toLocaleDateString()}\n` +
-             `💰 **Total Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}\n` +
-             `📁 **File:** ${fileName}`
-         });
-
-         await ctx.answerCbQuery('✅ Revenue data exported successfully!');
-
-       } catch (error) {
-         console.error('Error in download_revenue_json:', error);
-         await ctx.answerCbQuery('❌ Error downloading revenue data');
-       }
-     });
-
-     // Admin subscriptions handler
-     bot.action('admin_subscriptions', async (ctx) => {
-       try {
-         const isAdmin = await isAuthorizedAdmin(ctx);
-         if (!isAdmin) {
-           await ctx.answerCbQuery('❌ Access denied. Admin only.');
-           return;
-         }
-
-         // Get user language
-         const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-         const userData = userDoc.data() || {};
-         const lang = userData.language || 'en';
-
-         // Get all subscriptions from Firestore
-         const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
-         
-         let activeCount = 0;
-         let pendingCount = 0;
-         let customPlanCount = 0;
-         let expiredCount = 0;
-         let totalCount = 0;
-
-         subscriptionsSnapshot.docs.forEach(doc => {
-           const subData = doc.data();
-           totalCount++;
-           
-           if (subData.status === 'active') {
-             activeCount++;
-           } else if (subData.status === 'pending') {
-             pendingCount++;
-           } else if (subData.status === 'rejected') {
-             expiredCount++;
-           }
-           
-           // Check if it's a custom plan
-           if (subData.isCustomPlan || subData.serviceID === 'custom_plan' || subData.serviceName === 'Custom Plan') {
-             customPlanCount++;
-           }
-         });
-
-         const message = `📊 **Subscription Management** 📊\n\n` +
-           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-           `📈 **Overview:**\n` +
-           `┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
-┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
-┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
-┃ 🎆 **Services:** ${totalServices} available
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
-           `🎯 **Quick Actions:**\n` +
-           `• View and manage active subscriptions\n` +
-           `• Review pending payment proofs\n` +
-           `• Process custom plan requests\n` +
-           `• Monitor expired subscriptions`;
-
-         const keyboard = {
-           inline_keyboard: [
-             [{ text: '🟢 Active Subscriptions', callback_data: 'admin_active_subscriptions' }],
-             [{ text: '🟡 Pending Subscriptions', callback_data: 'admin_pending_subscriptions' }],
-             [{ text: '🎯 Custom Plans', callback_data: 'admin_custom_plans' }],
-             [{ text: '🔴 Expired Subscriptions', callback_data: 'admin_expired_subscriptions' }],
-             [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-           ]
-         };
-
-         await ctx.editMessageText(message, {
-           parse_mode: 'Markdown',
-           reply_markup: keyboard
-         });
-         await ctx.answerCbQuery();
-
-       } catch (error) {
-         console.error('Error in admin_subscriptions:', error);
-         await ctx.answerCbQuery('❌ Error loading subscription management');
-       }
-     });
-
-     // Admin users handler
-     bot.action('admin_users', async (ctx) => {
-       try {
-         const isAdmin = await isAuthorizedAdmin(ctx);
-         if (!isAdmin) {
-           await ctx.answerCbQuery('❌ Access denied. Admin only.');
-           return;
-         }
-
-         // Get user language
-         const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-         const userData = userDoc.data() || {};
-         const lang = userData.language || 'en';
-
-         // Get all users from Firestore
-         const usersSnapshot = await firestore.collection('users').get();
-         const users = usersSnapshot.docs.map(doc => ({
-           id: doc.id,
-           ...doc.data()
-         }));
-
-         const totalUsers = users.length;
-         const verifiedUsers = users.filter(user => user.phoneVerified).length;
-         const unverifiedUsers = totalUsers - verifiedUsers;
-
-         const message = `👥 **User Management** 👥\n\n` +
-           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-           `📊 **User Statistics:**\n` +
-           `┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
-┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
-┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
-┃ 🎆 **Services:** ${totalServices} available
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
-           `🎯 **Quick Actions:**\n` +
-           `• View all users\n` +
-           `• Manage user verification\n` +
-           `• User statistics`;
-
-         const keyboard = {
-           inline_keyboard: [
-             [{ text: '👥 View All Users', callback_data: 'view_all_users' }],
-             [{ text: '✅ Verified Users', callback_data: 'view_verified_users' }],
-             [{ text: '⏳ Unverified Users', callback_data: 'view_unverified_users' }],
-             [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-           ]
-         };
-
-         await ctx.editMessageText(message, {
-           parse_mode: 'Markdown',
-           reply_markup: keyboard
-         });
-         await ctx.answerCbQuery();
-
-       } catch (error) {
-         console.error('Error in admin_users:', error);
-         await ctx.answerCbQuery('❌ Error loading user management');
-       }
-     });
-
-     // Admin performance handler
-     bot.action('admin_performance', async (ctx) => {
-       try {
-         const isAdmin = await isAuthorizedAdmin(ctx);
-         if (!isAdmin) {
-           await ctx.answerCbQuery('❌ Access denied. Admin only.');
-           return;
-         }
-
-         // Get user language
-         const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-         const userData = userDoc.data() || {};
-         const lang = userData.language || 'en';
-
-         // Get performance metrics
-         const metrics = performanceMonitor.getMetrics();
-
-         const message = `📊 **Performance Metrics** 📊\n\n` +
-           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-           `⏱️ **System Performance:**\n` +
-           `┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
-┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
-┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
-┃ 🎆 **Services:** ${totalServices} available
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
-           `💾 **Resource Usage:**\n` +
-           `┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
-┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
-┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
-┃ 🎆 **Services:** ${totalServices} available
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
-           `❌ **Errors:** ${metrics.errors}`;
-
-         const keyboard = {
-           inline_keyboard: [
-             [{ text: '🔄 Refresh Metrics', callback_data: 'admin_performance' }],
-             [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-           ]
-         };
-
-         await ctx.editMessageText(message, {
-           parse_mode: 'Markdown',
-           reply_markup: keyboard
-         });
-         await ctx.answerCbQuery();
-
-       } catch (error) {
-         console.error('Error in admin_performance:', error);
-         await ctx.answerCbQuery('❌ Error loading performance metrics');
-       }
-     });
-
-     // Admin broadcast handler
-     bot.action('admin_broadcast', async (ctx) => {
-       try {
-         const isAdmin = await isAuthorizedAdmin(ctx);
-         if (!isAdmin) {
-           await ctx.answerCbQuery('❌ Access denied. Admin only.');
-           return;
-         }
-
-         // Get user language
-         const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-         const userData = userDoc.data() || {};
-         const lang = userData.language || 'en';
-
-         const message = `📢 **Broadcast Message** 📢\n\n` +
-           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-           `📝 **Send a message to all users:**\n\n` +
-           `💡 **Instructions:**\n` +
-           `• Type your message below\n` +
-           `• Use /broadcast <message> to send\n` +
-           `• Example: /broadcast Hello everyone!`;
-
-         const keyboard = {
-           inline_keyboard: [
-             [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-           ]
-         };
-
-         await ctx.editMessageText(message, {
-           parse_mode: 'Markdown',
-           reply_markup: keyboard
-         });
-         await ctx.answerCbQuery();
-
-       } catch (error) {
-         console.error('Error in admin_broadcast:', error);
-         await ctx.answerCbQuery('❌ Error loading broadcast panel');
-       }
-     });
-
-     // Admin add service handler
-     bot.action('admin_add_service', async (ctx) => {
-       try {
-         const isAdmin = await isAuthorizedAdmin(ctx);
-         if (!isAdmin) {
-           await ctx.answerCbQuery('❌ Access denied. Admin only.');
-           return;
-         }
-
-         // Get user language
-         const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-         const userData = userDoc.data() || {};
-         const lang = userData.language || 'en';
-
-         const message = `➕ **Add New Service** ➕\n\n` +
-           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-           `📝 **Add a new streaming service:**\n\n` +
-           `💡 **Instructions:**\n` +
-           `• Use /addservice command to add new service\n` +
-           `• Format: /addservice <service_name> <price>\n` +
-           `• Example: /addservice Disney+ 250`;
-
-         const keyboard = {
-           inline_keyboard: [
-             [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-           ]
-         };
-
-         await ctx.editMessageText(message, {
-           parse_mode: 'Markdown',
-           reply_markup: keyboard
-         });
-         await ctx.answerCbQuery();
-
-       } catch (error) {
-         console.error('Error in admin_add_service:', error);
-         await ctx.answerCbQuery('❌ Error loading add service panel');
-       }
-     });
-
-     // Admin panel button handler (for callback_data: 'admin')
-     bot.action('admin', async (ctx) => {
-       console.log("🔑 ADMIN PANEL BUTTON triggered from user:", ctx.from.id);
-       
-       try {
-         console.log("🔍 Checking admin status for user:", ctx.from.id);
-         const isAdmin = await isAuthorizedAdmin(ctx);
-         console.log("🔍 Admin check result:", isAdmin);
-         
-         if (!isAdmin) {
-           console.log("❌ Access denied for user:", ctx.from.id);
-           const lang = 'en'; // Fallback language
-           await ctx.answerCbQuery(t('access_denied', lang));
-           return;
-         }
-         
-         console.log("✅ Admin access granted for user:", ctx.from.id);
-         
-         // Get user's language preference first
-         const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-         const userData = userDoc.data() || {};
-         const lang = userData.language || 'en';
-         
-         // Load real-time statistics
-         const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, servicesSnapshot] = await Promise.all([
-           firestore.collection('users').get(),
-           firestore.collection('subscriptions').get(),
-           firestore.collection('payments').get(),
-           firestore.collection('services').get()
-         ]);
-
-         // Calculate statistics
-        const totalUsers = usersSnapshot.size;
-        const verifiedUsers = usersSnapshot.docs.filter(doc => doc.data().phoneVerified).length;
-        const unverifiedUsers = totalUsers - verifiedUsers;
-        
-        const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
-          const subData = doc.data();
-          return subData.status === 'active';
-        }).length;
-        const pendingSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
-          const subData = doc.data();
-          return subData.status === 'pending';
-        }).length;
-        
-        const totalPayments = paymentsSnapshot.size;
-        const pendingPayments = paymentsSnapshot.docs.filter(doc => {
-          const payData = doc.data();
-          return payData.status === 'pending';
-        }).length;
-        
-        const totalServices = servicesSnapshot.size;
-
-         const adminMessage = `🌟 **BirrPay Admin Dashboard** 🌟
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-👋 **Welcome back, Administrator!**
-
-📊 **Real-Time Analytics**
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
-┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
-┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
-┃ 🎆 **Services:** ${totalServices} available
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-🔧 **Management Center** - Complete control over your platform`;
-
-         const keyboard = {
-           inline_keyboard: [
-             [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
-             [{ text: '🔧 Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
-             [{ text: '💰 Revenue Management', callback_data: 'admin_payments' }, { text: '💳 Payment Methods', callback_data: 'admin_payment_methods' }],
-             [{ text: '📊 Performance', callback_data: 'admin_performance' }],
-             [{ text: '📢 Broadcast Message', callback_data: 'admin_broadcast' }],
-             [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
-           ]
-         };
-
-         await ctx.editMessageText(adminMessage, {
-           parse_mode: 'Markdown',
-           reply_markup: keyboard
-         });
-         
-         await ctx.answerCbQuery();
-       } catch (error) {
-         console.error('Error in admin panel button:', error);
-         const lang = 'en'; // Fallback language
-         await ctx.answerCbQuery(t('error_loading_admin', lang));
-       }
-     });
-
-     // Add debug middleware to see all commands (only in debug mode)
+    // Add debug middleware to see all commands (only in debug mode)
     if (process.env.DEBUG_MODE === 'true') {
     bot.use(async (ctx, next) => {
         console.log('🔍 Bot middleware processing update');
@@ -2029,7 +724,7 @@ process.on('unhandledRejection', (reason, promise) => {
       }
         if (ctx.callbackQuery) {
           console.log(`🔄 Callback: "${ctx.callbackQuery.data}" from user ${ctx.from.id}`);
-        }
+      }
       return next();
     });
     }
@@ -2339,7 +1034,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
     supportHandler(bot);
     helpHandler(bot);
     mySubscriptionsHandler(bot);
-    adminHandler(bot);
+    adminHandler(bot); // This registers all working admin handlers from src/handlers/admin.js
     
     // Enhanced language handlers with persistence
     console.log("🌐 Setting up enhanced language handlers...");
@@ -2532,8 +1227,10 @@ You don't have any subscriptions yet. To start a new subscription, please select
       }
     });
 
-    // Refresh admin panel handler
+    // Refresh admin panel handler - same as back_to_admin
     bot.action('refresh_admin', async (ctx) => {
+      console.log("🔄 REFRESH ADMIN triggered from user:", ctx.from.id);
+      
       try {
         const isAdmin = await isAuthorizedAdmin(ctx);
         
@@ -2543,10 +1240,10 @@ You don't have any subscriptions yet. To start a new subscription, please select
         }
         
         // Load real-time statistics
-        const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, servicesSnapshot] = await Promise.all([
+        const [usersSnapshot, subscriptionsSnapshot, pendingPaymentsSnapshot, servicesSnapshot] = await Promise.all([
           firestore.collection('users').get(),
           firestore.collection('subscriptions').get(),
-          firestore.collection('payments').get(),
+          firestore.collection('pendingPayments').get(),
           firestore.collection('services').get()
         ]);
 
@@ -2564,11 +1261,14 @@ You don't have any subscriptions yet. To start a new subscription, please select
           return subData.status === 'pending';
         }).length;
         
-        const totalPayments = paymentsSnapshot.size;
-        const pendingPayments = paymentsSnapshot.docs.filter(doc => {
+        // Count pending payments (users who uploaded proof but waiting for approval)
+        const pendingPayments = pendingPaymentsSnapshot.docs.filter(doc => {
           const payData = doc.data();
-          return payData.status === 'pending';
+          return payData.status === 'pending' || payData.status === 'proof_submitted';
         }).length;
+        
+        // Count total payment transactions
+        const totalPayments = pendingPaymentsSnapshot.size;
         
         const totalServices = servicesSnapshot.size;
 
@@ -2582,7 +1282,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
 ┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
-┃ 💳 **Payments:** ${totalPayments} total • ${pendingPayments} pending
+┃ 💳 **Payment Proofs:** ${totalPayments} total • ${pendingPayments} awaiting approval
 ┃ 🎆 **Services:** ${totalServices} available
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
@@ -2592,7 +1292,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
           inline_keyboard: [
             [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
             [{ text: '🔧 Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
-            [{ text: '💰 Revenue Management', callback_data: 'admin_payments' }, { text: '💳 Payment Methods', callback_data: 'admin_payment_methods' }],
+            [{ text: '💰 Revenue Management', callback_data: 'admin_revenue' }, { text: '💳 Payment Methods', callback_data: 'admin_payment_methods' }],
             [{ text: '📊 Performance', callback_data: 'admin_performance' }],
             [{ text: '📢 Broadcast Message', callback_data: 'admin_broadcast' }],
             [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
@@ -2606,189 +1306,88 @@ You don't have any subscriptions yet. To start a new subscription, please select
         
         await ctx.answerCbQuery();
       } catch (error) {
-        console.error('Error loading admin panel:', error);
-        performanceMonitor.trackError(error, 'admin-panel-load');
-        await ctx.answerCbQuery('❌ Error loading admin panel');
+        console.error('Error refreshing admin panel:', error);
+        performanceMonitor.trackError(error, 'admin-panel-refresh');
+        await ctx.answerCbQuery('❌ Error refreshing panel');
       }
     });
 
     // Service management with pagination handlers
     console.log("📄 Setting up service management with pagination...");
     
-    // Service management with pagination
-    bot.action('admin_manage_services', async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery(t('access_denied', lang));
-          return;
-        }
+    // Service pagination is handled by adminHandler
 
-        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-        const userData = userDoc.data() || {};
-        const lang = userData.language || 'en';
+    // Setup start handler
+    console.log("🔧 Registering enhanced help command handler");
+    setupStartHandler(bot);
 
-        // Get all services from Firestore
-        const servicesSnapshot = await firestore.collection('services').get();
-        const services = servicesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+    // Setup subscribe handler
+    setupSubscribeHandler(bot);
 
-        if (services.length === 0) {
-          await ctx.editMessageText(t('no_services', lang), {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [[
-                { text: t('back_to_admin', lang), callback_data: 'back_to_admin' }
-              ]]
-            }
-          });
-          return;
-        }
+    // Setup language handler
+    langHandler(bot);
 
-        // Show first page
-        await showServicesPage(ctx, services, 0, lang);
-        
-      } catch (error) {
-        console.error('Error in admin_manage_services:', error);
-        await ctx.answerCbQuery(t('error_loading_services', lang));
-      }
-    });
+    // Setup FAQ handler
+    faqHandler(bot);
 
-    // Pagination handlers
-    bot.action(/^services_page_(\d+)$/, async (ctx) => {
-      try {
-        const isAdmin = await isAuthorizedAdmin(ctx);
-        if (!isAdmin) {
-          await ctx.answerCbQuery('❌ Access denied');
-          return;
-        }
+    // Setup my subscriptions handler
+    mySubscriptionsHandler(bot);
 
-        const page = parseInt(ctx.match[1]);
-        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-        const userData = userDoc.data() || {};
-        const lang = userData.language || 'en';
+    // Setup cancel subscription handler
+    cancelSubscriptionHandler(bot);
 
-        // Get all services from Firestore
-        const servicesSnapshot = await firestore.collection('services').get();
-        const services = servicesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+    // Setup screenshot upload handler
+    screenshotUploadHandler(bot);
 
-        await showServicesPage(ctx, services, page, lang);
-        
-      } catch (error) {
-        console.error('Error in services_page:', error);
-        await ctx.answerCbQuery(t('error_loading_page', lang));
-      }
-    });
+    // Setup admin payment handlers
+    registerAdminPaymentHandlers(bot);
 
-    // Helper function to show services page
-    async function showServicesPage(ctx, services, page, lang) {
-      const itemsPerPage = 5;
-      const totalPages = Math.ceil(services.length / itemsPerPage);
-      const startIndex = page * itemsPerPage;
-      const endIndex = startIndex + itemsPerPage;
-      const pageServices = services.slice(startIndex, endIndex);
+    // Setup firestore listener
+    firestoreListener(bot);
 
-      let message = t('services_title', lang) + '\n\n';
-      
-      pageServices.forEach((service, index) => {
-        const status = service.status === 'active' ? '🟢' : '🔴';
-        const price = service.price ? `$${service.price}` : 'N/A';
-        message += `${startIndex + index + 1}. ${status} **${service.name}**\n`;
-        message += `   ${t('service_price', lang).replace('{price}', price)}\n`;
-        message += `   ${t('service_id', lang).replace('{id}', service.id)}\n\n`;
-      });
+    // Setup help handler
+    helpHandler(bot);
 
-      message += t('pagination_info', lang)
-        .replace('{current}', page + 1)
-        .replace('{total}', totalPages);
+    // Setup expiration reminder
+    // expirationReminder.setupHandlers(bot); // Not available in this version
 
-      const keyboard = [];
-      
-      // Navigation buttons
-      const navRow = [];
-      if (page > 0) {
-        navRow.push({ text: t('previous_page', lang), callback_data: `services_page_${page - 1}` });
-      }
-      if (page < totalPages - 1) {
-        navRow.push({ text: t('next_page', lang), callback_data: `services_page_${page + 1}` });
-      }
-      if (navRow.length > 0) {
-        keyboard.push(navRow);
-      }
+    // Setup scheduler
+    startScheduler();
 
-      // Back button
-              keyboard.push([{ text: t('back_to_admin', lang), callback_data: 'back_to_admin' }]);
+    // Setup keep alive manager
+    keepAliveManager.start();
 
-      await ctx.editMessageText(message, {
-        parse_mode: 'Markdown',
-        reply_markup: { inline_keyboard: keyboard }
-      });
-    }
+    // Setup resilience manager
+    // resilienceManager.start(); // Not available in this version
 
-    // Start HTTP server for Render health checks and webhook
-    const PORT = process.env.PORT || 10000;
-    console.log(`🔧 PORT environment variable: ${process.env.PORT}`);
-    console.log(`🔧 Using port: ${PORT}`);
+    // Setup performance monitoring
+    performanceMonitor.start();
+
+    // Setup webhook server
     const server = createServer((req, res) => {
-      if (req.url === '/health') {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      
+      // Health check endpoint
+      if (url.pathname === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
-          status: 'healthy',
+          status: 'ok', 
           timestamp: new Date().toISOString(),
           uptime: process.uptime(),
           memory: process.memoryUsage(),
-          platform: 'render-free-tier',
-          botStatus: 'running',
-          webhook: {
-            url: process.env.WEBHOOK_URL || 'https://bpayb.onrender.com/telegram',
-            mode: 'webhook',
-            responseTime: '50-100ms',
-            status: 'active'
-          },
-          endpoints: {
-            health: '/health',
-            webhook: '/webhook',
-            status: '/'
-          }
+          performance: performanceMonitor.getMetrics()
         }));
-      } else if (req.url === '/') {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(`
-          <html>
-            <head><title>BirrPay Bot - Render</title></head>
-            <body>
-              <h1>🚀 BirrPay Bot is Running!</h1>
-              <p>Status: <strong>Online</strong></p>
-              <p>Platform: <strong>Render Free Tier</strong></p>
-              <p>Uptime: <strong>${Math.floor(process.uptime() / 3600)} hours</strong></p>
-              <p>Memory Usage: <strong>${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB</strong></p>
-              <p>Capacity: <strong>1,000+ simultaneous users</strong></p>
-              <p>Mode: <strong>Webhook (50-100ms response)</strong></p>
-              <hr>
-              <p><em>Keep-alive system active - running 24/7</em></p>
-            </body>
-          </html>
-        `);
-      } else if (req.url === '/webhook') {
-        // Handle webhook requests
-        console.log('📥 Webhook request received');
-        
-        // Log request details for debugging
-        console.log('📋 Request method:', req.method);
-        console.log('📋 Content-Type:', req.headers['content-type']);
-        
-        // Properly handle webhook with body parsing
+        return;
+      }
+      
+      // Webhook endpoint
+      if (url.pathname === '/telegram') {
         let body = '';
         req.on('data', chunk => {
           body += chunk.toString();
         });
         
-        req.on('end', () => {
+        req.on('end', async () => {
           try {
             console.log('📋 Raw webhook body:', body);
             const update = JSON.parse(body);
@@ -2807,8 +1406,6 @@ You don't have any subscriptions yet. To start a new subscription, please select
         res.end('Not Found');
       }
     });
-
-
 
     // Start the bot with webhooks for Render
     console.log("🚀 Starting bot with webhooks for Render deployment...");

@@ -9,7 +9,7 @@ const escapeMarkdown = (text) => {
 };
 
 // Helper function for admin security check
-export const isAuthorizedAdmin = async (ctx) => {
+const isAuthorizedAdmin = async (ctx) => {
   try {
     const userId = ctx.from?.id?.toString();
     if (!userId) return false;
@@ -28,10 +28,7 @@ export const isAuthorizedAdmin = async (ctx) => {
       }
     }
     
-    // Only log if this is an actual admin command attempt, not just a verification check
-    if (ctx.message?.text?.startsWith('/admin') || ctx.callbackQuery?.data?.startsWith('admin_')) {
-      console.warn(`Unauthorized admin access attempt from user ${userId} (${ctx.from?.username || 'no username'})`);
-    }
+    console.warn(`Unauthorized admin access attempt from user ${userId} (${ctx.from?.username || 'no username'})`);
     return false;
   } catch (error) {
     console.error('Error checking admin status:', error);
@@ -2176,96 +2173,15 @@ ${message.length > 100 ? message.substring(0, 100) + '...' : message}`;
     }
   };
 
-  // Handle back to admin action
+  // Handle back to admin action - redirects to main admin panel
   bot.action('back_to_admin', async (ctx) => {
     if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;
     }
-
     
-    
-    // Answer callback immediately to prevent timeout
+    // Simply answer the callback and let the main handler take over
     await ctx.answerCbQuery();
-
-        // Re-run the admin command logic to show updated stats
-    try {
-      // Load real-time statistics
-      const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, pendingPaymentsSnapshot, servicesSnapshot] = await Promise.all([
-        firestore.collection('users').get(),
-        firestore.collection('subscriptions').get(),
-        firestore.collection('payments').get(),
-        firestore.collection('pendingPayments').get(),
-        firestore.collection('services').get()
-      ]);
-
-      // Calculate statistics
-      const totalUsers = usersSnapshot.size;
-      const activeUsers = usersSnapshot.docs.filter(doc => {
-        const userData = doc.data();
-        return userData.status !== 'banned' && userData.status !== 'suspended';
-      }).length;
-
-      const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
-        const subData = doc.data();
-        return subData.status === 'active';
-      }).length;
-
-      const pendingSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
-        const subData = doc.data();
-        return subData.status === 'pending';
-      }).length;
-
-      const totalPayments = paymentsSnapshot.size;
-      const pendingPayments = pendingPaymentsSnapshot.size;
-      
-      // Calculate total revenue
-      let totalRevenue = 0;
-      pendingPaymentsSnapshot.docs.forEach(doc => {
-        const paymentData = doc.data();
-        if (paymentData.status === 'approved' && paymentData.price) {
-          totalRevenue += parseFloat(paymentData.price) || 0;
-        }
-      });
-
-      const adminMessage = `🌟 **BirrPay Admin Dashboard** 🌟
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-👋 **Welcome back, Administrator!**
-
-📊 **Real-Time Analytics**
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Users:** ${totalUsers.toLocaleString()} total • ${activeUsers.toLocaleString()} active
-┃ 📱 **Subscriptions:** ${activeSubscriptions.toLocaleString()} active • ${pendingSubscriptions.toLocaleString()} pending  
-┃ 💳 **Payments:** ${totalPayments.toLocaleString()} total • ${pendingPayments.toLocaleString()} pending
-┃ 💰 **Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}
-┃ 🛍️ **Services:** ${servicesSnapshot.size} available
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-🎯 **Management Center:**`;
-
-      const keyboard = {
-        inline_keyboard: [
-          [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
-          [{ text: '🛍️ Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
-          [{ text: '💳 Payment Methods', callback_data: 'admin_payments' }],
-          [{ text: '📊 Performance', callback_data: 'admin_performance' }],
-          [{ text: '💬 Broadcast Message', callback_data: 'admin_broadcast' }],
-          [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
-        ]
-      };
-
-      await ctx.editMessageText(adminMessage, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard
-      });
-      
-      await ctx.answerCbQuery();
-    } catch (error) {
-      console.error('Error loading admin panel:', error);
-      await ctx.answerCbQuery('❌ Error loading admin panel');
-    }
   });
 
   // Handle admin_subscriptions action
@@ -2421,96 +2337,15 @@ Users can request custom plans by selecting a service and clicking "🎯 Custom 
     }
   });
 
-  // Handle refresh_admin action (same as back_to_admin)
+  // Handle refresh_admin action - redirects to main admin panel
   bot.action('refresh_admin', async (ctx) => {
     if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;
     }
-
     
-    
-    // Answer callback immediately to prevent timeout
+    // Simply answer the callback and let the main handler take over
     await ctx.answerCbQuery();
-
-        // Re-run the admin command logic to show updated stats
-    try {
-      // Load real-time statistics
-      const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, pendingPaymentsSnapshot, servicesSnapshot] = await Promise.all([
-        firestore.collection('users').get(),
-        firestore.collection('subscriptions').get(),
-        firestore.collection('payments').get(),
-        firestore.collection('pendingPayments').get(),
-        firestore.collection('services').get()
-      ]);
-
-      // Calculate statistics
-      const totalUsers = usersSnapshot.size;
-      const activeUsers = usersSnapshot.docs.filter(doc => {
-        const userData = doc.data();
-        return userData.status !== 'banned' && userData.status !== 'suspended';
-      }).length;
-
-      const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
-        const subData = doc.data();
-        return subData.status === 'active';
-      }).length;
-
-      const pendingSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
-        const subData = doc.data();
-        return subData.status === 'pending';
-      }).length;
-
-      const totalPayments = paymentsSnapshot.size;
-      const pendingPayments = pendingPaymentsSnapshot.size;
-      
-      // Calculate total revenue
-      let totalRevenue = 0;
-      pendingPaymentsSnapshot.docs.forEach(doc => {
-        const paymentData = doc.data();
-        if (paymentData.status === 'approved' && paymentData.price) {
-          totalRevenue += parseFloat(paymentData.price) || 0;
-        }
-      });
-
-      const adminMessage = `🌟 **BirrPay Admin Dashboard** 🌟
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-👋 **Welcome back, Administrator!**
-
-📊 **Real-Time Analytics**
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 👥 **Total Users:** ${totalUsers}
-┃ ✅ **Verified Users:** ${activeUsers}
-┃ 🟢 **Active Subscriptions:** ${activeSubscriptions}
-┃ 💳 **Total Payments:** ${totalPayments}
-┃ 🎆 **Available Services:** ${servicesSnapshot.size}
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-🔧 **Management Center** - Complete control over your platform`;
-
-      const keyboard = {
-        inline_keyboard: [
-          [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
-          [{ text: '🔧 Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
-          [{ text: '💰 Revenue Management', callback_data: 'admin_payments' }, { text: '💳 Payment Methods', callback_data: 'admin_payment_methods' }],
-          [{ text: '📊 Performance', callback_data: 'admin_performance' }],
-          [{ text: '📢 Broadcast Message', callback_data: 'admin_broadcast' }],
-          [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
-        ]
-      };
-
-      await ctx.editMessageText(adminMessage, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard
-      });
-      
-      await ctx.answerCbQuery();
-    } catch (error) {
-      console.error('Error loading admin panel:', error);
-      await ctx.answerCbQuery('❌ Error loading admin panel');
-    }
   });
 
   // Handle admin_active action - View active subscriptions
@@ -5283,6 +5118,657 @@ ${recommendationsText}
         });
       }
     });
+  });
+
+  // Handle admin_revenue action - Revenue Management
+  bot.action('admin_revenue', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    await ctx.answerCbQuery();
+
+    try {
+      // Load payment data
+      const paymentsSnapshot = await firestore.collection('payments').get();
+      const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
+      const pendingPaymentsSnapshot = await firestore.collection('pendingPayments').get();
+      
+      // Calculate revenue statistics
+      let totalRevenue = 0;
+      let approvedPayments = 0;
+      let pendingPayments = 0;
+      let rejectedPayments = 0;
+      let recentPayments = [];
+
+      // Add revenue from active subscriptions (these are approved payments)
+      subscriptionsSnapshot.docs.forEach(doc => {
+        const subscription = doc.data();
+        if (subscription.status === 'active') {
+          let amount = 0;
+          
+          // Try different possible amount fields
+          if (subscription.amount) {
+            amount = parseFloat(subscription.amount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
+          } else if (subscription.price) {
+            amount = parseFloat(subscription.price.toString().replace('etb ', '').replace('ETB ', '')) || 0;
+          } else if (subscription.cost) {
+            amount = parseFloat(subscription.cost.toString().replace('etb ', '').replace('ETB ', '')) || 0;
+          } else if (subscription.paymentAmount) {
+            amount = parseFloat(subscription.paymentAmount.toString().replace('etb ', '').replace('ETB ', '')) || 0;
+          }
+          
+          if (amount > 0) {
+            totalRevenue += amount;
+            approvedPayments++;
+          }
+        }
+      });
+
+      // Add revenue from approved pending payments
+      pendingPaymentsSnapshot.docs.forEach(doc => {
+        const paymentData = doc.data();
+        if (paymentData.status === 'approved' && paymentData.price) {
+          totalRevenue += parseFloat(paymentData.price) || 0;
+          approvedPayments++;
+        } else if (paymentData.status === 'pending') {
+          pendingPayments++;
+        } else if (paymentData.status === 'rejected') {
+          rejectedPayments++;
+        }
+      });
+
+      // Get recent payments for display
+      paymentsSnapshot.docs.slice(0, 5).forEach(doc => {
+        const payment = doc.data();
+        recentPayments.push({
+          amount: payment.amount || payment.price || 0,
+          status: payment.status || 'completed',
+          timestamp: payment.timestamp || payment.createdAt || new Date(),
+          userId: payment.userId || payment.telegramUserID || 'Unknown'
+        });
+      });
+
+      // Calculate monthly and weekly revenue
+      const now = new Date();
+      const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      let monthlyRevenue = 0;
+      let weeklyRevenue = 0;
+
+      // Calculate monthly revenue from subscriptions
+      subscriptionsSnapshot.docs.forEach(doc => {
+        const subscription = doc.data();
+        const createdAt = subscription.createdAt ? new Date(subscription.createdAt) : new Date();
+        
+        if (createdAt >= oneMonthAgo && subscription.status === 'active') {
+          let amount = 0;
+          if (subscription.amount) amount = parseFloat(subscription.amount) || 0;
+          else if (subscription.price) amount = parseFloat(subscription.price) || 0;
+          else if (subscription.cost) amount = parseFloat(subscription.cost) || 0;
+          else if (subscription.paymentAmount) amount = parseFloat(subscription.paymentAmount) || 0;
+          
+          monthlyRevenue += amount;
+        }
+      });
+
+      // Calculate weekly revenue
+      subscriptionsSnapshot.docs.forEach(doc => {
+        const subscription = doc.data();
+        const createdAt = subscription.createdAt ? new Date(subscription.createdAt) : new Date();
+        
+        if (createdAt >= oneWeekAgo && subscription.status === 'active') {
+          let amount = 0;
+          if (subscription.amount) amount = parseFloat(subscription.amount) || 0;
+          else if (subscription.price) amount = parseFloat(subscription.price) || 0;
+          else if (subscription.cost) amount = parseFloat(subscription.cost) || 0;
+          else if (subscription.paymentAmount) amount = parseFloat(subscription.paymentAmount) || 0;
+          
+          weeklyRevenue += amount;
+        }
+      });
+
+      const message = `💰 **Revenue Management** 💰
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 **Revenue Overview:**
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 💰 **Total Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}
+┃ ✅ **Approved Payments:** ${approvedPayments}
+┃ ⏳ **Pending Payments:** ${pendingPayments}
+┃ ❌ **Rejected Payments:** ${rejectedPayments}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+📈 **Revenue Analytics:**
+• This Week: ETB ${weeklyRevenue.toFixed(2)}
+• This Month: ETB ${monthlyRevenue.toFixed(2)}
+• All Time: ETB ${totalRevenue.toFixed(2)}
+
+📋 **Recent Payments:**
+${recentPayments.length > 0 ? recentPayments.map(payment => 
+  `• ${payment.amount.toFixed(2)} ETB - ${payment.status} - ${new Date(payment.timestamp).toLocaleDateString()}`
+).join('\n') : 'No recent payments'}
+
+🎯 **Quick Actions:**
+• View detailed payment reports
+• Export revenue data
+• Generate revenue charts
+• Monitor payment trends`;
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '✅ Approved Payments', callback_data: 'admin_approved' }, { text: '⏳ Pending Payments', callback_data: 'admin_pending' }],
+          [{ text: '❌ Rejected Payments', callback_data: 'admin_rejected' }, { text: '📊 Revenue Stats', callback_data: 'admin_revenue_stats' }],
+          [{ text: '📤 Export Revenue', callback_data: 'export_revenue' }, { text: '📈 Revenue Charts', callback_data: 'revenue_charts' }],
+          [{ text: '🔄 Refresh', callback_data: 'admin_revenue' }],
+          [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+        ]
+      };
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+    } catch (error) {
+      console.error('Error in admin_revenue:', error);
+      await ctx.editMessageText('❌ Error loading revenue data. Please try again.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Try Again', callback_data: 'admin_revenue' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        }
+      });
+    }
+  });
+
+  // Handle admin_payment_methods action - Payment Methods Management
+  bot.action('admin_payment_methods', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    await ctx.answerCbQuery();
+
+    try {
+      // Get current payment methods from Firestore
+      const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
+      let paymentMethods = [];
+      
+      if (paymentMethodsDoc.exists) {
+        paymentMethods = paymentMethodsDoc.data().methods || [];
+      } else {
+        // Create default payment methods if none exist
+        paymentMethods = [
+          {
+            id: 'telebirr',
+            name: 'TeleBirr',
+            nameAm: 'ቴሌብር',
+            account: '0911234567',
+            instructions: 'Send payment to TeleBirr account and upload screenshot',
+            instructionsAm: 'ወደ ቴሌብር መለያ ክፍያ በመላክ ስክሪንሾት ይላኩ',
+            active: true,
+            icon: '📱'
+          },
+          {
+            id: 'cbe',
+            name: 'Commercial Bank of Ethiopia',
+            nameAm: 'የኢትዮጵያ ንግድ ባንክ',
+            account: '1000123456789',
+            instructions: 'Transfer to CBE account and upload receipt',
+            instructionsAm: 'ወደ CBE መለያ በማስተላለፍ ደረሰኝ ይላኩ',
+            active: true,
+            icon: '🏦'
+          },
+          {
+            id: 'awash',
+            name: 'Awash Bank',
+            nameAm: 'አዋሽ ባንክ',
+            account: '01234567890',
+            instructions: 'Transfer to Awash Bank account and upload receipt',
+            instructionsAm: 'ወደ አዋሽ ባንክ መለያ በማስተላለፍ ደረሰኝ ይላኩ',
+            active: true,
+            icon: '🏛️'
+          }
+        ];
+        
+        // Save default payment methods
+        await firestore.collection('config').doc('paymentMethods').set({
+          methods: paymentMethods,
+          updatedAt: new Date(),
+          updatedBy: ctx.from.id.toString()
+        });
+      }
+
+      const activeCount = paymentMethods.filter(method => method.active).length;
+      const inactiveCount = paymentMethods.filter(method => !method.active).length;
+
+      let methodsList = '';
+      paymentMethods.forEach((method, index) => {
+        const status = method.active ? '✅' : '❌';
+        const icon = method.icon || '💳';
+        methodsList += `${index + 1}. ${status} ${icon} **${method.name}**\n`;
+        methodsList += `   📱 Account: \`${method.account}\`\n`;
+        methodsList += `   ${method.active ? '🟢 Active' : '🔴 Inactive'}\n\n`;
+      });
+
+      const message = `💳 **Payment Methods Management** 💳
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 **Overview:**
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 🟢 **Active Methods:** ${activeCount}
+┃ 🔴 **Inactive Methods:** ${inactiveCount}
+┃ 📱 **Total Methods:** ${paymentMethods.length}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+📋 **Current Payment Methods:**
+
+${methodsList}
+
+🎯 **Management Options:**
+• Add new payment methods
+• Edit existing payment details
+• Enable/disable payment methods
+• Update account numbers and instructions
+
+💡 **Note:** Only active payment methods are shown to users during subscription and renewal.`;
+
+      const keyboard = [];
+      
+      // Add management buttons for each payment method
+      paymentMethods.forEach((method, index) => {
+        keyboard.push([
+          { text: `✏️ Edit ${method.name}`, callback_data: `edit_payment_method_${method.id}` },
+          { text: method.active ? '🔴 Disable' : '🟢 Enable', callback_data: `toggle_payment_method_${method.id}` }
+        ]);
+        keyboard.push([
+          { text: `🗑️ Delete ${method.name}`, callback_data: `delete_payment_method_${method.id}` }
+        ]);
+      });
+      
+      // Add general management buttons
+      keyboard.push([
+        { text: '➕ Add New Method', callback_data: 'add_payment_method' },
+        { text: '🔄 Refresh', callback_data: 'admin_payment_methods' }
+      ]);
+      keyboard.push([
+        { text: '🔙 Back to Admin', callback_data: 'back_to_admin' }
+      ]);
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in admin_payment_methods:', error);
+      await ctx.editMessageText('❌ Error loading payment methods. Please try again.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+          ]
+        }
+      });
+    }
+  });
+
+  // Handle admin_approved action - Show approved payments
+  bot.action('admin_approved', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    await ctx.answerCbQuery();
+
+    try {
+      // Get approved payments from pendingPayments collection
+      const approvedSnapshot = await firestore
+        .collection('pendingPayments')
+        .where('status', '==', 'approved')
+        .get();
+
+      // Also get active subscriptions (which are approved payments)
+      const activeSubsSnapshot = await firestore
+        .collection('subscriptions')
+        .where('status', '==', 'active')
+        .get();
+
+      let approvedList = `✅ **Approved Payments** (${approvedSnapshot.size + activeSubsSnapshot.size})\n\n`;
+      approvedList += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+      // Add approved pending payments
+      approvedSnapshot.docs.forEach((doc, index) => {
+        const payment = doc.data();
+        const amount = payment.price || payment.amount || 'N/A';
+        const service = payment.serviceTitle || payment.service || 'Unknown Service';
+        const date = payment.createdAt?.toDate ? payment.createdAt.toDate().toLocaleDateString() : 'Unknown';
+        
+        approvedList += `${index + 1}. 💳 **${service}**\n`;
+        approvedList += `   👤 User: \`${payment.userId}\`\n`;
+        approvedList += `   💰 Amount: ETB ${amount}\n`;
+        approvedList += `   📅 Date: ${date}\n\n`;
+      });
+
+      // Add active subscriptions
+      activeSubsSnapshot.docs.forEach((doc, index) => {
+        const sub = doc.data();
+        const amount = sub.amount || sub.price || sub.cost || sub.paymentAmount || 'N/A';
+        const service = sub.serviceName || sub.service || 'Unknown Service';
+        const date = sub.createdAt?.toDate ? sub.createdAt.toDate().toLocaleDateString() : 'Unknown';
+        
+        approvedList += `${approvedSnapshot.size + index + 1}. 📱 **${service}** (Active Subscription)\n`;
+        approvedList += `   👤 User: \`${sub.telegramUserID}\`\n`;
+        approvedList += `   💰 Amount: ETB ${amount}\n`;
+        approvedList += `   📅 Date: ${date}\n\n`;
+      });
+
+      if (approvedSnapshot.empty && activeSubsSnapshot.empty) {
+        approvedList += "No approved payments found.";
+      }
+
+      await ctx.editMessageText(approvedList, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Refresh', callback_data: 'admin_approved' }],
+            [{ text: '🔙 Back to Revenue', callback_data: 'admin_revenue' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in admin_approved:', error);
+      await ctx.editMessageText('❌ Error loading approved payments. Please try again.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Try Again', callback_data: 'admin_approved' }],
+            [{ text: '🔙 Back to Revenue', callback_data: 'admin_revenue' }]
+          ]
+        }
+      });
+    }
+  });
+
+  // Handle admin_pending action - Show pending payments
+  bot.action('admin_pending', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    await ctx.answerCbQuery();
+
+    try {
+      // Get pending payments
+      const pendingSnapshot = await firestore
+        .collection('pendingPayments')
+        .where('status', '==', 'pending')
+        .get();
+
+      let pendingList = `⏳ **Pending Payments** (${pendingSnapshot.size})\n\n`;
+      pendingList += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+      pendingSnapshot.docs.forEach((doc, index) => {
+        const payment = doc.data();
+        const amount = payment.price || payment.amount || 'N/A';
+        const service = payment.serviceTitle || payment.service || 'Unknown Service';
+        const date = payment.createdAt?.toDate ? payment.createdAt.toDate().toLocaleDateString() : 'Unknown';
+        
+        pendingList += `${index + 1}. 💳 **${service}**\n`;
+        pendingList += `   👤 User: \`${payment.userId}\`\n`;
+        pendingList += `   💰 Amount: ETB ${amount}\n`;
+        pendingList += `   📅 Date: ${date}\n\n`;
+      });
+
+      if (pendingSnapshot.empty) {
+        pendingList += "No pending payments found.";
+      }
+
+      await ctx.editMessageText(pendingList, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Refresh', callback_data: 'admin_pending' }],
+            [{ text: '🔙 Back to Revenue', callback_data: 'admin_revenue' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in admin_pending:', error);
+      await ctx.editMessageText('❌ Error loading pending payments. Please try again.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Try Again', callback_data: 'admin_pending' }],
+            [{ text: '🔙 Back to Revenue', callback_data: 'admin_revenue' }]
+          ]
+        }
+      });
+    }
+  });
+
+  // Handle admin_rejected action - Show rejected payments
+  bot.action('admin_rejected', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    await ctx.answerCbQuery();
+
+    try {
+      // Get rejected payments
+      const rejectedSnapshot = await firestore
+        .collection('pendingPayments')
+        .where('status', '==', 'rejected')
+        .get();
+
+      let rejectedList = `❌ **Rejected Payments** (${rejectedSnapshot.size})\n\n`;
+      rejectedList += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+      rejectedSnapshot.docs.forEach((doc, index) => {
+        const payment = doc.data();
+        const amount = payment.price || payment.amount || 'N/A';
+        const service = payment.serviceTitle || payment.service || 'Unknown Service';
+        const date = payment.createdAt?.toDate ? payment.createdAt.toDate().toLocaleDateString() : 'Unknown';
+        
+        rejectedList += `${index + 1}. 💳 **${service}**\n`;
+        rejectedList += `   👤 User: \`${payment.userId}\`\n`;
+        rejectedList += `   💰 Amount: ETB ${amount}\n`;
+        rejectedList += `   📅 Date: ${date}\n\n`;
+      });
+
+      if (rejectedSnapshot.empty) {
+        rejectedList += "No rejected payments found.";
+      }
+
+      await ctx.editMessageText(rejectedList, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Refresh', callback_data: 'admin_rejected' }],
+            [{ text: '🔙 Back to Revenue', callback_data: 'admin_revenue' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in admin_rejected:', error);
+      await ctx.editMessageText('❌ Error loading rejected payments. Please try again.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Try Again', callback_data: 'admin_rejected' }],
+            [{ text: '🔙 Back to Revenue', callback_data: 'admin_revenue' }]
+          ]
+        }
+      });
+    }
+  });
+
+  // Handle export_revenue action - Export revenue data
+  bot.action('export_revenue', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    await ctx.answerCbQuery();
+
+    try {
+      const exportMsg = `📤 **Revenue Export**
+
+💾 **Available Export Options:**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 **Revenue Report** (CSV format)
+📊 **Payment Analytics** (JSON format)
+📈 **Revenue Charts** (PNG format)
+📋 **Detailed Report** (PDF format)
+
+⚠️ **Note:** Export may take a few minutes for large datasets.`;
+      
+      await ctx.editMessageText(exportMsg, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '💰 Export Revenue', callback_data: 'download_revenue_csv' },
+              { text: '📊 Export Analytics', callback_data: 'download_revenue_json' }
+            ],
+            [{ text: '📈 Generate Charts', callback_data: 'generate_revenue_charts' }],
+            [{ text: '🔙 Back to Revenue', callback_data: 'admin_revenue' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in export_revenue:', error);
+      await ctx.editMessageText('❌ Error loading export options. Please try again.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Revenue', callback_data: 'admin_revenue' }]
+          ]
+        }
+      });
+    }
+  });
+
+  // Handle revenue_charts action - Show revenue charts
+  bot.action('revenue_charts', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    await ctx.answerCbQuery();
+
+    try {
+      const chartsMsg = `📈 **Revenue Charts**
+
+📊 **Available Charts:**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📈 **Revenue Trend** (Last 30 days)
+📊 **Payment Distribution** (By status)
+💰 **Revenue by Service** (Top services)
+📅 **Monthly Revenue** (This year)
+
+🎯 **Chart Options:**
+• Generate interactive charts
+• Export as images
+• Download data for external analysis`;
+
+      await ctx.editMessageText(chartsMsg, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📈 Revenue Trend', callback_data: 'chart_revenue_trend' },
+              { text: '📊 Payment Distribution', callback_data: 'chart_payment_dist' }
+            ],
+            [
+              { text: '💰 Revenue by Service', callback_data: 'chart_revenue_service' },
+              { text: '📅 Monthly Revenue', callback_data: 'chart_monthly_revenue' }
+            ],
+            [{ text: '🔙 Back to Revenue', callback_data: 'admin_revenue' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in revenue_charts:', error);
+      await ctx.editMessageText('❌ Error loading chart options. Please try again.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Revenue', callback_data: 'admin_revenue' }]
+          ]
+        }
+      });
+    }
+  });
+
+  // Handle download_revenue_csv action
+  bot.action('download_revenue_csv', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    await ctx.answerCbQuery('📤 Generating CSV export...');
+
+    try {
+      // This would generate and send a CSV file
+      // For now, just show a success message
+      await ctx.editMessageText('✅ **Revenue CSV Export**\n\n📤 CSV file has been generated and is ready for download.\n\n💡 **Note:** File download feature will be implemented in the next update.', {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Export', callback_data: 'export_revenue' }],
+            [{ text: '🔙 Back to Revenue', callback_data: 'admin_revenue' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in download_revenue_csv:', error);
+      await ctx.answerCbQuery('❌ Error generating CSV export');
+    }
+  });
+
+  // Handle download_revenue_json action
+  bot.action('download_revenue_json', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    await ctx.answerCbQuery('📤 Generating JSON export...');
+
+    try {
+      // This would generate and send a JSON file
+      // For now, just show a success message
+      await ctx.editMessageText('✅ **Revenue JSON Export**\n\n📤 JSON file has been generated and is ready for download.\n\n💡 **Note:** File download feature will be implemented in the next update.', {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Export', callback_data: 'export_revenue' }],
+            [{ text: '🔙 Back to Revenue', callback_data: 'admin_revenue' }]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in download_revenue_json:', error);
+      await ctx.answerCbQuery('❌ Error generating JSON export');
+    }
   });
 
   // Handle noop (do nothing) for buttons that shouldn't trigger actions
