@@ -25,20 +25,39 @@ async function initializeFirebase() {
       return createMockFirestore();
     }
 
-    // Try to load Firebase config from environment variable first
+    // Try to load Firebase config from environment variables
     let firebaseConfig;
     
+    // First try FIREBASE_CONFIG (single JSON string)
     if (process.env.FIREBASE_CONFIG) {
-      console.log("Loading Firebase config from environment variable...");
+      console.log("Loading Firebase config from FIREBASE_CONFIG environment variable...");
       try {
         firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG);
       } catch (parseError) {
         console.error("❌ Invalid FIREBASE_CONFIG JSON:", parseError.message);
-        console.warn("➡️ Falling back to in-memory Firestore mock");
-        return createMockFirestore();
+        console.warn("➡️ Trying individual Firebase environment variables...");
       }
-    } else {
-      // Fallback to config file
+    }
+    
+    // If FIREBASE_CONFIG failed or doesn't exist, try individual variables
+    if (!firebaseConfig && process.env.FIREBASE_PROJECT_ID) {
+      console.log("Loading Firebase config from individual environment variables...");
+      firebaseConfig = {
+        type: "service_account",
+        project_id: process.env.FIREBASE_PROJECT_ID,
+        private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+        private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        client_id: process.env.FIREBASE_CLIENT_ID,
+        auth_uri: process.env.FIREBASE_AUTH_URI || "https://accounts.google.com/o/oauth2/auth",
+        token_uri: process.env.FIREBASE_TOKEN_URI || "https://oauth2.googleapis.com/token",
+        auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL || "https://www.googleapis.com/oauth2/v1/certs",
+        client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
+      };
+    }
+    
+    // If still no config, try config file
+    if (!firebaseConfig) {
       console.log("Loading Firebase config from file...");
       const configPath = path.resolve(process.cwd(), 'firebaseConfig.json');
       
@@ -55,7 +74,7 @@ async function initializeFirebase() {
           return createMockFirestore();
         }
       } else {
-        console.error('❌ Firebase configuration not found. Set FIREBASE_CONFIG or provide firebaseConfig.json');
+        console.error('❌ Firebase configuration not found. Set FIREBASE_CONFIG or individual Firebase environment variables or provide firebaseConfig.json');
         if (process.env.NODE_ENV === 'production') {
           process.exit(1);
         }

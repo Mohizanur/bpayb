@@ -1363,6 +1363,10 @@ You don't have any subscriptions yet. To start a new subscription, please select
     // Setup performance monitoring
     performanceMonitor.start();
 
+    // Define PORT for Render deployment
+    const PORT = process.env.PORT || 10000;
+    console.log(`🔧 PORT environment variable: ${process.env.PORT || 'not set, using default 10000'}`);
+
     // Setup webhook server
     const server = createServer((req, res) => {
       const url = new URL(req.url, `http://${req.headers.host}`);
