@@ -10,8 +10,8 @@ RUN apk --no-cache add python3 make g++
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies with clean install
-RUN npm ci --only=production
+# Install dependencies
+RUN npm install --production
 
 # Copy the rest of the application code
 COPY . .
@@ -24,4 +24,4 @@ ENV NODE_ENV=production
 ENV PORT=10000
 
 # Command to run the application
-CMD ["node", "src/index.js"]
+CMD ["node", "complete-admin-bot.js"]
