@@ -122,6 +122,6 @@ BirrPay is Ethiopia's premier platform for managing all your digital subscriptio
 
   return {
     message,
-    keyboard: [...menuButtons, [getBackToMenuButton(lang)]]
+    keyboard: menuButtons
   };
 };

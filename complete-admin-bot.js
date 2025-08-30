@@ -1174,6 +1174,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
 
         // Check if user is admin
         const isAdmin = await isAuthorizedAdmin(ctx);
+        console.log(`🔍 Admin check for user ${ctx.from.id}: ${isAdmin}`);
         
         const keyboard = {
           inline_keyboard: [

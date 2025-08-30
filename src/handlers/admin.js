@@ -9,7 +9,7 @@ const escapeMarkdown = (text) => {
 };
 
 // Helper function for admin security check
-const isAuthorizedAdmin = async (ctx) => {
+export const isAuthorizedAdmin = async (ctx) => {
   try {
     const userId = ctx.from?.id?.toString();
     if (!userId) return false;
