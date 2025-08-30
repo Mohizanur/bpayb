@@ -32,7 +32,9 @@ async function initializeFirebase() {
     if (process.env.FIREBASE_CONFIG) {
       console.log("Loading Firebase config from FIREBASE_CONFIG environment variable...");
       try {
-        firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG);
+        // Clean up the JSON string - remove any escape characters
+        const cleanConfig = process.env.FIREBASE_CONFIG.replace(/\\/g, '');
+        firebaseConfig = JSON.parse(cleanConfig);
       } catch (parseError) {
         console.error("❌ Invalid FIREBASE_CONFIG JSON:", parseError.message);
         console.warn("➡️ Trying individual Firebase environment variables...");

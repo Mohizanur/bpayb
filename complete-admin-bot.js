@@ -27,33 +27,8 @@ import { registerAdminPaymentHandlers } from './src/handlers/adminPaymentHandler
 import firestoreListener from './src/handlers/firestoreListener.js';
 import { t, getUserLanguage, tf } from './src/utils/translations.js';
 
-// Helper function for admin security check (copied from admin.js)
-const isAuthorizedAdmin = async (ctx) => {
-  try {
-    const userId = ctx.from?.id?.toString();
-    if (!userId) return false;
-    
-    // Check against environment variable first (for backward compatibility)
-    if (process.env.ADMIN_TELEGRAM_ID && userId === process.env.ADMIN_TELEGRAM_ID) {
-      return true;
-    }
-    
-    // Check against Firestore config
-    const adminDoc = await firestore.collection('config').doc('admins').get();
-    if (adminDoc.exists) {
-      const admins = adminDoc.data().userIds || [];
-      if (admins.includes(userId)) {
-        return true;
-      }
-    }
-    
-    console.warn(`Unauthorized admin access attempt from user ${userId} (${ctx.from?.username || 'no username'})`);
-    return false;
-  } catch (error) {
-    console.error('Error checking admin status:', error);
-    return false;
-  }
-};
+// Helper function for admin security check (will be available after admin handler is registered)
+let isAuthorizedAdmin = null;
 
 // Enhanced translation helper with user language persistence
 const getUserLanguageWithPersistence = async (ctx) => {
@@ -81,7 +56,7 @@ import { performanceMonitor } from './src/utils/performanceMonitor.js';
 const phoneVerificationMiddleware = async (ctx, next) => {
   try {
     // Skip verification check for admin and essential commands
-    const isAdmin = await isAuthorizedAdmin(ctx);
+    const isAdmin = isAuthorizedAdmin ? await isAuthorizedAdmin(ctx) : false;
     const isVerificationCommand = ctx.message?.text?.startsWith('/verify') || ctx.callbackQuery?.data?.startsWith('verify_');
     const isStartCommand = ctx.message?.text === '/start';
     const isHelpCommand = ctx.message?.text === '/help';
@@ -1036,6 +1011,34 @@ You don't have any subscriptions yet. To start a new subscription, please select
     mySubscriptionsHandler(bot);
     adminHandler(bot); // This registers all working admin handlers from src/handlers/admin.js
     
+    // Set up isAuthorizedAdmin function after admin handler is registered
+    isAuthorizedAdmin = async (ctx) => {
+      try {
+        const userId = ctx.from?.id?.toString();
+        if (!userId) return false;
+        
+        // Check against environment variable first (for backward compatibility)
+        if (process.env.ADMIN_TELEGRAM_ID && userId === process.env.ADMIN_TELEGRAM_ID) {
+          return true;
+        }
+        
+        // Check against Firestore config
+        const adminDoc = await firestore.collection('config').doc('admins').get();
+        if (adminDoc.exists) {
+          const admins = adminDoc.data().userIds || [];
+          if (admins.includes(userId)) {
+            return true;
+          }
+        }
+        
+        console.warn(`Unauthorized admin access attempt from user ${userId} (${ctx.from?.username || 'no username'})`);
+        return false;
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        return false;
+      }
+    };
+    
     // Enhanced language handlers with persistence
     console.log("🌐 Setting up enhanced language handlers...");
     
@@ -1423,7 +1426,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
     }
     
     // Use webhooks instead of polling to avoid conflicts
-    const webhookUrl = process.env.WEBHOOK_URL || `https://bpayb.onrender.com/telegram`;
+    const webhookUrl = process.env.WEBHOOK_URL || `https://bpayb-24y5.onrender.com/telegram`;
     
     try {
       // Delete any existing webhook first
@@ -1448,12 +1451,12 @@ You don't have any subscriptions yet. To start a new subscription, please select
       });
 
       // Keep-alive ping to prevent Render sleep
-      const keepAliveUrl = process.env.RENDER_EXTERNAL_URL || `https://bpayb.onrender.com`;
+      const keepAliveUrl = process.env.RENDER_EXTERNAL_URL || `https://bpayb-24y5.onrender.com`;
       console.log(`🔄 Starting keep-alive system (production mode)...`);
       console.log(`📍 Health check URL: ${keepAliveUrl}/health`);
       console.log(`📍 Keep-alive URL: ${keepAliveUrl}`);
       
-      // More robust keep-alive system
+      // Keep-alive system - ping every 13 minutes to prevent Render sleep (15min timeout)
       const keepAliveInterval = setInterval(async () => {
         try {
           console.log('🔄 Performing keep-alive request...');
@@ -1474,26 +1477,26 @@ You don't have any subscriptions yet. To start a new subscription, please select
         } catch (error) {
           console.log('❌ Keep-alive error:', error.message);
         }
-      }, 25000); // Every 25 seconds (prevents 15min sleep)
+      }, 13 * 60 * 1000); // Every 13 minutes (780,000ms)
       
-      // Also ping the root URL as backup
-      const rootKeepAliveInterval = setInterval(async () => {
+      // Backup keep-alive ping every 14 minutes as safety
+      const backupKeepAliveInterval = setInterval(async () => {
         try {
           const response = await fetch(keepAliveUrl, {
             method: 'GET',
             headers: {
-              'User-Agent': 'BirrPay-Bot-Root-KeepAlive/1.0'
+              'User-Agent': 'BirrPay-Bot-Backup-KeepAlive/1.0'
             },
             timeout: 10000
           });
           
           if (response.ok) {
-            console.log('💓 Root keep-alive successful');
+            console.log('💓 Backup keep-alive successful');
           }
         } catch (error) {
-          console.log('❌ Root keep-alive error:', error.message);
+          console.log('❌ Backup keep-alive error:', error.message);
         }
-      }, 30000); // Every 30 seconds
+      }, 14 * 60 * 1000); // Every 14 minutes (840,000ms)
       console.log("✅ Bot started with webhooks - Phone verification ENABLED");
       console.log("🌐 Enhanced language persistence ENABLED");
       console.log("📄 Service pagination ENABLED (5 per page)");

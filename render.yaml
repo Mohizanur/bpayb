@@ -16,7 +16,7 @@ services:
       - key: LOG_LEVEL
         value: "error"
       - key: RENDER_EXTERNAL_URL
-        value: https://bpayb.onrender.com
+        value: https://bpayb-24y5.onrender.com
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: ADMIN_TELEGRAM_ID
@@ -40,7 +40,9 @@ services:
       - key: FIREBASE_CLIENT_X509_CERT_URL
         sync: false
       - key: WEBHOOK_URL
-        value: https://bpayb.onrender.com/telegram
+        value: https://bpayb-24y5.onrender.com/telegram
+      - key: ENABLE_FIRESTORE_LISTENER
+        value: "true"
     autoDeploy: true
     numInstances: 1
     scaling:
