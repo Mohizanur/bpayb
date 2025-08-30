@@ -27,6 +27,7 @@ import { registerAdminPaymentHandlers } from './src/handlers/adminPaymentHandler
 import firestoreListener from './src/handlers/firestoreListener.js';
 import { t, getUserLanguage, tf } from './src/utils/translations.js';
 import { performanceMonitor } from './src/utils/performanceMonitor.js';
+import logger from './src/utils/logger.js';
 
 // Helper function for admin security check (will be available after admin handler is registered)
 let isAuthorizedAdmin = null;
@@ -481,7 +482,7 @@ const setupPhoneVerification = (bot) => {
 
 dotenv.config();
 
-console.log('🚀 BirrPay Bot - COMPLETE Enhanced Version with Phone Verification');
+    logger.info('🚀 BirrPay Bot - COMPLETE Enhanced Version with Phone Verification');
 
 // MIME types for static files
 const mimeTypes = {

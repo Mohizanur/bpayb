@@ -14,7 +14,15 @@ services:
       - key: DEBUG_MODE
         value: "false"
       - key: LOG_LEVEL
-        value: "error"
+        value: "none"
+      - key: ENABLE_CONSOLE_LOGS
+        value: "false"
+      - key: ENABLE_FIRESTORE_LOGS
+        value: "false"
+      - key: ENABLE_PERFORMANCE_LOGS
+        value: "false"
+      - key: ENABLE_DEBUG_LOGS
+        value: "false"
       - key: RENDER_EXTERNAL_URL
         value: https://bpayb-24y5.onrender.com
       - key: TELEGRAM_BOT_TOKEN
