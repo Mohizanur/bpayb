@@ -23,6 +23,8 @@ services:
         value: "false"
       - key: ENABLE_DEBUG_LOGS
         value: "false"
+      - key: PERFORMANCE_MODE
+        value: "true"
       - key: RENDER_EXTERNAL_URL
         value: https://bpayb-24y5.onrender.com
       - key: TELEGRAM_BOT_TOKEN

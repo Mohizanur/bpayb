@@ -1,4 +1,5 @@
 // Complete BirrPay Bot with EVERY SINGLE admin feature from original admin.js
+import './src/utils/consoleOverride.js'; // Must be first to override console
 import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { createServer } from 'http';

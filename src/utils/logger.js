@@ -9,6 +9,7 @@ class ProductionLogger {
     this.enableFirestoreLogs = process.env.ENABLE_FIRESTORE_LOGS !== 'false';
     this.enablePerformanceLogs = process.env.ENABLE_PERFORMANCE_LOGS !== 'false';
     this.enableDebugLogs = process.env.ENABLE_DEBUG_LOGS === 'true';
+    this.performanceMode = process.env.PERFORMANCE_MODE === 'true';
     
     // Log level hierarchy
     this.levels = {
@@ -20,10 +21,24 @@ class ProductionLogger {
     };
     
     this.currentLevel = this.levels[this.logLevel] || this.levels.info;
+    
+    // In performance mode, disable ALL console output
+    if (this.performanceMode) {
+      this.enableConsole = false;
+      this.enableFirestoreLogs = false;
+      this.enablePerformanceLogs = false;
+      this.enableDebugLogs = false;
+      this.currentLevel = 0; // none
+    }
   }
 
   // Fast logging with minimal overhead
   log(level, message, data = null) {
+    // Skip all logging in performance mode
+    if (this.performanceMode) {
+      return;
+    }
+    
     if (this.levels[level] <= this.currentLevel && this.enableConsole) {
       const timestamp = new Date().toISOString();
       const logMessage = `[${timestamp}] ${level.toUpperCase()}: ${message}`;
@@ -74,27 +89,31 @@ class ProductionLogger {
 
   // Firestore-specific logging (controlled by ENABLE_FIRESTORE_LOGS)
   firestore(operation, collection, details = null) {
-    if (this.enableFirestoreLogs) {
+    if (this.enableFirestoreLogs && !this.performanceMode) {
       this.info(`Firestore ${operation}: ${collection}`, details);
     }
   }
 
   // Performance logging (controlled by ENABLE_PERFORMANCE_LOGS)
   performance(operation, duration, details = null) {
-    if (this.enablePerformanceLogs) {
+    if (this.enablePerformanceLogs && !this.performanceMode) {
       this.info(`Performance ${operation}: ${duration}ms`, details);
     }
   }
 
   // Bot operation logging (always logged for critical operations)
   bot(operation, userId = null, details = null) {
-    const message = `Bot ${operation}${userId ? ` (User: ${userId})` : ''}`;
-    this.info(message, details);
+    if (!this.performanceMode) {
+      const message = `Bot ${operation}${userId ? ` (User: ${userId})` : ''}`;
+      this.info(message, details);
+    }
   }
 
   // Admin operation logging (always logged for security)
   admin(operation, adminId, details = null) {
-    this.info(`Admin ${operation} (Admin: ${adminId})`, details);
+    if (!this.performanceMode) {
+      this.info(`Admin ${operation} (Admin: ${adminId})`, details);
+    }
   }
 
   // Silent mode for high-performance operations
@@ -104,7 +123,11 @@ class ProductionLogger {
       error: () => {},
       warn: () => {},
       info: () => {},
-      debug: () => {}
+      debug: () => {},
+      firestore: () => {},
+      performance: () => {},
+      bot: () => {},
+      admin: () => {}
     };
   }
 
@@ -115,8 +138,14 @@ class ProductionLogger {
       enableConsole: this.enableConsole,
       enableFirestoreLogs: this.enableFirestoreLogs,
       enablePerformanceLogs: this.enablePerformanceLogs,
-      enableDebugLogs: this.enableDebugLogs
+      enableDebugLogs: this.enableDebugLogs,
+      performanceMode: this.performanceMode
     };
+  }
+
+  // Check if performance mode is active
+  isPerformanceMode() {
+    return this.performanceMode;
   }
 }
 
