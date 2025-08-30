@@ -1354,8 +1354,8 @@ You don't have any subscriptions yet. To start a new subscription, please select
     // Setup scheduler
     startScheduler();
 
-    // Setup keep alive manager
-    keepAliveManager.start();
+    // Setup keep-alive system (disabled - using integrated keep-alive instead)
+    // keepAliveManager.start();
 
     // Setup resilience manager
     // resilienceManager.start(); // Not available in this version
@@ -1443,21 +1443,57 @@ You don't have any subscriptions yet. To start a new subscription, please select
       server.listen(PORT, () => {
         console.log(`🌐 HTTP server running on port ${PORT}`);
         console.log(`📊 Health check: http://localhost:${PORT}/health`);
-        console.log(`🌐 Webhook endpoint: http://localhost:${PORT}/webhook`);
+        console.log(`🌐 Webhook endpoint: http://localhost:${PORT}/telegram`);
         console.log(`✅ Webhook integrated into HTTP server`);
       });
 
       // Keep-alive ping to prevent Render sleep
-      setInterval(async () => {
+      const keepAliveUrl = process.env.RENDER_EXTERNAL_URL || `https://bpayb.onrender.com`;
+      console.log(`🔄 Starting keep-alive system (production mode)...`);
+      console.log(`📍 Health check URL: ${keepAliveUrl}/health`);
+      console.log(`📍 Keep-alive URL: ${keepAliveUrl}`);
+      
+      // More robust keep-alive system
+      const keepAliveInterval = setInterval(async () => {
         try {
-          const response = await fetch(`http://localhost:${PORT}/health`);
+          console.log('🔄 Performing keep-alive request...');
+          const response = await fetch(`${keepAliveUrl}/health`, {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'BirrPay-Bot-KeepAlive/1.0'
+            },
+            timeout: 10000 // 10 second timeout
+          });
+          
           if (response.ok) {
-            console.log('💓 Keep-alive ping successful');
+            const data = await response.json();
+            console.log('💓 Keep-alive successful:', data.status);
+          } else {
+            console.log(`⚠️ Keep-alive failed with status: ${response.status}`);
           }
         } catch (error) {
-          console.log('⚠️ Keep-alive ping failed, but continuing...');
+          console.log('❌ Keep-alive error:', error.message);
         }
-      }, 30000); // Every 30 seconds (prevents 15min sleep)
+      }, 25000); // Every 25 seconds (prevents 15min sleep)
+      
+      // Also ping the root URL as backup
+      const rootKeepAliveInterval = setInterval(async () => {
+        try {
+          const response = await fetch(keepAliveUrl, {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'BirrPay-Bot-Root-KeepAlive/1.0'
+            },
+            timeout: 10000
+          });
+          
+          if (response.ok) {
+            console.log('💓 Root keep-alive successful');
+          }
+        } catch (error) {
+          console.log('❌ Root keep-alive error:', error.message);
+        }
+      }, 30000); // Every 30 seconds
       console.log("✅ Bot started with webhooks - Phone verification ENABLED");
       console.log("🌐 Enhanced language persistence ENABLED");
       console.log("📄 Service pagination ENABLED (5 per page)");
