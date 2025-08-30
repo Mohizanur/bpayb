@@ -11,7 +11,7 @@ RUN apk --no-cache add python3 make g++
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install --production --legacy-peer-deps
+RUN npm install --production --legacy-peer-deps --force
 
 # Copy the rest of the application code
 COPY . .

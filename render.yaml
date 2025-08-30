@@ -3,7 +3,7 @@ services:
     name: birrpay-bot
     env: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install --legacy-peer-deps --force
     startCommand: node complete-admin-bot.js
     healthCheckPath: /health
     envVars:
