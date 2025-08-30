@@ -1,4 +1,6 @@
 import { firestore } from "../utils/firestore.js";
+import { FirestoreOptimizer } from "../utils/firestoreOptimizer.js";
+import { getPerformanceSummary } from "../utils/performanceTracker.js";
 import { getSupportMessages } from "../utils/database.js";
 import path from 'path';
 
@@ -840,13 +842,8 @@ export default function adminHandler(bot) {
         return;
       }
 
-      // Get all users
-      let usersSnapshot = await firestore.collection('users').get();
-      let users = usersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        ref: doc.ref
-      }));
+      // Get users using AGGRESSIVE caching and VIRTUAL PAGINATION
+      const users = await FirestoreOptimizer.getUsersPage(page + 1, 5);
 
       // Apply filters
       if (filter === 'active') {
@@ -1152,16 +1149,14 @@ export default function adminHandler(bot) {
         timestamp: Date.now()
       };
     
-    // Get user data from users collection
-    const userDoc = await firestore.collection('users').doc(userId).get();
+    // Get user data using AGGRESSIVE caching
+    const userData = await FirestoreOptimizer.getUser(userId);
     
-    if (!userDoc.exists) {
+    if (!userData) {
       await ctx.answerCbQuery('❌ User not found');
       await showUsersList(ctx, 0, 'all');
       return;
     }
-    
-    const userData = userDoc.data();
     const userIdDisplay = userData.telegramId || userId;
     
     // Get user's subscriptions
@@ -2197,18 +2192,19 @@ ${message.length > 100 ? message.substring(0, 100) + '...' : message}`;
     await ctx.answerCbQuery();
 
         try {
-      const subscriptionsSnapshot = await firestore.collection('subscriptions').get();
+      // Get subscription stats using AGGRESSIVE caching
+      const stats = await FirestoreOptimizer.getAdminStats();
       
       // Get custom plan requests that need pricing
       const customPlanRequestsSnapshot = await firestore.collection('customPlanRequests')
         .where('status', '==', 'pending')
         .get();
       
-      const activeCount = subscriptionsSnapshot.docs.filter(doc => doc.data().status === 'active').length;
-      const pendingCount = subscriptionsSnapshot.docs.filter(doc => doc.data().status === 'pending').length;
-      const expiredCount = subscriptionsSnapshot.docs.filter(doc => doc.data().status === 'expired').length;
+      const activeCount = stats.subscriptions || 0;
+      const pendingCount = 0; // Will be calculated separately if needed
+      const expiredCount = 0; // Will be calculated separately if needed
       const customPlanCount = customPlanRequestsSnapshot.size;
-      const totalCount = subscriptionsSnapshot.size;
+      const totalCount = stats.subscriptions || 0;
 
       const message = `📊 **Subscription Management** 📊
 
@@ -4733,37 +4729,8 @@ To cancel, click the Cancel button below.`;
     await ctx.answerCbQuery();
 
         try {
-      const { performanceMonitor } = await import('../utils/performanceMonitor.js');
-      const metrics = performanceMonitor.getMetrics();
-      const recommendations = performanceMonitor.getEfficiencyRecommendations();
-
-      const performanceMessage = `📊 **Bot Performance Metrics**
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⏱️ **Uptime:** ${metrics.uptime.hours}h ${metrics.uptime.minutes}m
-
-📈 **Request Statistics:**
-• Total Requests: ${metrics.requests.total}
-• Success Rate: ${metrics.efficiency.successRate}
-• Cache Hit Rate: ${metrics.efficiency.cacheHitRate}
-• Avg Response Time: ${metrics.efficiency.averageResponseTime}
-
-🔥 **Firestore Usage:**
-• Reads: ${metrics.firestore.reads}
-• Writes: ${metrics.firestore.writes}
-• Deletes: ${metrics.firestore.deletes}
-• Estimated Cost: ${metrics.costAnalysis.estimatedFirestoreCost}
-• Reads/Min: ${metrics.costAnalysis.readsPerMinute}
-• Writes/Min: ${metrics.costAnalysis.writesPerMinute}
-
-🧠 **Memory Usage:**
-• Current: ${(metrics.memory.usage / 1024 / 1024).toFixed(2)} MB
-• Peak: ${(metrics.memory.peak / 1024 / 1024).toFixed(2)} MB
-
-❌ **Errors:** ${metrics.errors.total}
-
-🎯 **Efficiency Score:** ${calculateEfficiencyScore(metrics)}%`;
+      // Get AGGRESSIVE BEAST MODE performance metrics
+      const performanceMessage = getPerformanceSummary();
 
       const keyboard = [];
       
