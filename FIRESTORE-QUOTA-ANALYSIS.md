@@ -168,3 +168,7 @@ setInterval(syncToCache, 300000); // 5-minute sync
 Your bot is **WELL OPTIMIZED** for the free tier and can handle **1,500-2,000 active users** comfortably. For higher capacity, the Blaze plan ($25/month) unlocks **100,000+ users** potential.
 
 **Current setup is perfect for growth!** 🎯
+
+
+
+

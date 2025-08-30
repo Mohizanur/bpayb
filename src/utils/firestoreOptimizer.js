@@ -171,17 +171,44 @@ export class FirestoreOptimizer {
     let users = cache.get(cacheKey);
     
     if (!users) {
-      const usersSnapshot = await firestore.collection('users')
-        .limit(limit)
-        .offset((page - 1) * limit)
-        .get();
-      
-      users = usersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      cache.set(cacheKey, users, CACHE_TTL.USER_PAGES);
+      try {
+        const usersSnapshot = await firestore.collection('users')
+          .limit(limit)
+          .offset((page - 1) * limit)
+          .get();
+        
+        users = usersSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        cache.set(cacheKey, users, CACHE_TTL.USER_PAGES);
+      } catch (error) {
+        console.error('Error fetching users page:', error);
+        users = [];
+      }
+    }
+    
+    return users;
+  }
+
+  // Get all users for admin panel (fallback)
+  static async getAllUsers() {
+    const cacheKey = 'users_all';
+    let users = cache.get(cacheKey);
+    
+    if (!users) {
+      try {
+        const usersSnapshot = await firestore.collection('users').get();
+        users = usersSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        cache.set(cacheKey, users, CACHE_TTL.USERS);
+      } catch (error) {
+        console.error('Error fetching all users:', error);
+        users = [];
+      }
     }
     
     return users;

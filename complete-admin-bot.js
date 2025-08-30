@@ -104,7 +104,15 @@ const initializeBotWithRetry = async (maxRetries = 5, delay = 3000) => {
 const phoneVerificationMiddleware = async (ctx, next) => {
   try {
     // Skip verification check for admin and essential commands
-    const isAdmin = isAuthorizedAdmin ? await isAuthorizedAdmin(ctx) : false;
+    let isAdmin = false;
+    try {
+      if (isAuthorizedAdmin) {
+        isAdmin = await isAuthorizedAdmin(ctx);
+      }
+    } catch (error) {
+      // If admin check fails, treat as regular user (don't block access)
+      isAdmin = false;
+    }
     const isVerificationCommand = ctx.message?.text?.startsWith('/verify') || ctx.callbackQuery?.data?.startsWith('verify_');
     const isStartCommand = ctx.message?.text === '/start';
     const isHelpCommand = ctx.message?.text === '/help';
@@ -887,7 +895,18 @@ You don't have any subscriptions yet. To start a new subscription, please select
         const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
         const userData = userDoc.data() || {};
         const lang = userData.language || 'en';
-        const isAdmin = await isAuthorizedAdmin(ctx);
+        
+        // Check admin status safely (don't block regular users)
+        let isAdmin = false;
+        try {
+          if (isAuthorizedAdmin) {
+            isAdmin = await isAuthorizedAdmin(ctx);
+          }
+        } catch (error) {
+          // If admin check fails, treat as regular user
+          console.log('Admin check failed in help command, treating as regular user:', error.message);
+          isAdmin = false;
+        }
         
         let helpText = lang === 'am' 
           ? '❓ **እርዳታ እና ትዕዛዞች**\n\n'
@@ -993,8 +1012,17 @@ You don't have any subscriptions yet. To start a new subscription, please select
         const userData = userDoc.data() || {};
         const lang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
         
-        // Check if user is admin
-        const isAdmin = await isAuthorizedAdmin(ctx);
+        // Check if user is admin (safely)
+        let isAdmin = false;
+        try {
+          if (isAuthorizedAdmin) {
+            isAdmin = await isAuthorizedAdmin(ctx);
+          }
+        } catch (error) {
+          // If admin check fails, treat as regular user
+          console.log('Admin check failed in main menu, treating as regular user:', error.message);
+          isAdmin = false;
+        }
         
         // Import and call the original function with admin status
         const { getMainMenuContent } = await import('./src/utils/menuContent.js');
@@ -1079,7 +1107,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
           }
         }
         
-        console.warn(`Unauthorized admin access attempt from user ${userId} (${ctx.from?.username || 'no username'})`);
+        // Don't log unauthorized attempts for regular users (only log for actual admin panel access)
         return false;
       } catch (error) {
         console.error('Error checking admin status:', error);
@@ -1220,8 +1248,17 @@ You don't have any subscriptions yet. To start a new subscription, please select
         
         const welcomeMessage = t('welcome_title', lang) + '\n\n' + t('welcome_description', lang);
 
-        // Check if user is admin
-        const isAdmin = await isAuthorizedAdmin(ctx);
+        // Check if user is admin (safely)
+        let isAdmin = false;
+        try {
+          if (isAuthorizedAdmin) {
+            isAdmin = await isAuthorizedAdmin(ctx);
+          }
+        } catch (error) {
+          // If admin check fails, treat as regular user
+          console.log('Admin check failed in back_to_menu, treating as regular user:', error.message);
+          isAdmin = false;
+        }
         console.log(`🔍 Admin check for user ${ctx.from.id}: ${isAdmin}`);
         
         const keyboard = {
