@@ -21,9 +21,15 @@ export default function firestoreListener(bot) {
           // Check for newly activated subscriptions that haven't been notified
           if (data.status === "active" && !data.notified) {
             try {
-              const userId = data.telegramUserID;
-              const service = data.serviceID;
+              const userId = data.telegramUserID || data.userId;
+              const service = data.serviceID || data.serviceName || "Unknown Service";
               const nextBillingDate = data.nextBillingDate || "-";
+              
+              // Validate userId exists
+              if (!userId) {
+                console.log(`⚠️ Skipping notification for subscription ${doc.id}: No user ID found`);
+                continue;
+              }
               
               // Fetch user language
               const userDoc = await firestore
