@@ -28,7 +28,7 @@ export const isAuthorizedAdmin = async (ctx) => {
       }
     }
     
-    console.warn(`Unauthorized admin access attempt from user ${userId} (${ctx.from?.username || 'no username'})`);
+      console.warn(`Unauthorized admin access attempt from user ${userId} (${ctx.from?.username || 'no username'})`);
     return false;
   } catch (error) {
     console.error('Error checking admin status:', error);
@@ -2179,7 +2179,7 @@ ${message.length > 100 ? message.substring(0, 100) + '...' : message}`;
       await ctx.answerCbQuery("❌ Access denied.");
       return;
     }
-    
+
     // Simply answer the callback and let the main handler take over
     await ctx.answerCbQuery();
   });
@@ -2343,7 +2343,7 @@ Users can request custom plans by selecting a service and clicking "🎯 Custom 
       await ctx.answerCbQuery("❌ Access denied.");
       return;
     }
-    
+
     // Simply answer the callback and let the main handler take over
     await ctx.answerCbQuery();
   });

@@ -26,6 +26,7 @@ import screenshotUploadHandler from './src/handlers/screenshotUpload.js';
 import { registerAdminPaymentHandlers } from './src/handlers/adminPaymentHandlers.js';
 import firestoreListener from './src/handlers/firestoreListener.js';
 import { t, getUserLanguage, tf } from './src/utils/translations.js';
+import { performanceMonitor } from './src/utils/performanceMonitor.js';
 
 // Helper function for admin security check (will be available after admin handler is registered)
 let isAuthorizedAdmin = null;
@@ -47,10 +48,55 @@ const translateMessage = (key, lang = 'en') => {
   return t(key, lang);
 };
 
-;
-import { performanceMonitor } from './src/utils/performanceMonitor.js';
+// Enhanced error handling for callback queries
+const ignoreCallbackError = (error) => {
+  if (error.message.includes('query is too old') || 
+      error.message.includes('query ID is invalid') ||
+      error.message.includes('message is not modified') ||
+      error.message.includes('message to edit not found')) {
+    console.log('🔄 Ignoring expected callback error:', error.message);
+    return; // Ignore these specific errors
+  }
+  console.error('❌ Unexpected callback query error:', error);
+};
 
-// Using imported isAuthorizedAdmin function from admin.js
+// Robust bot initialization with retry logic
+const initializeBotWithRetry = async (maxRetries = 5, delay = 3000) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🔄 Bot initialization attempt ${attempt}/${maxRetries}...`);
+      
+      // Create bot with enhanced configuration
+      const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN, {
+        telegram: {
+          // Increase timeout for API calls
+          request: {
+            timeout: 30000, // 30 seconds
+            retry: 3,
+            retryDelay: 1000
+          }
+        }
+      });
+
+      // Test bot connection
+      const botInfo = await bot.telegram.getMe();
+      console.log(`✅ Bot connected successfully: @${botInfo.username}`);
+      
+      return bot;
+    } catch (error) {
+      console.error(`❌ Bot initialization attempt ${attempt} failed:`, error.message);
+      
+      if (attempt < maxRetries) {
+        const waitTime = delay * Math.pow(2, attempt - 1); // Exponential backoff
+        console.log(`⏳ Retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      } else {
+        console.error('❌ All bot initialization attempts failed');
+        throw error;
+      }
+    }
+  }
+};
 
 // Phone verification middleware - Check if user is verified before allowing access
 const phoneVerificationMiddleware = async (ctx, next) => {
@@ -504,8 +550,8 @@ process.on('unhandledRejection', (reason, promise) => {
       services = [];
     }
 
-    // Create bot instance
-    const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+    // Create bot instance with robust initialization
+    const bot = await initializeBotWithRetry();
 
     // Back to Admin handler - Main admin panel with revenue management
     bot.action('back_to_admin', async (ctx) => {
@@ -1231,9 +1277,9 @@ You don't have any subscriptions yet. To start a new subscription, please select
       }
     });
 
-    // Refresh admin panel handler - same as back_to_admin
-    bot.action('refresh_admin', async (ctx) => {
-      console.log("🔄 REFRESH ADMIN triggered from user:", ctx.from.id);
+    // Admin panel button handler
+    bot.action('admin', async (ctx) => {
+      console.log("🔧 ADMIN PANEL triggered from user:", ctx.from.id);
       
       try {
         const isAdmin = await isAuthorizedAdmin(ctx);
@@ -1304,7 +1350,91 @@ You don't have any subscriptions yet. To start a new subscription, please select
         };
 
         await ctx.editMessageText(adminMessage, {
-          parse_mode: 'Markdown',
+          reply_markup: keyboard,
+          parse_mode: 'Markdown'
+        });
+        
+        await ctx.answerCbQuery('✅ Admin panel loaded');
+      } catch (error) {
+        console.error('Error loading admin panel:', error);
+        await ctx.answerCbQuery('❌ Error loading admin panel');
+      }
+    });
+
+    // Refresh admin panel handler - same as back_to_admin
+    bot.action('refresh_admin', async (ctx) => {
+      console.log("🔄 REFRESH ADMIN triggered from user:", ctx.from.id);
+    
+      try {
+        const isAdmin = await isAuthorizedAdmin(ctx);
+        
+        if (!isAdmin) {
+          await ctx.answerCbQuery('❌ Access denied. Admin only.');
+          return;
+        }
+
+        // Load real-time statistics
+        const [usersSnapshot, subscriptionsSnapshot, pendingPaymentsSnapshot, servicesSnapshot] = await Promise.all([
+          firestore.collection('users').get(),
+          firestore.collection('subscriptions').get(),
+          firestore.collection('pendingPayments').get(),
+          firestore.collection('services').get()
+        ]);
+
+        // Calculate statistics
+        const totalUsers = usersSnapshot.size;
+        const verifiedUsers = usersSnapshot.docs.filter(doc => doc.data().phoneVerified).length;
+        const unverifiedUsers = totalUsers - verifiedUsers;
+        
+        const activeSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
+          const subData = doc.data();
+          return subData.status === 'active';
+        }).length;
+        const pendingSubscriptions = subscriptionsSnapshot.docs.filter(doc => {
+          const subData = doc.data();
+          return subData.status === 'pending';
+        }).length;
+        
+        // Count pending payments (users who uploaded proof but waiting for approval)
+        const pendingPayments = pendingPaymentsSnapshot.docs.filter(doc => {
+          const payData = doc.data();
+          return payData.status === 'pending' || payData.status === 'proof_submitted';
+        }).length;
+        
+        // Count total payment transactions
+        const totalPayments = pendingPaymentsSnapshot.size;
+        
+        const totalServices = servicesSnapshot.size;
+
+        const adminMessage = `🌟 **BirrPay Admin Dashboard** 🌟
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+👋 **Welcome back, Administrator!**
+
+📊 **Real-Time Analytics**
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 👥 **Users:** ${totalUsers} total • ${verifiedUsers} verified • ${unverifiedUsers} unverified
+┃ 📱 **Subscriptions:** ${activeSubscriptions} active • ${pendingSubscriptions} pending
+┃ 💳 **Payment Proofs:** ${totalPayments} total • ${pendingPayments} awaiting approval
+┃ 🎆 **Services:** ${totalServices} available
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+🔧 **Management Center** - Complete control over your platform`;
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
+            [{ text: '🔧 Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
+            [{ text: '💰 Revenue Management', callback_data: 'admin_revenue' }, { text: '💳 Payment Methods', callback_data: 'admin_payment_methods' }],
+            [{ text: '📊 Performance', callback_data: 'admin_performance' }],
+            [{ text: '📢 Broadcast Message', callback_data: 'admin_broadcast' }],
+            [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
+          ]
+        };
+
+        await ctx.editMessageText(adminMessage, {
+            parse_mode: 'Markdown',
           reply_markup: keyboard
         });
         
@@ -1526,6 +1656,12 @@ You don't have any subscriptions yet. To start a new subscription, please select
 
   } catch (error) {
     console.error("❌ Failed to initialize:", error);
-    process.exit(1);
+    console.log("🔄 Attempting to restart in 10 seconds...");
+    
+    // Wait 10 seconds before attempting restart
+    setTimeout(() => {
+      console.log("🔄 Restarting bot...");
+      process.exit(1); // Exit with error code to trigger restart
+    }, 10000);
   }
 })();
