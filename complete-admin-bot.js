@@ -1,5 +1,8 @@
 // Complete BirrPay Bot with EVERY SINGLE admin feature from original admin.js
 import './src/utils/consoleOverride.js'; // Must be first to override console
+
+// Set global start time for uptime tracking
+global.startTime = Date.now();
 import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { createServer } from 'http';
@@ -29,6 +32,8 @@ import firestoreListener from './src/handlers/firestoreListener.js';
 import { t, getUserLanguage, tf } from './src/utils/translations.js';
 import { performanceMonitor } from './src/utils/performanceMonitor.js';
 import logger from './src/utils/logger.js';
+import './src/utils/performanceTracker.js'; // Initialize performance tracking
+import { FirestoreOptimizer } from './src/utils/firestoreOptimizer.js'; // Initialize Firestore optimization
 
 // Helper function for admin security check (will be available after admin handler is registered)
 let isAuthorizedAdmin = null;
@@ -1086,6 +1091,15 @@ You don't have any subscriptions yet. To start a new subscription, please select
     helpHandler(bot);
     mySubscriptionsHandler(bot);
     adminHandler(bot); // This registers all working admin handlers from src/handlers/admin.js
+    
+    // Initialize performance tracking with some test operations
+    try {
+      // Generate some initial metrics by pre-loading data
+      await FirestoreOptimizer.getAdminStats();
+      console.log('✅ Performance tracking initialized with initial metrics');
+    } catch (error) {
+      console.log('⚠️ Performance tracking initialization skipped:', error.message);
+    }
     
     // Set up isAuthorizedAdmin function after admin handler is registered
     isAuthorizedAdmin = async (ctx) => {
