@@ -43,6 +43,8 @@ services:
         value: https://bpayb-24y5.onrender.com/telegram
       - key: ENABLE_FIRESTORE_LISTENER
         value: "true"
+      - key: FIREBASE_CONFIG
+        sync: false
     autoDeploy: true
     numInstances: 1
     scaling:
