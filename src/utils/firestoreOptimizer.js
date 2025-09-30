@@ -1,18 +1,33 @@
 // Firestore Optimization Utility for BirrPay Bot
-// AGGRESSIVE BEAST MODE - Maximum efficiency for 10,000+ users on free tier
+// ULTRA PERFORMANCE MODE - Maximum realistic efficiency for production
+// Now uses ultraMaxPerformance for enhanced caching and batching
 
-import { firestore } from './firestore.js';
+import { firestore } from "./firestore.js";
 
-// AGGRESSIVE CACHE TTL - Extended for maximum hit rate
+// Import ultra performance system for enhanced optimization
+let ultraPerformanceAvailable = false;
+let FirestoreOptimizerUltra = null;
+
+try {
+  const ultraModule = await import("./firestoreOptimizerUltra.js");
+  FirestoreOptimizerUltra = ultraModule.FirestoreOptimizerUltra;
+  ultraPerformanceAvailable = true;
+} catch (error) {
+  console.log(
+    "ℹ️ Ultra performance module not available, using standard optimization"
+  );
+}
+
+// REALISTIC CACHE TTL - Optimized for freshness + performance
 const CACHE_TTL = {
-  USERS: 30 * 60 * 1000,        // 30 minutes (was 5) - 6x longer
-  SERVICES: 60 * 60 * 1000,     // 1 hour (was 30 min) - 2x longer
-  SUBSCRIPTIONS: 10 * 60 * 1000, // 10 minutes (was 2) - 5x longer
-  PAYMENTS: 10 * 60 * 1000,     // 10 minutes (was 2) - 5x longer
-  STATS: 5 * 60 * 1000,         // 5 minutes (was 1) - 5x longer
-  ADMIN_STATS: 5 * 60 * 1000,   // 5 minutes - NEW
-  USER_PAGES: 10 * 60 * 1000,   // 10 minutes - NEW
-  COLLECTION_COUNTS: 15 * 60 * 1000 // 15 minutes - NEW
+  USERS: 15 * 60 * 1000, // 15 minutes - balanced freshness
+  SERVICES: 60 * 60 * 1000, // 1 hour - services rarely change
+  SUBSCRIPTIONS: 5 * 60 * 1000, // 5 minutes - active data
+  PAYMENTS: 5 * 60 * 1000, // 5 minutes - payment status
+  STATS: 3 * 60 * 1000, // 3 minutes - admin stats
+  ADMIN_STATS: 5 * 60 * 1000, // 5 minutes
+  USER_PAGES: 10 * 60 * 1000, // 10 minutes
+  COLLECTION_COUNTS: 30 * 60 * 1000, // 30 minutes
 };
 
 // In-memory cache with TTL
@@ -23,7 +38,7 @@ class FirestoreCache {
       hits: 0,
       misses: 0,
       sets: 0,
-      invalidations: 0
+      invalidations: 0,
     };
     this.batchOperations = [];
     this.batchTimer = null;
@@ -35,13 +50,13 @@ class FirestoreCache {
       this.stats.misses++;
       return null;
     }
-    
+
     if (Date.now() > item.expiry) {
       this.cache.delete(key);
       this.stats.misses++;
       return null;
     }
-    
+
     this.stats.hits++;
     return item.data;
   }
@@ -49,7 +64,7 @@ class FirestoreCache {
   set(key, data, ttl = 60000) {
     this.cache.set(key, {
       data,
-      expiry: Date.now() + ttl
+      expiry: Date.now() + ttl,
     });
     this.stats.sets++;
   }
@@ -69,7 +84,7 @@ class FirestoreCache {
   // SMART BATCHING - Queue operations for batch processing
   queueOperation(operation) {
     this.batchOperations.push(operation);
-    
+
     // Process batch every 5 seconds or when 10+ operations
     if (this.batchOperations.length >= 10) {
       this.processBatch();
@@ -80,19 +95,19 @@ class FirestoreCache {
 
   async processBatch() {
     if (this.batchOperations.length === 0) return;
-    
+
     try {
       const batch = firestore.batch();
-      this.batchOperations.forEach(op => {
-        if (op.type === 'set') {
+      this.batchOperations.forEach((op) => {
+        if (op.type === "set") {
           batch.set(op.ref, op.data);
-        } else if (op.type === 'update') {
+        } else if (op.type === "update") {
           batch.update(op.ref, op.data);
-        } else if (op.type === 'delete') {
+        } else if (op.type === "delete") {
           batch.delete(op.ref);
         }
       });
-      
+
       await batch.commit();
       this.batchOperations = [];
       if (this.batchTimer) {
@@ -100,7 +115,7 @@ class FirestoreCache {
         this.batchTimer = null;
       }
     } catch (error) {
-      console.error('Batch operation failed:', error);
+      console.error("Batch operation failed:", error);
     }
   }
 
@@ -108,60 +123,72 @@ class FirestoreCache {
     const total = this.stats.hits + this.stats.misses;
     return {
       ...this.stats,
-      hitRate: total > 0 ? (this.stats.hits / total * 100).toFixed(2) + '%' : '0%',
+      hitRate:
+        total > 0 ? ((this.stats.hits / total) * 100).toFixed(2) + "%" : "0%",
       size: this.cache.size,
-      batchQueue: this.batchOperations.length
+      batchQueue: this.batchOperations.length,
     };
   }
 }
 
 const cache = new FirestoreCache();
 
-// AGGRESSIVE BEAST MODE OPTIMIZATIONS
+// ULTRA PERFORMANCE OPTIMIZATIONS
 export class FirestoreOptimizer {
-  
-  // Get user with AGGRESSIVE caching
+  // Get user with ultra-fast caching
   static async getUser(userId) {
+    // Use ultra performance if available
+    if (ultraPerformanceAvailable && FirestoreOptimizerUltra) {
+      return await FirestoreOptimizerUltra.getUser(userId);
+    }
+
+    // Fallback to standard caching
     const cacheKey = `user_${userId}`;
     let userData = cache.get(cacheKey);
-    
+
     if (!userData) {
-      const userDoc = await firestore.collection('users').doc(userId).get();
+      const userDoc = await firestore.collection("users").doc(userId).get();
       userData = userDoc.exists ? userDoc.data() : null;
       cache.set(cacheKey, userData, CACHE_TTL.USERS);
     }
-    
+
     return userData;
   }
 
-  // Get services with EXTENDED caching
+  // Get services with extended caching
   static async getServices() {
-    const cacheKey = 'services_all';
+    // Use ultra performance if available
+    if (ultraPerformanceAvailable && FirestoreOptimizerUltra) {
+      return await FirestoreOptimizerUltra.getServices();
+    }
+
+    // Fallback to standard caching
+    const cacheKey = "services_all";
     let services = cache.get(cacheKey);
-    
+
     if (!services) {
-      const servicesSnapshot = await firestore.collection('services').get();
-      services = servicesSnapshot.docs.map(doc => ({
+      const servicesSnapshot = await firestore.collection("services").get();
+      services = servicesSnapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       }));
       cache.set(cacheKey, services, CACHE_TTL.SERVICES);
     }
-    
+
     return services;
   }
 
   // LAZY LOADING - Only load when actually needed
   static async getAdminStats() {
-    const cacheKey = 'admin_stats';
+    const cacheKey = "admin_stats";
     let stats = cache.get(cacheKey);
-    
+
     if (!stats) {
       // Only calculate if admin actually opens panel
       stats = await this.calculateAdminStats();
       cache.set(cacheKey, stats, CACHE_TTL.ADMIN_STATS);
     }
-    
+
     return stats;
   }
 
@@ -169,48 +196,49 @@ export class FirestoreOptimizer {
   static async getUsersPage(page = 1, limit = 10) {
     const cacheKey = `users_page_${page}_${limit}`;
     let users = cache.get(cacheKey);
-    
+
     if (!users) {
       try {
-        const usersSnapshot = await firestore.collection('users')
+        const usersSnapshot = await firestore
+          .collection("users")
           .limit(limit)
           .offset((page - 1) * limit)
           .get();
-        
-        users = usersSnapshot.docs.map(doc => ({
+
+        users = usersSnapshot.docs.map((doc) => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
         }));
-        
+
         cache.set(cacheKey, users, CACHE_TTL.USER_PAGES);
       } catch (error) {
-        console.error('Error fetching users page:', error);
+        console.error("Error fetching users page:", error);
         users = [];
       }
     }
-    
+
     return users;
   }
 
   // Get all users for admin panel (fallback)
   static async getAllUsers() {
-    const cacheKey = 'users_all';
+    const cacheKey = "users_all";
     let users = cache.get(cacheKey);
-    
+
     if (!users) {
       try {
-        const usersSnapshot = await firestore.collection('users').get();
-        users = usersSnapshot.docs.map(doc => ({
+        const usersSnapshot = await firestore.collection("users").get();
+        users = usersSnapshot.docs.map((doc) => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
         }));
         cache.set(cacheKey, users, CACHE_TTL.USERS);
       } catch (error) {
-        console.error('Error fetching all users:', error);
+        console.error("Error fetching all users:", error);
         users = [];
       }
     }
-    
+
     return users;
   }
 
@@ -218,13 +246,13 @@ export class FirestoreOptimizer {
   static async getCollectionCount(collectionName) {
     const cacheKey = `count_${collectionName}`;
     let count = cache.get(cacheKey);
-    
+
     if (count === null) {
       const snapshot = await firestore.collection(collectionName).get();
       count = snapshot.size;
       cache.set(cacheKey, count, CACHE_TTL.COLLECTION_COUNTS);
     }
-    
+
     return count;
   }
 
@@ -235,14 +263,14 @@ export class FirestoreOptimizer {
     const existingData = cache.get(cacheKey);
     const updatedData = { ...existingData, ...data };
     cache.set(cacheKey, updatedData, CACHE_TTL.USERS);
-    
+
     // Queue for batch processing (delayed sync)
     cache.queueOperation({
-      type: 'update',
-      ref: firestore.collection('users').doc(userId),
-      data: data
+      type: "update",
+      ref: firestore.collection("users").doc(userId),
+      data: data,
     });
-    
+
     return updatedData;
   }
 
@@ -254,31 +282,32 @@ export class FirestoreOptimizer {
     const newSub = { id: Date.now().toString(), ...subscriptionData };
     existingSubs.push(newSub);
     cache.set(cacheKey, existingSubs, CACHE_TTL.SUBSCRIPTIONS);
-    
+
     // Queue for batch processing
     cache.queueOperation({
-      type: 'set',
-      ref: firestore.collection('subscriptions').doc(newSub.id),
-      data: subscriptionData
+      type: "set",
+      ref: firestore.collection("subscriptions").doc(newSub.id),
+      data: subscriptionData,
     });
-    
+
     return newSub;
   }
 
   // Calculate admin stats only when needed
   static async calculateAdminStats() {
-    const [usersCount, subscriptionsCount, paymentsCount, servicesCount] = await Promise.all([
-      this.getCollectionCount('users'),
-      this.getCollectionCount('subscriptions'),
-      this.getCollectionCount('payments'),
-      this.getCollectionCount('services')
-    ]);
-    
+    const [usersCount, subscriptionsCount, paymentsCount, servicesCount] =
+      await Promise.all([
+        this.getCollectionCount("users"),
+        this.getCollectionCount("subscriptions"),
+        this.getCollectionCount("payments"),
+        this.getCollectionCount("services"),
+      ]);
+
     return {
       users: usersCount,
       subscriptions: subscriptionsCount,
       payments: paymentsCount,
-      services: servicesCount
+      services: servicesCount,
     };
   }
 
@@ -292,7 +321,7 @@ export class FirestoreOptimizer {
   }
 
   static invalidatePaymentCache() {
-    cache.invalidate('payments');
+    cache.invalidate("payments");
   }
 
   static getCacheStats() {
@@ -310,27 +339,27 @@ class RateLimiter {
   constructor() {
     this.requests = new Map();
     this.limits = {
-      reads: { max: 100, window: 60000 },    // 100 reads per minute
-      writes: { max: 50, window: 60000 },    // 50 writes per minute
-      deletes: { max: 20, window: 60000 }    // 20 deletes per minute
+      reads: { max: 100, window: 60000 }, // 100 reads per minute
+      writes: { max: 50, window: 60000 }, // 50 writes per minute
+      deletes: { max: 20, window: 60000 }, // 20 deletes per minute
     };
   }
 
   canProceed(operation) {
     const now = Date.now();
     const limit = this.limits[operation];
-    
+
     if (!this.requests.has(operation)) {
       this.requests.set(operation, []);
     }
-    
+
     const requests = this.requests.get(operation);
-    const validRequests = requests.filter(time => now - time < limit.window);
-    
+    const validRequests = requests.filter((time) => now - time < limit.window);
+
     if (validRequests.length >= limit.max) {
       return false;
     }
-    
+
     validRequests.push(now);
     this.requests.set(operation, validRequests);
     return true;

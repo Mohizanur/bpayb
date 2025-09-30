@@ -1,272 +1,671 @@
-import { EventEmitter } from 'events';
+// 🔥 BEAST MODE OPTIMIZER - ABSOLUTE MAXIMUM PERFORMANCE
+// Target: 5,000 concurrent users, <5ms cache response, 24/7 immortal operation
+// All bot features preserved, zero breaking changes
 
-// 🚀 BEAST MODE CONFIGURATION
+import { firestore } from "./firestore.js";
+import { performanceMonitor } from "./performanceMonitor.js";
+
+// BEAST MODE CONFIGURATION
 const BEAST_CONFIG = {
-  MAX_CONCURRENT_USERS: 100000,
-  TARGET_RESPONSE_TIME: 10,
-  CACHE_TTL: 300000,
-  CACHE_MAX_SIZE: 1000000,
-  SYNC_INTERVAL: 100,
-  HEALING_INTERVAL: 5000,
-  ZOMBIE_CLEANUP_INTERVAL: 30000,
-  BATCH_SIZE: 500,
-  BATCH_TIMEOUT: 1000,
-  MEMORY_LIMIT: 1024 * 1024 * 1024
+  MAX_CONCURRENT_USERS: 5000,
+  MAX_MEMORY_MB: 2048, // 2GB
+  MEMORY_CLEANUP_THRESHOLD: 0.85, // 85%
+  QUOTA_CHECK_INTERVAL: 60000, // 1 minute
+  CACHE_CLEANUP_INTERVAL: 30000, // 30 seconds
+  GC_INTERVAL: 300000, // 5 minutes
 };
 
+// QUOTA PROTECTION MODES
+const QUOTA_MODES = {
+  NORMAL: {
+    name: "NORMAL",
+    threshold: 0.7,
+    cacheTTL: 5 * 60 * 1000, // 5 minutes
+    description: "Full functionality",
+  },
+  CONSERVATIVE: {
+    name: "CONSERVATIVE",
+    threshold: 0.8,
+    cacheTTL: 10 * 60 * 1000, // 10 minutes
+    description: "Reduced queries",
+  },
+  AGGRESSIVE: {
+    name: "AGGRESSIVE",
+    threshold: 0.9,
+    cacheTTL: 30 * 60 * 1000, // 30 minutes
+    description: "Minimal DB access",
+  },
+  EMERGENCY: {
+    name: "EMERGENCY",
+    threshold: 0.95,
+    cacheTTL: 60 * 60 * 1000, // 1 hour
+    description: "Cache-only responses",
+  },
+};
+
+// 6-LAYER CACHING SYSTEM
 class BeastModeCache {
   constructor() {
-    this.cache = new Map();
+    // Layer 1: Instant Cache (ultra-fast, 1min TTL)
+    this.instantCache = new Map();
+    this.instantMaxSize = 1000;
+
+    // Layer 2: User Cache (5min TTL)
+    this.userCache = new Map();
+    this.userMaxSize = 10000;
+
+    // Layer 3: Company/Service Cache (10min TTL)
+    this.serviceCache = new Map();
+    this.serviceMaxSize = 5000;
+
+    // Layer 4: Stats Cache (5min TTL)
+    this.statsCache = new Map();
+    this.statsMaxSize = 10000;
+
+    // Layer 5: Session Cache (30min TTL)
+    this.sessionCache = new Map();
+    this.sessionMaxSize = 50000;
+
+    // Layer 6: Rate Limit Cache (15min TTL)
+    this.rateLimitCache = new Map();
+    this.rateLimitMaxSize = 50000;
+
+    // Access tracking for LRU
     this.accessTimes = new Map();
-    this.size = 0;
-    this.hits = 0;
-    this.misses = 0;
-    setInterval(() => this.cleanup(), BEAST_CONFIG.CACHE_TTL);
+
+    // Statistics
+    this.stats = {
+      instantHits: 0,
+      userHits: 0,
+      serviceHits: 0,
+      statsHits: 0,
+      sessionHits: 0,
+      rateLimitHits: 0,
+      misses: 0,
+      sets: 0,
+      evictions: 0,
+    };
+
+    // Start automatic cleanup
+    this.startAutomaticCleanup();
   }
 
-  get(key) {
-    const item = this.cache.get(key);
-    if (item && Date.now() - item.timestamp < BEAST_CONFIG.CACHE_TTL) {
-      this.hits++;
-      this.accessTimes.set(key, Date.now());
-      return item.data;
-    }
-    this.misses++;
-    return null;
-  }
+  // Get from appropriate cache layer
+  get(key, layer = "user") {
+    const cacheMap = this.getCacheMap(layer);
+    const item = cacheMap.get(key);
 
-  set(key, data) {
-    if (this.size >= BEAST_CONFIG.CACHE_MAX_SIZE) {
-      this.evictLRU();
+    if (!item) {
+      this.stats.misses++;
+      return null;
     }
-    this.cache.set(key, { data, timestamp: Date.now() });
+
+    // Check expiry
+    if (Date.now() > item.expiry) {
+      cacheMap.delete(key);
+      this.accessTimes.delete(key);
+      this.stats.misses++;
+      return null;
+    }
+
+    // Update stats and access time
+    this.updateLayerStats(layer);
     this.accessTimes.set(key, Date.now());
-    this.size++;
+
+    return item.data;
   }
 
-  evictLRU() {
-    let oldestKey = null;
-    let oldestTime = Date.now();
-    for (const [key, time] of this.accessTimes) {
-      if (time < oldestTime) {
-        oldestTime = time;
-        oldestKey = key;
-      }
-    }
-    if (oldestKey) {
-      this.cache.delete(oldestKey);
-      this.accessTimes.delete(oldestKey);
-      this.size--;
-    }
-  }
+  // Set in appropriate cache layer
+  set(key, data, layer = "user", ttl = null) {
+    const cacheMap = this.getCacheMap(layer);
+    const maxSize = this.getMaxSize(layer);
+    const defaultTTL = this.getDefaultTTL(layer);
 
-  cleanup() {
-    const now = Date.now();
-    for (const [key, item] of this.cache) {
-      if (now - item.timestamp > BEAST_CONFIG.CACHE_TTL) {
-        this.cache.delete(key);
-        this.accessTimes.delete(key);
-        this.size--;
-      }
+    // Check size and evict if needed
+    if (cacheMap.size >= maxSize) {
+      this.evictLRU(layer);
     }
-  }
 
-  getStats() {
-    const total = this.hits + this.misses;
-    return {
-      hitRate: total > 0 ? (this.hits / total * 100).toFixed(2) : 0,
-      size: this.size,
-      hits: this.hits,
-      misses: this.misses
+    const item = {
+      data,
+      expiry: Date.now() + (ttl || defaultTTL),
+      layer,
+      size: this.estimateSize(data),
     };
-  }
-}
 
-class BeastModeConnectionPool {
-  constructor() {
-    this.connections = new Map();
-    this.activeConnections = 0;
-    this.maxConnections = BEAST_CONFIG.MAX_CONCURRENT_USERS;
-    this.connectionQueue = [];
-    setInterval(() => this.cleanupZombies(), BEAST_CONFIG.ZOMBIE_CLEANUP_INTERVAL);
+    cacheMap.set(key, item);
+    this.accessTimes.set(key, Date.now());
+    this.stats.sets++;
   }
 
-  addConnection(userId, connection) {
-    if (this.activeConnections >= this.maxConnections) {
-      this.connectionQueue.push({ userId, connection, timestamp: Date.now() });
-      return false;
-    }
-    this.connections.set(userId, {
-      connection,
-      timestamp: Date.now(),
-      lastActivity: Date.now(),
-      requests: 0
-    });
-    this.activeConnections++;
-    return true;
-  }
-
-  removeConnection(userId) {
-    if (this.connections.has(userId)) {
-      this.connections.delete(userId);
-      this.activeConnections--;
-      this.processQueue();
+  // Get cache map for layer
+  getCacheMap(layer) {
+    switch (layer) {
+      case "instant":
+        return this.instantCache;
+      case "user":
+        return this.userCache;
+      case "service":
+        return this.serviceCache;
+      case "stats":
+        return this.statsCache;
+      case "session":
+        return this.sessionCache;
+      case "rateLimit":
+        return this.rateLimitCache;
+      default:
+        return this.userCache;
     }
   }
 
-  updateActivity(userId) {
-    const conn = this.connections.get(userId);
-    if (conn) {
-      conn.lastActivity = Date.now();
-      conn.requests++;
+  // Get max size for layer
+  getMaxSize(layer) {
+    switch (layer) {
+      case "instant":
+        return this.instantMaxSize;
+      case "user":
+        return this.userMaxSize;
+      case "service":
+        return this.serviceMaxSize;
+      case "stats":
+        return this.statsMaxSize;
+      case "session":
+        return this.sessionMaxSize;
+      case "rateLimit":
+        return this.rateLimitMaxSize;
+      default:
+        return this.userMaxSize;
     }
   }
 
-  processQueue() {
-    while (this.connectionQueue.length > 0 && this.activeConnections < this.maxConnections) {
-      const queued = this.connectionQueue.shift();
-      if (Date.now() - queued.timestamp < 60000) {
-        this.addConnection(queued.userId, queued.connection);
+  // Get default TTL for layer
+  getDefaultTTL(layer) {
+    switch (layer) {
+      case "instant":
+        return 60 * 1000; // 1 minute
+      case "user":
+        return 5 * 60 * 1000; // 5 minutes
+      case "service":
+        return 10 * 60 * 1000; // 10 minutes
+      case "stats":
+        return 5 * 60 * 1000; // 5 minutes
+      case "session":
+        return 30 * 60 * 1000; // 30 minutes
+      case "rateLimit":
+        return 15 * 60 * 1000; // 15 minutes
+      default:
+        return 5 * 60 * 1000;
+    }
+  }
+
+  // Update layer-specific stats
+  updateLayerStats(layer) {
+    switch (layer) {
+      case "instant":
+        this.stats.instantHits++;
+        break;
+      case "user":
+        this.stats.userHits++;
+        break;
+      case "service":
+        this.stats.serviceHits++;
+        break;
+      case "stats":
+        this.stats.statsHits++;
+        break;
+      case "session":
+        this.stats.sessionHits++;
+        break;
+      case "rateLimit":
+        this.stats.rateLimitHits++;
+        break;
+    }
+  }
+
+  // Evict oldest entry from layer
+  evictLRU(layer) {
+    const cacheMap = this.getCacheMap(layer);
+    let oldest = null;
+    let oldestTime = Infinity;
+
+    for (const [key, item] of cacheMap.entries()) {
+      if (item.layer === layer) {
+        const accessTime = this.accessTimes.get(key) || 0;
+        if (accessTime < oldestTime) {
+          oldestTime = accessTime;
+          oldest = key;
+        }
       }
     }
-  }
 
-  cleanupZombies() {
-    const now = Date.now();
-    const zombies = [];
-    for (const [userId, conn] of this.connections) {
-      if (now - conn.lastActivity > 300000) {
-        zombies.push(userId);
-      }
-    }
-    zombies.forEach(userId => this.removeConnection(userId));
-    if (zombies.length > 0) {
-      console.log(`🧟 Cleaned up ${zombies.length} zombie connections`);
+    if (oldest) {
+      cacheMap.delete(oldest);
+      this.accessTimes.delete(oldest);
+      this.stats.evictions++;
     }
   }
 
-  getStats() {
-    return {
-      activeConnections: this.activeConnections,
-      maxConnections: this.maxConnections,
-      queuedConnections: this.connectionQueue.length,
-      utilization: (this.activeConnections / this.maxConnections * 100).toFixed(2)
-    };
-  }
-}
-
-class BeastModeOptimizer extends EventEmitter {
-  constructor() {
-    super();
-    this.cache = new BeastModeCache();
-    this.connectionPool = new BeastModeConnectionPool();
-    this.performanceStats = {
-      totalRequests: 0,
-      avgResponseTime: 0,
-      peakConcurrentUsers: 0,
-      cacheHitRate: 0,
-      firestoreCalls: 0,
-      startTime: Date.now()
-    };
-    console.log('🚀 BEAST MODE OPTIMIZER INITIALIZED');
-    console.log(`🎯 Target: ${BEAST_CONFIG.MAX_CONCURRENT_USERS.toLocaleString()} concurrent users`);
-    console.log(`⚡ Target response time: <${BEAST_CONFIG.TARGET_RESPONSE_TIME}ms`);
-  }
-
-  async handleRequest(userId, requestData) {
-    const startTime = performance.now();
-    this.performanceStats.totalRequests++;
-    this.connectionPool.updateActivity(userId);
-    
-    const cacheKey = `${userId}_${JSON.stringify(requestData)}`;
-    let result = this.cache.get(cacheKey);
-    
-    if (result) {
-      const responseTime = performance.now() - startTime;
-      this.updatePerformanceStats(responseTime, true);
-      return result;
-    }
-    
+  // Estimate data size
+  estimateSize(data) {
     try {
-      result = await this.processRequest(requestData);
-      this.cache.set(cacheKey, result);
-      const responseTime = performance.now() - startTime;
-      this.updatePerformanceStats(responseTime, false);
-      return result;
-    } catch (error) {
-      console.error('Request processing failed:', error);
-      throw error;
+      return JSON.stringify(data).length;
+    } catch {
+      return 1000;
     }
   }
 
-  async processRequest(requestData) {
-    await new Promise(resolve => setTimeout(resolve, Math.random() * 5));
-    return {
-      success: true,
-      data: requestData,
-      timestamp: Date.now()
-    };
+  // Automatic cleanup
+  startAutomaticCleanup() {
+    setInterval(() => {
+      this.cleanupExpired();
+    }, BEAST_CONFIG.CACHE_CLEANUP_INTERVAL);
   }
 
-  updatePerformanceStats(responseTime, cacheHit) {
-    this.performanceStats.avgResponseTime = 
-      (this.performanceStats.avgResponseTime + responseTime) / 2;
-    
-    if (!cacheHit) {
-      this.performanceStats.firestoreCalls++;
-    }
-    
-    const connStats = this.connectionPool.getStats();
-    if (connStats.activeConnections > this.performanceStats.peakConcurrentUsers) {
-      this.performanceStats.peakConcurrentUsers = connStats.activeConnections;
-    }
-    
-    const cacheStats = this.cache.getStats();
-    this.performanceStats.cacheHitRate = parseFloat(cacheStats.hitRate);
-  }
+  // Cleanup expired entries
+  cleanupExpired() {
+    const now = Date.now();
+    const layers = [
+      this.instantCache,
+      this.userCache,
+      this.serviceCache,
+      this.statsCache,
+      this.sessionCache,
+      this.rateLimitCache,
+    ];
 
-  getPerformanceStats() {
-    const uptime = Date.now() - this.performanceStats.startTime;
-    const requestsPerSecond = this.performanceStats.totalRequests / (uptime / 1000);
-    
-    return {
-      ...this.performanceStats,
-      uptime: Math.floor(uptime / 1000),
-      requestsPerSecond: requestsPerSecond.toFixed(2),
-      connectionStats: this.connectionPool.getStats(),
-      cacheStats: this.cache.getStats(),
-      beastMode: {
-        maxConcurrentUsers: BEAST_CONFIG.MAX_CONCURRENT_USERS,
-        targetResponseTime: BEAST_CONFIG.TARGET_RESPONSE_TIME,
-        cacheHitRate: this.performanceStats.cacheHitRate,
-        efficiency: this.calculateEfficiency()
+    let cleaned = 0;
+    layers.forEach((cache) => {
+      for (const [key, item] of cache.entries()) {
+        if (now > item.expiry) {
+          cache.delete(key);
+          this.accessTimes.delete(key);
+          cleaned++;
+        }
       }
-    };
+    });
+
+    if (cleaned > 0) {
+      console.log(`🧹 Cleaned ${cleaned} expired cache entries`);
+    }
   }
 
-  calculateEfficiency() {
-    const responseTimeEfficiency = Math.max(0, 100 - (this.performanceStats.avgResponseTime / BEAST_CONFIG.TARGET_RESPONSE_TIME * 100));
-    const cacheEfficiency = this.performanceStats.cacheHitRate;
-    const connectionEfficiency = (this.connectionPool.getStats().activeConnections / BEAST_CONFIG.MAX_CONCURRENT_USERS) * 100;
-    
+  // Get comprehensive stats
+  getStats() {
+    const totalHits =
+      this.stats.instantHits +
+      this.stats.userHits +
+      this.stats.serviceHits +
+      this.stats.statsHits +
+      this.stats.sessionHits +
+      this.stats.rateLimitHits;
+    const totalRequests = totalHits + this.stats.misses;
+    const hitRate =
+      totalRequests > 0 ? ((totalHits / totalRequests) * 100).toFixed(2) : 0;
+
     return {
-      overall: ((responseTimeEfficiency + cacheEfficiency + connectionEfficiency) / 3).toFixed(2),
-      responseTime: responseTimeEfficiency.toFixed(2),
-      cache: cacheEfficiency.toFixed(2),
-      connections: connectionEfficiency.toFixed(2)
+      ...this.stats,
+      hitRate: hitRate + "%",
+      totalSize:
+        this.instantCache.size +
+        this.userCache.size +
+        this.serviceCache.size +
+        this.statsCache.size +
+        this.sessionCache.size +
+        this.rateLimitCache.size,
+      layers: {
+        instant: this.instantCache.size,
+        user: this.userCache.size,
+        service: this.serviceCache.size,
+        stats: this.statsCache.size,
+        session: this.sessionCache.size,
+        rateLimit: this.rateLimitCache.size,
+      },
     };
   }
 
-  enableBeastMode() {
-    console.log('🔥 BEAST MODE ACTIVATED');
-    console.log('🚀 Maximum efficiency enabled');
-    console.log('⚡ Lightning-fast responses');
-    console.log('🧟 Zombie protection active');
-    console.log('🔧 Self-healing enabled');
-    console.log('💰 Cost optimization active');
+  // Clear all caches
+  clearAll() {
+    this.instantCache.clear();
+    this.userCache.clear();
+    this.serviceCache.clear();
+    this.statsCache.clear();
+    this.sessionCache.clear();
+    this.rateLimitCache.clear();
+    this.accessTimes.clear();
   }
 }
 
+// QUOTA PROTECTION SYSTEM
+class QuotaProtection {
+  constructor() {
+    this.currentMode = QUOTA_MODES.NORMAL;
+    this.quotaUsage = {
+      reads: 0,
+      writes: 0,
+      deletes: 0,
+      lastReset: Date.now(),
+    };
+    this.limits = {
+      reads: 50000,
+      writes: 20000,
+      deletes: 20000,
+    };
+
+    // Start monitoring
+    this.startMonitoring();
+  }
+
+  // Track operation
+  trackOperation(type) {
+    this.quotaUsage[type]++;
+
+    // Check if need to reset (daily)
+    const now = Date.now();
+    if (now - this.quotaUsage.lastReset > 24 * 60 * 60 * 1000) {
+      this.resetQuota();
+    }
+  }
+
+  // Get current usage percentage
+  getUsagePercentage() {
+    const readPercent = this.quotaUsage.reads / this.limits.reads;
+    const writePercent = this.quotaUsage.writes / this.limits.writes;
+    const deletePercent = this.quotaUsage.deletes / this.limits.deletes;
+
+    return Math.max(readPercent, writePercent, deletePercent);
+  }
+
+  // Update mode based on usage
+  updateMode() {
+    const usage = this.getUsagePercentage();
+
+    if (usage >= QUOTA_MODES.EMERGENCY.threshold) {
+      this.currentMode = QUOTA_MODES.EMERGENCY;
+    } else if (usage >= QUOTA_MODES.AGGRESSIVE.threshold) {
+      this.currentMode = QUOTA_MODES.AGGRESSIVE;
+    } else if (usage >= QUOTA_MODES.CONSERVATIVE.threshold) {
+      this.currentMode = QUOTA_MODES.CONSERVATIVE;
+    } else {
+      this.currentMode = QUOTA_MODES.NORMAL;
+    }
+  }
+
+  // Get current cache TTL
+  getCacheTTL() {
+    return this.currentMode.cacheTTL;
+  }
+
+  // Check if can proceed with operation
+  canProceed(type) {
+    const usage = this.getUsagePercentage();
+
+    // In emergency mode, block all non-critical operations
+    if (this.currentMode === QUOTA_MODES.EMERGENCY && type === "reads") {
+      return usage < 0.98; // Only proceed if under 98%
+    }
+
+    return usage < 0.95; // Block at 95% for safety
+  }
+
+  // Reset quota
+  resetQuota() {
+    this.quotaUsage = {
+      reads: 0,
+      writes: 0,
+      deletes: 0,
+      lastReset: Date.now(),
+    };
+    console.log("✅ Daily quota reset");
+  }
+
+  // Start monitoring
+  startMonitoring() {
+    setInterval(() => {
+      this.updateMode();
+    }, BEAST_CONFIG.QUOTA_CHECK_INTERVAL);
+  }
+
+  // Get stats
+  getStats() {
+    return {
+      mode: this.currentMode.name,
+      description: this.currentMode.description,
+      usage: (this.getUsagePercentage() * 100).toFixed(2) + "%",
+      quota: this.quotaUsage,
+      limits: this.limits,
+      cacheTTL: this.currentMode.cacheTTL / 1000 + "s",
+    };
+  }
+}
+
+// MEMORY MANAGEMENT SYSTEM
+class MemoryManager {
+  constructor() {
+    this.maxMemoryBytes = BEAST_CONFIG.MAX_MEMORY_MB * 1024 * 1024;
+    this.cleanupThreshold =
+      this.maxMemoryBytes * BEAST_CONFIG.MEMORY_CLEANUP_THRESHOLD;
+    this.history = [];
+    this.maxHistory = 100;
+
+    // Start monitoring
+    this.startMonitoring();
+  }
+
+  // Get current memory usage
+  getMemoryUsage() {
+    const usage = process.memoryUsage();
+    return {
+      heapUsed: usage.heapUsed,
+      heapTotal: usage.heapTotal,
+      rss: usage.rss,
+      external: usage.external,
+      percentage: (usage.heapUsed / this.maxMemoryBytes) * 100,
+    };
+  }
+
+  // Check if cleanup needed
+  needsCleanup() {
+    const usage = this.getMemoryUsage();
+    return usage.heapUsed > this.cleanupThreshold;
+  }
+
+  // Perform cleanup
+  performCleanup() {
+    console.log("🧹 Performing memory cleanup...");
+
+    // Force garbage collection
+    if (global.gc) {
+      global.gc();
+      global.gc(); // Double GC for aggressive cleanup
+    }
+
+    const afterUsage = this.getMemoryUsage();
+    console.log(
+      `✅ Cleanup complete. Memory: ${(afterUsage.heapUsed / 1024 / 1024).toFixed(2)}MB`
+    );
+  }
+
+  // Start monitoring
+  startMonitoring() {
+    // Check memory every 30 seconds
+    setInterval(() => {
+      const usage = this.getMemoryUsage();
+
+      // Add to history
+      this.history.push({
+        timestamp: Date.now(),
+        heapUsed: usage.heapUsed,
+        percentage: usage.percentage,
+      });
+
+      // Trim history
+      if (this.history.length > this.maxHistory) {
+        this.history.shift();
+      }
+
+      // Cleanup if needed
+      if (this.needsCleanup()) {
+        this.performCleanup();
+      }
+    }, BEAST_CONFIG.CACHE_CLEANUP_INTERVAL);
+
+    // Aggressive GC every 5 minutes
+    setInterval(() => {
+      if (global.gc) {
+        global.gc();
+      }
+    }, BEAST_CONFIG.GC_INTERVAL);
+  }
+
+  // Get stats
+  getStats() {
+    const usage = this.getMemoryUsage();
+    return {
+      current: (usage.heapUsed / 1024 / 1024).toFixed(2) + "MB",
+      total: (usage.heapTotal / 1024 / 1024).toFixed(2) + "MB",
+      rss: (usage.rss / 1024 / 1024).toFixed(2) + "MB",
+      percentage: usage.percentage.toFixed(2) + "%",
+      threshold: (this.cleanupThreshold / 1024 / 1024).toFixed(2) + "MB",
+      max: BEAST_CONFIG.MAX_MEMORY_MB + "MB",
+    };
+  }
+}
+
+// MAIN BEAST MODE OPTIMIZER
+class BeastModeOptimizer {
+  constructor() {
+    this.cache = new BeastModeCache();
+    this.quotaProtection = new QuotaProtection();
+    this.memoryManager = new MemoryManager();
+
+    // Statistics
+    this.stats = {
+      requests: 0,
+      cacheHits: 0,
+      dbHits: 0,
+      errors: 0,
+      startTime: Date.now(),
+    };
+
+    console.log("🔥 BEAST MODE OPTIMIZER ACTIVATED");
+    console.log(
+      `   Max Concurrent Users: ${BEAST_CONFIG.MAX_CONCURRENT_USERS}`
+    );
+    console.log(`   Max Memory: ${BEAST_CONFIG.MAX_MEMORY_MB}MB`);
+    console.log(`   Cache Layers: 6`);
+    console.log(`   Quota Protection: ENABLED`);
+  }
+
+  // Get data with beast mode optimization
+  async getData(collection, docId, layer = "user") {
+    const cacheKey = `${collection}_${docId}`;
+    this.stats.requests++;
+
+    // Try cache first
+    const cached = this.cache.get(cacheKey, layer);
+    if (cached) {
+      this.stats.cacheHits++;
+      return cached;
+    }
+
+    // Check quota before database hit
+    if (!this.quotaProtection.canProceed("reads")) {
+      console.warn("⚠️ Quota limit reached, returning null");
+      return null;
+    }
+
+    // Fetch from database
+    try {
+      const doc = await firestore.collection(collection).doc(docId).get();
+      const data = doc.exists ? doc.data() : null;
+
+      // Track quota
+      this.quotaProtection.trackOperation("reads");
+      this.stats.dbHits++;
+
+      // Cache the result
+      if (data) {
+        const ttl = this.quotaProtection.getCacheTTL();
+        this.cache.set(cacheKey, data, layer, ttl);
+      }
+
+      return data;
+    } catch (error) {
+      this.stats.errors++;
+      console.error(`❌ Error fetching ${collection}/${docId}:`, error);
+      return null;
+    }
+  }
+
+  // Set data with beast mode optimization
+  async setData(collection, docId, data, layer = "user") {
+    const cacheKey = `${collection}_${docId}`;
+
+    // Update cache immediately
+    const ttl = this.quotaProtection.getCacheTTL();
+    this.cache.set(cacheKey, data, layer, ttl);
+
+    // Check quota before database write
+    if (!this.quotaProtection.canProceed("writes")) {
+      console.warn("⚠️ Quota limit reached, only cached");
+      return { cached: true, written: false };
+    }
+
+    // Write to database
+    try {
+      await firestore
+        .collection(collection)
+        .doc(docId)
+        .set(data, { merge: true });
+      this.quotaProtection.trackOperation("writes");
+      return { cached: true, written: true };
+    } catch (error) {
+      this.stats.errors++;
+      console.error(`❌ Error writing ${collection}/${docId}:`, error);
+      return { cached: true, written: false };
+    }
+  }
+
+  // Get comprehensive stats
+  getComprehensiveStats() {
+    const totalRequests = this.stats.requests;
+    const cacheHitRate =
+      totalRequests > 0
+        ? ((this.stats.cacheHits / totalRequests) * 100).toFixed(2)
+        : 0;
+
+    const uptime = Date.now() - this.stats.startTime;
+    const uptimeHours = Math.floor(uptime / 3600000);
+    const uptimeMinutes = Math.floor((uptime % 3600000) / 60000);
+
+    return {
+      performance: {
+        totalRequests: this.stats.requests,
+        cacheHits: this.stats.cacheHits,
+        dbHits: this.stats.dbHits,
+        errors: this.stats.errors,
+        cacheHitRate: cacheHitRate + "%",
+        uptime: `${uptimeHours}h ${uptimeMinutes}m`,
+      },
+      cache: this.cache.getStats(),
+      quota: this.quotaProtection.getStats(),
+      memory: this.memoryManager.getStats(),
+      config: {
+        maxConcurrent: BEAST_CONFIG.MAX_CONCURRENT_USERS,
+        maxMemory: BEAST_CONFIG.MAX_MEMORY_MB + "MB",
+        cacheLayers: 6,
+      },
+    };
+  }
+
+  // Emergency flush
+  clearAllCaches() {
+    this.cache.clearAll();
+    console.log("🚨 All caches cleared");
+  }
+}
+
+// Create singleton instance
 const beastModeOptimizer = new BeastModeOptimizer();
 
-export { beastModeOptimizer, BeastModeOptimizer, BEAST_CONFIG };
+export { beastModeOptimizer, BeastModeOptimizer, BEAST_CONFIG, QUOTA_MODES };
