@@ -1310,8 +1310,19 @@ You don't have any subscriptions yet. To start a new subscription, please select
       );
     }
 
+    // Register INSTANT MODE commands if in INSTANT MODE
+    if (process.env.INSTANT_MODE === "true") {
+      try {
+        const { default: addInstantModeCommands } = await import(
+          "./src/utils/addInstantModeCommands.js"
+        );
+        await addInstantModeCommands(bot);
+      } catch (error) {
+        console.log("ℹ️ INSTANT MODE commands not available:", error.message);
+      }
+    }
     // Register BEAST MODE commands if in BEAST MODE
-    if (process.env.BEAST_MODE === "true") {
+    else if (process.env.BEAST_MODE === "true") {
       try {
         const { default: addBeastModeCommands } = await import(
           "./src/utils/addBeastModeCommands.js"
