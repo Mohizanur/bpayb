@@ -30,19 +30,30 @@ export default function supportHandler(bot) {
   // Handle text messages for support (but only if not a command and not in service creation flow)
   bot.on("text", async (ctx) => {
     try {
+      console.log('🔍 Support handler called for user:', ctx.from?.id);
+      console.log('🔍 Message text:', ctx.message.text);
+      
       // Skip if it's a command
       if (ctx.message.text.startsWith("/")) {
+        console.log('🔍 Skipping command message');
         return;
       }
 
       // Skip if user is in service creation or editing flow
       const userId = ctx.from?.id;
+      console.log('🔍 Checking states for user:', userId);
+      console.log('🔍 serviceCreationState:', global.serviceCreationState?.[userId]);
+      console.log('🔍 serviceEditState:', global.serviceEditState?.[userId]);
+      
       if (userId && (
         (global.serviceCreationState && global.serviceCreationState[userId]) ||
         (global.serviceEditState && global.serviceEditState[userId])
       )) {
+        console.log('🔍 User is in service flow, skipping support handler');
         return; // Let service creation/editing handler process this
       }
+      
+      console.log('🔍 Processing as support message');
 
       // Get user's language preference from database
       let lang = 'en';
