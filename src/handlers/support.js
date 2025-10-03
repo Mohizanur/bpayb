@@ -35,10 +35,13 @@ export default function supportHandler(bot) {
         return;
       }
 
-      // Skip if user is in service creation flow
+      // Skip if user is in service creation or editing flow
       const userId = ctx.from?.id;
-      if (userId && global.serviceCreationState && global.serviceCreationState[userId]) {
-        return; // Let service creation handler process this
+      if (userId && (
+        (global.serviceCreationState && global.serviceCreationState[userId]) ||
+        (global.serviceEditState && global.serviceEditState[userId])
+      )) {
+        return; // Let service creation/editing handler process this
       }
 
       // Get user's language preference from database
