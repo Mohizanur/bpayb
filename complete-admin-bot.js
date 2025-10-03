@@ -1898,6 +1898,15 @@ You don't have any subscriptions yet. To start a new subscription, please select
     // Setup help handler
     helpHandler(bot);
 
+    // Setup production monitoring commands
+    try {
+      const { registerProductionCommands } = await import("./src/handlers/productionCommands.js");
+      registerProductionCommands(bot);
+      console.log("✅ Production monitoring commands registered");
+    } catch (e) {
+      console.error("❌ Failed to register production commands:", e.message);
+    }
+
     // Setup expiration reminder
     // expirationReminder.setupHandlers(bot); // Not available in this version
 

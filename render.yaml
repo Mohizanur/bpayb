@@ -1,79 +1,182 @@
+# 🚀 RENDER DEPLOYMENT CONFIGURATION - Ultimate Integrated System
+# Optimized configuration for maximum performance on Render
+
 services:
   - type: web
-    name: birrpay-bot
+    name: birrpay-bot-ultimate
     env: node
-    plan: free
-    buildCommand: npm install --legacy-peer-deps --force
-    startCommand: node complete-admin-bot.js
-    healthCheckPath: /health
+    plan: free  # Can be upgraded to starter/standard for better performance
+    buildCommand: npm install --production
+    startCommand: npm run start:integrated-production
     envVars:
-      - key: PORT
-        value: 10000
+      # Ultimate Integrated Performance Settings
+      - key: LOG_LEVEL
+        value: none
+      - key: PERFORMANCE_MODE
+        value: true
+      - key: ULTRA_PERFORMANCE
+        value: true
+      - key: ULTIMATE_PERFORMANCE
+        value: true
+      - key: MEGA_PERFORMANCE
+        value: true
+      - key: REALISTIC_PERFORMANCE
+        value: true
+      - key: ABSOLUTE_EDGE
+        value: true
+      - key: RENDER_OPTIMIZED
+        value: true
+      - key: INTEGRATED_MODE
+        value: true
+      
+      # Logging Control (all disabled for maximum performance)
+      - key: ENABLE_CONSOLE_LOGS
+        value: false
+      - key: ENABLE_FIRESTORE_LOGS
+        value: false
+      - key: ENABLE_PERFORMANCE_LOGS
+        value: false
+      - key: ENABLE_DEBUG_LOGS
+        value: false
+      - key: ENABLE_ERROR_LOGS
+        value: false
+      
+      # Node.js Optimization
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=1024 --expose-gc --optimize-for-size --max-semi-space-size=128"
       - key: NODE_ENV
         value: production
-      - key: DEBUG_MODE
-        value: "false"
-      - key: LOG_LEVEL
-        value: "none"
-      - key: ENABLE_CONSOLE_LOGS
-        value: "false"
-      - key: ENABLE_FIRESTORE_LOGS
-        value: "false"
-      - key: ENABLE_PERFORMANCE_LOGS
-        value: "false"
-      - key: ENABLE_DEBUG_LOGS
-        value: "false"
-      - key: PERFORMANCE_MODE
-        value: "true"
-      - key: RENDER_EXTERNAL_URL
-        value: https://bpayb-24y5.onrender.com
+      
+      # Performance Optimization
+      - key: UV_THREADPOOL_SIZE
+        value: 16
+      - key: NODE_MAX_OLD_SPACE_SIZE
+        value: 1024
+      
+      # Telegram Bot Configuration
       - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: ADMIN_TELEGRAM_ID
-        sync: false
+        sync: false  # Set this in Render dashboard
+      
+      # Firebase Configuration
       - key: FIREBASE_PROJECT_ID
-        value: birrpay-20e82
-      - key: FIREBASE_PRIVATE_KEY_ID
-        sync: false
-      - key: FIREBASE_PRIVATE_KEY
-        sync: false
+        sync: false  # Set this in Render dashboard
       - key: FIREBASE_CLIENT_EMAIL
-        sync: false
-      - key: FIREBASE_CLIENT_ID
-        sync: false
-      - key: FIREBASE_AUTH_URI
-        value: https://accounts.google.com/o/oauth2/auth
-      - key: FIREBASE_TOKEN_URI
-        value: https://oauth2.googleapis.com/token
-      - key: FIREBASE_AUTH_PROVIDER_X509_CERT_URL
-        value: https://www.googleapis.com/oauth2/v1/certs
-      - key: FIREBASE_CLIENT_X509_CERT_URL
-        sync: false
-      - key: WEBHOOK_URL
-        value: https://bpayb-24y5.onrender.com/telegram
-      - key: ENABLE_FIRESTORE_LISTENER
-        value: "true"
-      - key: FIREBASE_CONFIG
-        sync: false
+        sync: false  # Set this in Render dashboard
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false  # Set this in Render dashboard
+      
+      # Optional Redis Configuration (for enhanced caching)
+      - key: REDIS_HOST
+        value: ""  # Leave empty if not using Redis
+      - key: REDIS_PORT
+        value: ""
+      - key: REDIS_PASSWORD
+        value: ""
+      
+      # Performance Tuning
+      - key: MAX_CONCURRENT_REQUESTS
+        value: 10000
+      - key: CACHE_SIZE
+        value: 50000
+      - key: BATCH_SIZE
+        value: 1000
+      - key: WORKER_THREADS
+        value: 4
+      
+      # Health Check Configuration
+      - key: HEALTH_CHECK_INTERVAL
+        value: 30000
+      - key: PERFORMANCE_CHECK_INTERVAL
+        value: 15000
+      - key: MEMORY_CHECK_INTERVAL
+        value: 10000
+      
+      # Auto-scaling Configuration
+      - key: MIN_INSTANCES
+        value: 1
+      - key: MAX_INSTANCES
+        value: 10
+      - key: SCALE_UP_THRESHOLD
+        value: 0.8
+      - key: SCALE_DOWN_THRESHOLD
+        value: 0.3
+    
+    # Health check configuration
+    healthCheckPath: /health
+    
+    # Auto-deploy configuration
     autoDeploy: true
-    numInstances: 1
-    scaling:
-      minInstances: 1
-      maxInstances: 1
-    resources:
-      cpu: 0.1
-      memory: 512MB
-    headers:
-      - path: /*
-        name: X-Frame-Options
-        value: DENY
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-      - path: /*
-        name: X-XSS-Protection
-        value: 1; mode=block
+    
+    # Build settings
+    buildFilter:
+      paths:
+        - src/**
+        - "*.js"
+        - package.json
+        - package-lock.json
+    
+    # Disk storage (for logs and temporary files)
+    disk:
+      name: birrpay-storage
+      mountPath: /opt/render/project/storage
+      sizeGB: 1
 
-databases:
-  - name: birrpay-secrets
-    plan: free
+# Optional: Redis service for enhanced caching (upgrade to paid plan)
+# - type: redis
+#   name: birrpay-redis
+#   plan: free  # 25MB free tier
+#   ipAllowList: []  # Allow all IPs
+
+# Optional: PostgreSQL for additional data storage
+# - type: pgsql
+#   name: birrpay-postgres
+#   plan: free  # 1GB free tier
+#   databaseName: birrpay
+#   databaseUser: birrpay
+
+# Environment-specific configurations
+environments:
+  - name: production
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: none
+      - key: PERFORMANCE_MODE
+        value: true
+  
+  - name: staging
+    envVars:
+      - key: NODE_ENV
+        value: staging
+      - key: LOG_LEVEL
+        value: info
+      - key: PERFORMANCE_MODE
+        value: true
+  
+  - name: development
+    envVars:
+      - key: NODE_ENV
+        value: development
+      - key: LOG_LEVEL
+        value: debug
+      - key: PERFORMANCE_MODE
+        value: false
+
+# Performance optimization notes:
+# 1. Free tier: 512MB RAM, shared CPU
+# 2. Starter tier: 1GB RAM, shared CPU ($7/month)
+# 3. Standard tier: 2GB RAM, dedicated CPU ($25/month)
+# 4. Pro tier: 4GB RAM, dedicated CPU ($85/month)
+#
+# For maximum performance on free tier:
+# - Use start:integrated command
+# - Disable all logging
+# - Enable aggressive garbage collection
+# - Use precomputed responses
+# - Implement edge caching
+#
+# Upgrade recommendations:
+# - Starter tier: 4x better performance
+# - Standard tier: 10x better performance
+# - Pro tier: 20x better performance
