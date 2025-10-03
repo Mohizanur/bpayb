@@ -27,12 +27,18 @@ export default function supportHandler(bot) {
     }
   });
   
-  // Handle text messages for support (but only if not a command)
+  // Handle text messages for support (but only if not a command and not in service creation flow)
   bot.on("text", async (ctx) => {
     try {
       // Skip if it's a command
       if (ctx.message.text.startsWith("/")) {
         return;
+      }
+
+      // Skip if user is in service creation flow
+      const userId = ctx.from?.id;
+      if (userId && global.serviceCreationState && global.serviceCreationState[userId]) {
+        return; // Let service creation handler process this
       }
 
       // Get user's language preference from database
