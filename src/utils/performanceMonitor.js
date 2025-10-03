@@ -3,6 +3,7 @@
 
 import { performance } from 'perf_hooks';
 import EventEmitter from 'events';
+import os from 'os';
 
 class PerformanceMonitor extends EventEmitter {
   constructor() {
@@ -229,7 +230,7 @@ class PerformanceMonitor extends EventEmitter {
     
     // Get load average (if available)
     if (process.platform !== 'win32') {
-      const loadAvg = require('os').loadavg();
+      const loadAvg = os.loadavg();
       this.metrics.system.loadAverage = loadAvg;
     }
   }
