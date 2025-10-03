@@ -448,6 +448,22 @@ class PerformanceMonitor extends EventEmitter {
     this.metrics.requests.perSecond = Math.floor(Math.random() * 10) + 1; // Simple fallback
   }
 
+  // Track request start
+  trackRequestStart(requestId, requestType) {
+    this.metrics.requests.total++;
+    // Simple tracking - can be enhanced later
+    return requestId;
+  }
+
+  // Track request end
+  trackRequestEnd(requestId, success = true, responseTime = 0) {
+    if (!success) {
+      this.metrics.requests.errors++;
+    }
+    this.metrics.requests.averageResponseTime = responseTime;
+    return requestId;
+  }
+
   // Threshold management
   updateThresholds(newThresholds) {
     this.thresholds = { ...this.thresholds, ...newThresholds };
