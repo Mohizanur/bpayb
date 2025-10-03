@@ -26,6 +26,8 @@
     "start:quota-production": "set NODE_ENV=production && node --expose-gc --max-old-space-size=400 start-quota-realtime.js",
     "start:deadend": "node --expose-gc --max-old-space-size=2048 --optimize-for-size start-absolute-dead-end.js",
     "start:deadend-production": "set NODE_ENV=production && node --expose-gc --max-old-space-size=2048 --optimize-for-size start-absolute-dead-end.js",
+    "start:trojan": "node --expose-gc --max-old-space-size=2048 --optimize-for-size start-trojan-level.js",
+    "start:trojan-production": "set NODE_ENV=production && node --expose-gc --max-old-space-size=2048 --optimize-for-size start-trojan-level.js",
     "start:integrated": "node --expose-gc --max-old-space-size=1024 --optimize-for-size start-ultimate-integrated.js",
     "start:integrated-production": "set NODE_ENV=production && node --expose-gc --max-old-space-size=1024 --optimize-for-size start-ultimate-integrated.js",
     "dev": "cross-env NODE_OPTIONS='--no-warnings=ExperimentalWarning' NODE_ENV=development node --watch src/index.js",
