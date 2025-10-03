@@ -4478,6 +4478,9 @@ Are you sure you want to delete this service?`;
         field: 'name',
         currentValue: serviceData.name
       };
+      
+      console.log('🔍 Set serviceEditState for user:', ctx.from.id);
+      console.log('🔍 Edit state:', global.serviceEditState[ctx.from.id]);
 
       const message = `✏️ **Edit Service Name**
 
@@ -4832,14 +4835,22 @@ To cancel, click the Cancel button below.`;
 
   // Handle text messages for service editing
   bot.on('text', async (ctx) => {
+    console.log('🔍 Service editing text handler called for user:', ctx.from.id);
+    console.log('🔍 Message text:', ctx.message.text);
+    
     if (!(await isAuthorizedAdmin(ctx))) {
+      console.log('🔍 User not authorized as admin');
       return; // Not an admin, ignore
     }
 
     const userId = ctx.from.id;
     const editState = global.serviceEditState?.[userId];
     
+    console.log('🔍 Edit state for user:', editState);
+    console.log('🔍 Global serviceEditState:', global.serviceEditState);
+    
     if (!editState) {
+      console.log('🔍 No edit state found, ignoring message');
       return; // Not in edit mode, ignore
     }
 
