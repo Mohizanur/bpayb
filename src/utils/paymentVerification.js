@@ -109,7 +109,7 @@ export async function rejectPayment(paymentId, adminId, reason) {
  * @param {string} [screenshotUrl] - Optional URL to the payment proof screenshot
  * @returns {Promise<boolean>} Whether the notification was sent successfully
  */
-export async function notifyAdminsAboutPayment(payment, screenshotUrl) {
+export async function notifyAdminsAboutPayment(payment, screenshotUrl, fileId) {
   try {
     const admins = await getAdmins();
     if (!admins.length) {
@@ -156,11 +156,11 @@ export async function notifyAdminsAboutPayment(payment, screenshotUrl) {
     }
     
     const sendPromises = validAdmins.map(admin => {
-      // If we have a screenshot URL, forward the image with payment details
-      if (screenshotUrl) {
+      // If we have a fileId, forward the image with payment details
+      if (fileId) {
         return bot.telegram.sendPhoto(
           admin.id,
-          screenshotUrl,
+          fileId, // Use file_id instead of URL
           {
             caption: message,
             parse_mode: 'Markdown',
@@ -187,7 +187,7 @@ export async function notifyAdminsAboutPayment(payment, screenshotUrl) {
           }
         );
       } else {
-        // Fallback to text message if no screenshot
+        // Fallback to text message if no fileId
         return bot.telegram.sendMessage(
           admin.id,
           message,
@@ -236,7 +236,7 @@ export async function notifyAdminsAboutPayment(payment, screenshotUrl) {
  * @param {Object} params.userInfo - User information
  * @returns {Promise<Object>} Result of the operation
  */
-export async function handlePaymentProofUpload({ paymentId, screenshotUrl, userId, userInfo }) {
+export async function handlePaymentProofUpload({ paymentId, screenshotUrl, fileId, userId, userInfo }) {
   try {
     // First, try to find the payment in pendingPayments collection
     let payment = null;
@@ -293,7 +293,7 @@ export async function handlePaymentProofUpload({ paymentId, screenshotUrl, userI
     }
     
     // Notify admins about the new payment proof
-    await notifyAdminsAboutPayment(payment, screenshotUrl);
+    await notifyAdminsAboutPayment(payment, screenshotUrl, fileId);
 
     return {
       success: true,

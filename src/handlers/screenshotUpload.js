@@ -176,7 +176,8 @@ Please upload your screenshot:`;
         // Handle the payment proof with our verification system
         const result = await handlePaymentProofUpload({
           paymentId: paymentId || `pending-${Date.now()}`,
-          screenshotUrl: fileLink.href,
+          screenshotUrl: fileLink.href, // Keep URL for storage
+          fileId: fileId, // Add file_id for forwarding
           userId: ctx.from.id,
           paymentReference,
           userInfo: {
