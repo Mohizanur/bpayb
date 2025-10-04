@@ -3339,7 +3339,7 @@ Please send the new name for this payment method:`;
   });
 
   // Handle confirm delete payment method
-  bot.action(/^confirm_delete_(.+)$/, async (ctx) => {
+  bot.action(/^confirm_delete_(?!service_)(.+)$/, async (ctx) => {
     console.log('🔍 Confirm delete payment method callback received:', ctx.callbackQuery.data);
     if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
