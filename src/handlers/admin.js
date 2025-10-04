@@ -3459,17 +3459,16 @@ Type \`cancel\` to cancel the operation.`, {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '❌ Cancel', callback_data: `edit_method_${methodId}` }]
+            [{ text: '❌ Cancel', callback_data: `edit_payment_method_${methodId}` }]
           ]
         }
       });
-
-      // Store the edit context in global editingStates
-      global.editingStates = global.editingStates || new Map();
-      global.editingStates.set(ctx.from.id.toString(), {
-        methodId: methodId,
-        field: 'instructions'
-      });
+      
+      // Set state to await new instructions
+      ctx.session = ctx.session || {};
+      ctx.session.awaitingPaymentMethodInstructions = { methodId };
+      console.log('🔍 Set awaitingPaymentMethodInstructions for user:', ctx.from.id);
+      console.log('🔍 Session after setting instructions state:', ctx.session);
 
       await ctx.answerCbQuery();
     } catch (error) {
@@ -5560,6 +5559,68 @@ Details:
         console.error('Error updating payment method account:', error);
         await ctx.reply('❌ Error updating payment method account');
         delete ctx.session.awaitingPaymentMethodAccount;
+      }
+      return;
+    }
+    
+    // Check if user is in payment method instructions editing mode
+    if (ctx.session?.awaitingPaymentMethodInstructions) {
+      console.log('🔍 Payment method instructions editing detected');
+      console.log('🔍 Payment method instructions edit state:', ctx.session.awaitingPaymentMethodInstructions);
+      
+      try {
+        const { methodId } = ctx.session.awaitingPaymentMethodInstructions;
+        const newInstructions = ctx.message.text.trim();
+        
+        if (!newInstructions) {
+          await ctx.reply('❌ Please provide valid instructions');
+          return;
+        }
+        
+        if (newInstructions.toLowerCase() === 'cancel') {
+          await ctx.reply('❌ Instructions editing cancelled');
+          delete ctx.session.awaitingPaymentMethodInstructions;
+          return;
+        }
+        
+        // Update payment method instructions in Firestore
+        const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
+        const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
+        
+        const methodIndex = paymentMethods.findIndex(m => m.id === methodId);
+        if (methodIndex === -1) {
+          await ctx.reply('❌ Payment method not found');
+          return;
+        }
+        
+        // Update the instructions
+        paymentMethods[methodIndex].instructions = newInstructions;
+        
+        // Save to Firestore
+        await firestore.collection('config').doc('paymentMethods').set({
+          methods: paymentMethods
+        });
+        
+        await ctx.reply(`✅ **Payment Method Instructions Updated**
+
+**${paymentMethods[methodIndex].name}** instructions have been updated:
+
+${newInstructions}`, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔙 Back to Payment Methods', callback_data: 'admin_payment_methods' }]
+            ]
+          }
+        });
+        
+        // Clear the editing state
+        delete ctx.session.awaitingPaymentMethodInstructions;
+        
+      } catch (error) {
+        console.error('Error updating payment method instructions:', error);
+        await ctx.reply('❌ Error updating payment method instructions');
+        delete ctx.session.awaitingPaymentMethodInstructions;
       }
       return;
     }
