@@ -126,6 +126,7 @@ export default function adminHandler(bot) {
       } else if (subscription.status === 'expired') {
         expiredCount++;
       }
+      // Note: rejected subscriptions are not counted in totals
     });
     
     // Count pending payments (these are subscriptions waiting for payment approval)
@@ -820,14 +821,12 @@ export default function adminHandler(bot) {
 
     try {
       // Load real-time statistics
-      const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, pendingPaymentsSnapshot, servicesSnapshot, customPlanRequestsSnapshot] = await Promise.all([
+      const [usersSnapshot, paymentsSnapshot, servicesSnapshot] = await Promise.all([
         firestore.collection('users').get(),
-        firestore.collection('subscriptions').get(),
         firestore.collection('payments').get(),
-        firestore.collection('pendingPayments').get(),
-        firestore.collection('services').get(),
-        firestore.collection('customPlanRequests').where('status', '==', 'pending').get()
+        firestore.collection('services').get()
       ]);
+      const stats = await getSubscriptionStats();
 
       // Calculate statistics
       const totalUsers = usersSnapshot.size;
@@ -867,9 +866,9 @@ export default function adminHandler(bot) {
 📊 **Real-Time Analytics**
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ 👥 **Users:** ${totalUsers.toLocaleString()} total • ${activeUsers.toLocaleString()} active
-┃ 📱 **Subscriptions:** ${activeSubscriptions.toLocaleString()} active • ${pendingSubscriptions.toLocaleString()} pending  
-┃ 💳 **Payments:** ${totalPayments.toLocaleString()} total • ${pendingPayments.toLocaleString()} pending
-┃ 🎯 **Custom Plans:** ${customPlanRequestsSnapshot.size} pending requests
+┃ 📱 **Subscriptions:** ${stats.activeCount.toLocaleString()} active • ${stats.pendingCount.toLocaleString()} pending
+┃ 💳 **Payments:** ${totalPayments.toLocaleString()} total • ${stats.pendingCount.toLocaleString()} pending
+┃ 🎯 **Custom Plans:** ${stats.customPlanCount} pending requests
 ┃ 💰 **Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}
 ┃ 🛍️ **Services:** ${servicesSnapshot.size} available
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
@@ -1724,14 +1723,12 @@ export default function adminHandler(bot) {
         // Re-run the admin command logic to show updated stats
     try {
       // Load real-time statistics
-      const [usersSnapshot, subscriptionsSnapshot, paymentsSnapshot, pendingPaymentsSnapshot, servicesSnapshot, customPlanRequestsSnapshot] = await Promise.all([
+      const [usersSnapshot, paymentsSnapshot, servicesSnapshot] = await Promise.all([
         firestore.collection('users').get(),
-        firestore.collection('subscriptions').get(),
         firestore.collection('payments').get(),
-        firestore.collection('pendingPayments').get(),
-        firestore.collection('services').get(),
-        firestore.collection('customPlanRequests').where('status', '==', 'pending').get()
+        firestore.collection('services').get()
       ]);
+      const stats = await getSubscriptionStats();
 
       // Calculate statistics
       const totalUsers = usersSnapshot.size;
@@ -1771,9 +1768,9 @@ export default function adminHandler(bot) {
 📊 **Real-Time Analytics**
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ 👥 **Users:** ${totalUsers.toLocaleString()} total • ${activeUsers.toLocaleString()} active
-┃ 📱 **Subscriptions:** ${activeSubscriptions.toLocaleString()} active • ${pendingSubscriptions.toLocaleString()} pending  
-┃ 💳 **Payments:** ${totalPayments.toLocaleString()} total • ${pendingPayments.toLocaleString()} pending
-┃ 🎯 **Custom Plans:** ${customPlanRequestsSnapshot.size} pending requests
+┃ 📱 **Subscriptions:** ${stats.activeCount.toLocaleString()} active • ${stats.pendingCount.toLocaleString()} pending
+┃ 💳 **Payments:** ${totalPayments.toLocaleString()} total • ${stats.pendingCount.toLocaleString()} pending
+┃ 🎯 **Custom Plans:** ${stats.customPlanCount} pending requests
 ┃ 💰 **Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}
 ┃ 🛍️ **Services:** ${servicesSnapshot.size} available
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛

@@ -39,8 +39,17 @@ export async function verifyPayment(paymentId, adminId, notes = '') {
       throw new Error(result.error || 'Failed to update payment status');
     }
 
-    // Create subscription if it doesn't exist
-    if (!payment.subscriptionId) {
+    // Create or update subscription
+    if (payment.subscriptionId) {
+      // Update existing subscription to active
+      await firestore.collection('subscriptions').doc(payment.subscriptionId).update({
+        status: 'active',
+        startDate: new Date().toISOString(),
+        endDate: calculateEndDate(new Date(), payment.duration || '1_month'),
+        updatedAt: new Date().toISOString()
+      });
+    } else {
+      // Create new subscription if it doesn't exist
       const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const subscriptionData = {
         id: subscriptionId,
@@ -126,6 +135,17 @@ export async function rejectPayment(paymentId, adminId, reason) {
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to update payment status');
+    }
+
+    // Update subscription status to rejected if it exists
+    if (payment.subscriptionId) {
+      await firestore.collection('subscriptions').doc(payment.subscriptionId).update({
+        status: 'rejected',
+        rejectedAt: new Date().toISOString(),
+        rejectedBy: adminId,
+        rejectionReason: reason,
+        updatedAt: new Date().toISOString()
+      });
     }
 
     // Notify user about rejection
