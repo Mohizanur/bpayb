@@ -140,14 +140,12 @@ export async function notifyAdminsAboutPayment(payment, screenshotUrl) {
       priority: 'high'
     });
     
-    const message = `🆕 *New Payment Requires Verification*\n\n` +
+    const message = `🆕 *Payment Verification Required*\n\n` +
       `💰 *Amount:* ${formattedAmount}\n` +
       `👤 *User:* ${payment.userName || `ID: ${payment.userId}`}\n` +
-      `📝 *Reference:* \`${payment.paymentReference || payment.id || 'N/A'}\`\n` +
       `🛒 *Service:* ${payment.serviceName || 'N/A'}\n` +
-      `💳 *Method:* ${payment.paymentMethod || 'Manual'}\n` +
       `📅 *Date:* ${new Date(payment.createdAt || Date.now()).toLocaleString()}\n\n` +
-      `*Ticket ID:* ${ticket.id || 'N/A'}`;
+      `*Payment ID:* \`${payment.id}\``;
 
     // Send to all admins (filter out admins without valid chat IDs)
     const validAdmins = admins.filter(admin => admin.id && admin.id !== 'undefined');
@@ -158,34 +156,60 @@ export async function notifyAdminsAboutPayment(payment, screenshotUrl) {
     }
     
     const sendPromises = validAdmins.map(admin => {
-      return bot.telegram.sendMessage(
-        admin.id, // Use admin.id instead of admin.userId
-        message,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { 
-                  text: '✅ Verify Payment', 
-                  callback_data: `verify_payment:${payment.id}` 
-                },
-                { 
-                  text: '❌ Reject Payment', 
-                  callback_data: `reject_payment:${payment.id}` 
-                }
-              ],
-              screenshotUrl ? [
-                { 
-                  text: '📸 View Screenshot', 
-                  url: screenshotUrl,
-                  callback_data: 'view_screenshot'
-                }
-              ] : []
-            ]
+      // If we have a screenshot URL, forward the image with payment details
+      if (screenshotUrl) {
+        return bot.telegram.sendPhoto(
+          admin.id,
+          screenshotUrl,
+          {
+            caption: message,
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { 
+                    text: '✅ Approve Payment', 
+                    callback_data: `verify_payment:${payment.id}` 
+                  },
+                  { 
+                    text: '❌ Reject Payment', 
+                    callback_data: `reject_payment:${payment.id}` 
+                  }
+                ],
+                [
+                  { 
+                    text: '👤 View User Profile', 
+                    callback_data: `view_user:${payment.userId}` 
+                  }
+                ]
+              ]
+            }
           }
-        }
-      );
+        );
+      } else {
+        // Fallback to text message if no screenshot
+        return bot.telegram.sendMessage(
+          admin.id,
+          message,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { 
+                    text: '✅ Approve Payment', 
+                    callback_data: `verify_payment:${payment.id}` 
+                  },
+                  { 
+                    text: '❌ Reject Payment', 
+                    callback_data: `reject_payment:${payment.id}` 
+                  }
+                ]
+              ]
+            }
+          }
+        );
+      }
     });
 
     await Promise.all(sendPromises);
