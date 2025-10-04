@@ -2550,6 +2550,108 @@ ${error.message}`, {
     }
   });
 
+  // Handle add payment method
+  bot.action('add_payment_method', async (ctx) => {
+    console.log('🔍 Add payment method callback received:', ctx.callbackQuery.data);
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      await ctx.answerCbQuery();
+      
+      const message = `➕ **Add New Payment Method**
+
+Please provide the following information:
+
+1. **Method Name** (e.g., "Telebirr", "CBE", "Awash Bank")
+2. **Account Number/ID** 
+3. **Instructions** (optional)
+4. **Icon** (optional, default: 💳)
+
+Send the information in this format:
+\`\`\`
+Name: [Method Name]
+Account: [Account Number]
+Instructions: [Payment Instructions]
+Icon: [Icon Emoji]
+\`\`\`
+
+Example:
+\`\`\`
+Name: Telebirr
+Account: 0911234567
+Instructions: Send money to this Telebirr account and include your subscription ID in the reference
+Icon: 📱
+\`\`\``;
+      
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Cancel', callback_data: 'admin_payment_methods' }]
+          ]
+        }
+      });
+      
+      // Set state to await payment method data
+      ctx.session = ctx.session || {};
+      ctx.session.awaitingPaymentMethodData = true;
+      
+    } catch (error) {
+      console.error('Error adding payment method:', error);
+      await ctx.reply('❌ Error loading add payment method form');
+    }
+  });
+
+  // Handle back to admin
+  bot.action('back_to_admin', async (ctx) => {
+    console.log('🔍 Back to admin callback received:', ctx.callbackQuery.data);
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      await ctx.answerCbQuery();
+      
+      const message = `🌟 **BirrPay Admin Dashboard** 🌟
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+👋 Welcome back, Administrator!
+
+📊 **Real-Time Analytics**
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 👥 Users: 8 total • 5 verified • 3 unverified
+┃ 📱 Subscriptions: 5 active • 11 pending
+┃ 💳 Payment Proofs: 21 total • 14 awaiting approval
+┃ 🎆 Services: 7 available
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+🔧 **Management Center** - Complete control over your platform`;
+      
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '👥 Users', callback_data: 'admin_users' }, { text: '📊 Subscriptions', callback_data: 'admin_subscriptions' }],
+            [{ text: '🔧 Manage Services', callback_data: 'admin_manage_services' }, { text: '➕ Add Service', callback_data: 'admin_add_service' }],
+            [{ text: '💰 Revenue Management', callback_data: 'admin_revenue' }, { text: '💳 Payment Methods', callback_data: 'admin_payment_methods' }],
+            [{ text: '📊 Performance', callback_data: 'admin_performance' }],
+            [{ text: '📢 Broadcast Message', callback_data: 'admin_broadcast' }],
+            [{ text: '🔄 Refresh Panel', callback_data: 'refresh_admin' }]
+          ]
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error going back to admin:', error);
+      await ctx.reply('❌ Error loading admin panel');
+    }
+  });
+
   // Handle admin_payments action - Payment Methods Management
   bot.action('admin_payments', async (ctx) => {
     if (!(await isAuthorizedAdmin(ctx))) {
@@ -2717,7 +2819,7 @@ Select a payment method to enable/disable:
     }
   });
 
-  // Handle individual method toggle
+  // Handle individual method toggle (both patterns)
   bot.action(/^toggle_method_(.+)$/, async (ctx) => {
     console.log('🔍 Toggle method callback received:', ctx.callbackQuery.data);
     if (!(await isAuthorizedAdmin(ctx))) {
@@ -2818,7 +2920,161 @@ Select a payment method to edit:
     }
   });
 
-  // Handle individual method edit
+  // Handle payment method toggle (correct pattern)
+  bot.action(/^toggle_payment_method_(.+)$/, async (ctx) => {
+    console.log('🔍 Toggle payment method callback received:', ctx.callbackQuery.data);
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const methodId = ctx.match[1];
+      console.log('🔍 Toggling payment method:', methodId);
+      
+      // Answer callback immediately to prevent timeout
+      await ctx.answerCbQuery();
+      
+      const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
+      const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
+      
+      const methodIndex = paymentMethods.findIndex(m => m.id === methodId);
+      if (methodIndex === -1) {
+        await ctx.reply('❌ Payment method not found');
+        return;
+      }
+      
+      // Toggle the method status
+      paymentMethods[methodIndex].active = !paymentMethods[methodIndex].active;
+      
+      // Update in Firestore
+      await firestore.collection('config').doc('paymentMethods').set({
+        methods: paymentMethods
+      });
+      
+      const status = paymentMethods[methodIndex].active ? '✅ Enabled' : '❌ Disabled';
+      await ctx.reply(`${status} ${paymentMethods[methodIndex].name}`);
+      
+      // Refresh the payment methods view
+      setTimeout(async () => {
+        try {
+          await ctx.answerCallbackQuery('admin_payment_methods');
+        } catch (e) {
+          console.log('Callback query already answered');
+        }
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error toggling payment method:', error);
+      await ctx.reply('❌ Error updating payment method');
+    }
+  });
+
+  // Handle payment method edit (correct pattern)
+  bot.action(/^edit_payment_method_(.+)$/, async (ctx) => {
+    console.log('🔍 Edit payment method callback received:', ctx.callbackQuery.data);
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const methodId = ctx.match[1];
+      console.log('🔍 Editing payment method:', methodId);
+      
+      // Answer callback immediately to prevent timeout
+      await ctx.answerCbQuery();
+      
+      const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
+      const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
+      
+      const method = paymentMethods.find(m => m.id === methodId);
+      if (!method) {
+        await ctx.reply('❌ Payment method not found');
+        return;
+      }
+      
+      const message = `✏️ **Edit ${method.name}**
+
+Current Details:
+• Name: ${method.name}
+• Account: ${method.account || 'Not set'}
+• Instructions: ${method.instructions || 'Not set'}
+• Active: ${method.active ? '✅ Yes' : '❌ No'}
+
+What would you like to edit?`;
+      
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '📝 Edit Name', callback_data: `edit_name_${methodId}` }],
+            [{ text: '🏦 Edit Account', callback_data: `edit_account_${methodId}` }],
+            [{ text: '📋 Edit Instructions', callback_data: `edit_instructions_${methodId}` }],
+            [{ text: '🔄 Toggle Status', callback_data: `toggle_payment_method_${methodId}` }],
+            [{ text: '🔙 Back to Payment Methods', callback_data: 'admin_payment_methods' }]
+          ]
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error editing payment method:', error);
+      await ctx.reply('❌ Error loading payment method details');
+    }
+  });
+
+  // Handle payment method delete (correct pattern)
+  bot.action(/^delete_payment_method_(.+)$/, async (ctx) => {
+    console.log('🔍 Delete payment method callback received:', ctx.callbackQuery.data);
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const methodId = ctx.match[1];
+      console.log('🔍 Deleting payment method:', methodId);
+      
+      // Answer callback immediately to prevent timeout
+      await ctx.answerCbQuery();
+      
+      const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
+      const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
+      
+      const method = paymentMethods.find(m => m.id === methodId);
+      if (!method) {
+        await ctx.reply('❌ Payment method not found');
+        return;
+      }
+      
+      const message = `🗑️ **Delete ${method.name}**
+
+⚠️ **Warning:** This action cannot be undone!
+
+Are you sure you want to delete this payment method?
+
+Current Details:
+• Name: ${method.name}
+• Account: ${method.account || 'Not set'}
+• Status: ${method.active ? '✅ Active' : '❌ Inactive'}`;
+      
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '✅ Yes, Delete', callback_data: `confirm_delete_${methodId}` }],
+            [{ text: '❌ Cancel', callback_data: 'admin_payment_methods' }]
+          ]
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error deleting payment method:', error);
+      await ctx.reply('❌ Error loading payment method details');
+    }
+  });
+
+  // Handle individual method edit (old pattern for compatibility)
   bot.action(/^edit_method_(.+)$/, async (ctx) => {
     console.log('🔍 Edit method callback received:', ctx.callbackQuery.data);
     if (!(await isAuthorizedAdmin(ctx))) {
