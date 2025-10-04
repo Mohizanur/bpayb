@@ -1306,6 +1306,25 @@ You don't have any subscriptions yet. To start a new subscription, please select
     setupStartHandler(bot);
     setupSubscribeHandler(bot);
 
+    // Setup global error handler
+    bot.catch((err, ctx) => {
+      console.error('🚨 Global bot error:', err);
+      console.error('🚨 Error context:', {
+        userId: ctx.from?.id,
+        username: ctx.from?.username,
+        messageId: ctx.message?.message_id,
+        callbackData: ctx.callbackQuery?.data,
+        updateType: ctx.updateType
+      });
+      
+      // Try to send error message to user
+      try {
+        ctx.reply('❌ An error occurred. Please try again or use /start to restart.');
+      } catch (replyError) {
+        console.error('🚨 Failed to send error message:', replyError);
+      }
+    });
+
     // Setup cancel command handler
     bot.command('cancel', async (ctx) => {
       try {
