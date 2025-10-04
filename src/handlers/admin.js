@@ -6259,8 +6259,23 @@ ${recommendationsText}
       // Get recent payments for display
       paymentsSnapshot.docs.slice(0, 5).forEach(doc => {
         const payment = doc.data();
+        
+        // Handle amount formatting - convert string amounts to numbers
+        let amount = 0;
+        if (payment.amount) {
+          if (typeof payment.amount === 'string') {
+            // Extract number from string like "ETB 2310"
+            const match = payment.amount.match(/(\d+(?:\.\d+)?)/);
+            amount = match ? parseFloat(match[1]) : 0;
+          } else {
+            amount = parseFloat(payment.amount) || 0;
+          }
+        } else if (payment.price) {
+          amount = parseFloat(payment.price) || 0;
+        }
+        
         recentPayments.push({
-          amount: payment.amount || payment.price || 0,
+          amount: amount,
           status: payment.status || 'completed',
           timestamp: payment.timestamp || payment.createdAt || new Date(),
           userId: payment.userId || payment.telegramUserID || 'Unknown'
