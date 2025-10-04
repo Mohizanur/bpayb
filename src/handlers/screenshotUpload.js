@@ -25,13 +25,25 @@ export default function screenshotUploadHandler(bot) {
       // Use payment reference from callback data if available, otherwise from subscription
       const displayPaymentReference = paymentReference || subscription.paymentReference;
       
+      // Parse amount properly
+      let displayAmount = 'N/A';
+      if (subscription.amount) {
+        if (typeof subscription.amount === 'string') {
+          // Extract number from string like "ETB 11515" or "11515"
+          const match = subscription.amount.match(/(\d+(?:\.\d+)?)/);
+          displayAmount = match ? `ETB ${parseFloat(match[1]).toFixed(2)}` : 'N/A';
+        } else if (typeof subscription.amount === 'number') {
+          displayAmount = `ETB ${subscription.amount.toFixed(2)}`;
+        }
+      }
+
       const message = lang === 'am'
         ? `📸 **የክፍያ ስክሪንሾት ያስገቡ**
         
 የክፍያዎን ስክሪንሾት ያስገቡ። ይህ የክፍያዎን ማረጋገጥ ለመረጋገጥ ያገለግላል።
 
 **የክፍያ ማጣቀሻ:** ${displayPaymentReference || 'N/A'}
-**መጠን:** ${subscription.amount} ETB
+**መጠን:** ${displayAmount}
 
 እባክዎ የክፍያዎን ስክሪንሾት ያስገቡ:`
         : `📸 **Upload Payment Screenshot**
@@ -39,7 +51,7 @@ export default function screenshotUploadHandler(bot) {
 Please upload a screenshot of your payment. This will be used to verify your payment.
 
 **Payment Reference:** ${displayPaymentReference || 'N/A'}
-**Amount:** ${subscription.amount} ETB
+**Amount:** ${displayAmount}
 
 Please upload your payment screenshot:`;
       

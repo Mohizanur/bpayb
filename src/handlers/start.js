@@ -85,7 +85,8 @@ export function setupStartHandler(bot) {
       
       if (userDoc.exists) {
         userData = userDoc.data();
-        isFirstTime = false;
+        // Check if user has completed onboarding
+        isFirstTime = !userData.hasCompletedOnboarding;
       } else {
         isFirstTime = true;
       }
@@ -267,9 +268,24 @@ Customer service available in Amharic and English.`;
     }
   });
 
+  // Helper function to mark onboarding as completed
+  const markOnboardingCompleted = async (userId) => {
+    try {
+      await firestore.collection('users').doc(String(userId)).update({
+        hasCompletedOnboarding: true,
+        onboardingCompletedAt: new Date()
+      });
+    } catch (error) {
+      console.error('Error marking onboarding as completed:', error);
+    }
+  };
+
   // Services section handler
   bot.action("services", async (ctx) => {
     try {
+      // Mark onboarding as completed when user browses services
+      await markOnboardingCompleted(ctx.from.id);
+      
       const lang = await getUserLanguage(ctx);
       const services = await loadServices();
       if (!services || services.length === 0) {
@@ -330,6 +346,9 @@ Customer service available in Amharic and English.`;
   // Plans section handler (1, 3, 6, 12 months for all services)
   bot.action("plans", async (ctx) => {
     try {
+      // Mark onboarding as completed when user views plans
+      await markOnboardingCompleted(ctx.from.id);
+      
       const lang = await getUserLanguage(ctx);
       
       const plansText = lang === "am"
@@ -1043,6 +1062,9 @@ Please send the following information:
   // How to Use section handler (matching website how-to-use)
   bot.action("how_to_use", async (ctx) => {
     try {
+      // Mark onboarding as completed when user views how to use
+      await markOnboardingCompleted(ctx.from.id);
+      
       const lang = await getUserLanguage(ctx);
 
       
@@ -1106,6 +1128,9 @@ Please send the following information:
   // Contact section handler (matching website contact)
   bot.action("contact", async (ctx) => {
     try {
+      // Mark onboarding as completed when user views contact
+      await markOnboardingCompleted(ctx.from.id);
+      
       const lang = await getUserLanguage(ctx);
       
       const contactText = lang === "am"
@@ -1204,6 +1229,9 @@ Choose your preferred language:`;
   // Handle FAQ menu from start (matching website FAQ)
   bot.action("faq_menu", async (ctx) => {
     try {
+      // Mark onboarding as completed when user views FAQ
+      await markOnboardingCompleted(ctx.from.id);
+      
       const lang = await getUserLanguage(ctx);
       
       // FAQ data matching the website
@@ -1446,6 +1474,9 @@ Choose your preferred language:`;
 
   bot.action("support", async (ctx) => {
     try {
+      // Mark onboarding as completed when user views support
+      await markOnboardingCompleted(ctx.from.id);
+      
       const lang = await getUserLanguage(ctx);
       const supportText =
         lang === "en"
@@ -1489,6 +1520,9 @@ Choose your preferred language:`;
   // Pricing button handler
   bot.action("pricing", async (ctx) => {
     try {
+      // Mark onboarding as completed when user views pricing
+      await markOnboardingCompleted(ctx.from.id);
+      
       const lang = await getUserLanguage(ctx);
       
       const pricingMessage = lang === 'am'
@@ -1576,6 +1610,9 @@ Choose your preferred language:`;
   // Payment methods button handler
   bot.action("payment_methods", async (ctx) => {
     try {
+      // Mark onboarding as completed when user views payment methods
+      await markOnboardingCompleted(ctx.from.id);
+      
       const lang = await getUserLanguage(ctx);
       
       const paymentMessage = lang === 'am'

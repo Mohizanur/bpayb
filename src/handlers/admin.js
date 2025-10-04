@@ -2554,9 +2554,32 @@ All users have either expired subscriptions or no subscriptions yet.
           
           // Handle other fields with better fallbacks
           const duration = sub.durationName || sub.duration || sub.planDuration || 'Not specified';
-          const amount = sub.amount ? `ETB ${parseFloat(sub.amount).toFixed(2)}` : 
-                        sub.price ? `ETB ${parseFloat(sub.price).toFixed(2)}` : 
-                        sub.cost ? `ETB ${parseFloat(sub.cost).toFixed(2)}` : 'Not specified';
+          
+          // Parse amount properly - handle both string and number formats
+          let amount = 'Not specified';
+          if (sub.amount) {
+            if (typeof sub.amount === 'string') {
+              // Extract number from string like "ETB 11515" or "11515"
+              const match = sub.amount.match(/(\d+(?:\.\d+)?)/);
+              amount = match ? `ETB ${parseFloat(match[1]).toFixed(2)}` : 'Not specified';
+            } else if (typeof sub.amount === 'number') {
+              amount = `ETB ${sub.amount.toFixed(2)}`;
+            }
+          } else if (sub.price) {
+            if (typeof sub.price === 'string') {
+              const match = sub.price.match(/(\d+(?:\.\d+)?)/);
+              amount = match ? `ETB ${parseFloat(match[1]).toFixed(2)}` : 'Not specified';
+            } else if (typeof sub.price === 'number') {
+              amount = `ETB ${sub.price.toFixed(2)}`;
+            }
+          } else if (sub.cost) {
+            if (typeof sub.cost === 'string') {
+              const match = sub.cost.match(/(\d+(?:\.\d+)?)/);
+              amount = match ? `ETB ${parseFloat(match[1]).toFixed(2)}` : 'Not specified';
+            } else if (typeof sub.cost === 'number') {
+              amount = `ETB ${sub.cost.toFixed(2)}`;
+            }
+          }
           const serviceName = sub.serviceName || sub.service || sub.planName || 'Service not specified';
           
           message += `**${index + 1}.** ${escapeMarkdown(sub.userDisplayName)}
