@@ -127,7 +127,20 @@ Please upload your screenshot:`;
       const hasSubscriptionId = session.uploadingScreenshotFor;
       const isExpectingScreenshot = session.expectingScreenshot;
       
-      if (!hasPendingPayment && !hasSubscriptionId && !isExpectingScreenshot) {
+      // Also check Firestore user states for payment proof uploads
+      let firestoreUserState = null;
+      try {
+        const userStateDoc = await firestore.collection('userStates').doc(String(ctx.from.id)).get();
+        if (userStateDoc.exists) {
+          firestoreUserState = userStateDoc.data();
+        }
+      } catch (error) {
+        console.error('Error fetching user state from Firestore:', error);
+      }
+      
+      const isAwaitingPaymentProof = firestoreUserState?.state === 'awaiting_payment_proof';
+      
+      if (!hasPendingPayment && !hasSubscriptionId && !isExpectingScreenshot && !isAwaitingPaymentProof) {
         return; // Not in payment proof state
       }
       
@@ -138,9 +151,9 @@ Please upload your screenshot:`;
       
       let paymentId, payment;
       
-      // Handle payment proof from session
-      if (session.pendingPayment?.paymentId || session.expectingScreenshot) {
-        paymentId = session.pendingPayment?.paymentId;
+      // Handle payment proof from session or Firestore user state
+      if (session.pendingPayment?.paymentId || session.expectingScreenshot || isAwaitingPaymentProof) {
+        paymentId = session.pendingPayment?.paymentId || firestoreUserState?.paymentId;
         
         // Get payment reference from session or generate a new one
         const paymentReference = session.pendingPayment?.paymentReference || 
@@ -149,6 +162,15 @@ Please upload your screenshot:`;
         // Store the file link in the pending payment if it exists
         if (session.pendingPayment) {
           session.pendingPayment.proofUrl = fileLink.href;
+        }
+        
+        // Clear the Firestore user state since we're processing the payment proof
+        if (isAwaitingPaymentProof) {
+          try {
+            await firestore.collection('userStates').doc(String(ctx.from.id)).delete();
+          } catch (error) {
+            console.error('Error clearing user state:', error);
+          }
         }
         
         // Handle the payment proof with our verification system
