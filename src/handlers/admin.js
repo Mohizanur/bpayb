@@ -2429,6 +2429,142 @@ Users can request custom plans by selecting a service and clicking "🎯 Custom 
     await ctx.answerCbQuery();
   });
 
+  // Handle custom plan pricing setting
+  bot.action(/^set_custom_pricing_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const requestId = ctx.match[1];
+      console.log('🔍 Setting custom pricing for request:', requestId);
+      
+      // Get the custom plan request
+      const requestDoc = await firestore.collection('customPlanRequests').doc(requestId).get();
+      if (!requestDoc.exists) {
+        await ctx.answerCbQuery('❌ Request not found');
+        return;
+      }
+
+      const request = requestDoc.data();
+      
+      // Update request with pricing set status
+      await firestore.collection('customPlanRequests').doc(requestId).update({
+        status: 'pricing_set',
+        pricingSetAt: new Date(),
+        pricingSetBy: ctx.from.id
+      });
+
+      // Notify user about pricing
+      const userMessage = request.language === 'am'
+        ? `💰 **የብጁ እቅድ ዋጋ ተዘጋጅቷል**
+
+📋 **ጥያቄዎ:** ${request.customPlanDetails}
+
+⏰ **ቀጣዩ ደረጃ:**
+አስተዳዳሪ ዋጋ እና ሁኔታዎች ይላካል። እባክዎ ቆይተው ይጠብቁ።
+
+📞 **መልስ ጊዜ:** 24 ሰዓት ውስጥ`
+        : `💰 **Custom Plan Pricing Set**
+
+📋 **Your Request:** ${request.customPlanDetails}
+
+⏰ **Next Step:**
+Admin will send pricing and terms. Please wait.
+
+📞 **Response Time:** Within 24 hours`;
+
+      await bot.telegram.sendMessage(request.userId, userMessage, { parse_mode: 'Markdown' });
+
+      await ctx.answerCbQuery('✅ Pricing set successfully!');
+      
+      // Update the admin notification
+      try {
+        await ctx.editMessageText(
+          ctx.callbackQuery.message.text + '\n\n✅ **PRICING SET** by ' + ctx.from.first_name,
+          { parse_mode: 'Markdown' }
+        );
+      } catch (editError) {
+        console.log('Could not edit message:', editError.message);
+      }
+
+    } catch (error) {
+      console.error('Error setting custom pricing:', error);
+      await ctx.answerCbQuery('❌ Error setting pricing');
+    }
+  });
+
+  // Handle custom plan rejection
+  bot.action(/^reject_custom_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const requestId = ctx.match[1];
+      console.log('🔍 Rejecting custom plan request:', requestId);
+      
+      // Get the custom plan request
+      const requestDoc = await firestore.collection('customPlanRequests').doc(requestId).get();
+      if (!requestDoc.exists) {
+        await ctx.answerCbQuery('❌ Request not found');
+        return;
+      }
+
+      const request = requestDoc.data();
+      
+      // Update request status
+      await firestore.collection('customPlanRequests').doc(requestId).update({
+        status: 'rejected',
+        rejectedAt: new Date(),
+        rejectedBy: ctx.from.id
+      });
+
+      // Notify user about rejection
+      const userMessage = request.language === 'am'
+        ? `❌ **ብጁ እቅድ ጥያቄ ውድቅ ተደርጓል**
+
+📋 **ጥያቄዎ:** ${request.customPlanDetails}
+
+💡 **ሌሎች አማራጮች:**
+• የተለያዩ ብጁ እቅዶች ይጠይቁ
+• ከመደበኛ እቅዶች ይምረጡ
+• ለተጨማሪ መረጃ /support ይጠቀሙ
+
+🏠 ወደ ዋና ገጽ ለመመለስ /start ይጫኑ።`
+        : `❌ **Custom Plan Request Rejected**
+
+📋 **Your Request:** ${request.customPlanDetails}
+
+💡 **Other Options:**
+• Request different custom plans
+• Choose from our standard plans
+• Use /support for more information
+
+🏠 Press /start to return to main menu.`;
+
+      await bot.telegram.sendMessage(request.userId, userMessage, { parse_mode: 'Markdown' });
+
+      await ctx.answerCbQuery('❌ Request rejected');
+      
+      // Update the admin notification
+      try {
+        await ctx.editMessageText(
+          ctx.callbackQuery.message.text + '\n\n❌ **REJECTED** by ' + ctx.from.first_name,
+          { parse_mode: 'Markdown' }
+        );
+      } catch (editError) {
+        console.log('Could not edit message:', editError.message);
+      }
+
+    } catch (error) {
+      console.error('Error rejecting custom plan:', error);
+      await ctx.answerCbQuery('❌ Error rejecting request');
+    }
+  });
+
   // Handle admin_active action - View active subscriptions
   bot.action('admin_active', async (ctx) => {
     if (!(await isAuthorizedAdmin(ctx))) {

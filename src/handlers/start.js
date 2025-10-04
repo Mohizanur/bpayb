@@ -111,8 +111,8 @@ export function setupStartHandler(bot) {
       // Update user profile in single operation
       await userRef.set(updateData, { merge: true });
       
-      // Show main menu with appropriate welcome message
-      await showMainMenu(ctx, isFirstTime);
+      // Show main menu with optimized speed (same content for all users)
+      await showMainMenu(ctx, false);
 
     } catch (error) {
       console.error("Error in start handler:", error);
@@ -1408,6 +1408,117 @@ Choose your preferred language:`;
     } catch (error) {
       console.error('Error in back_to_start action:', error);
       await ctx.answerCbQuery('Error returning to menu');
+    }
+  });
+
+  // Handle custom plan request text messages
+  bot.on('text', async (ctx) => {
+    try {
+      const userId = ctx.from?.id;
+      const userState = global.userStates?.[userId];
+      
+      // Check if user is awaiting custom plan details
+      if (userState?.state === 'awaiting_custom_plan_details') {
+        console.log('🔍 Processing custom plan request for user:', userId);
+        console.log('🔍 Custom plan details:', ctx.message.text);
+        
+        const lang = await getUserLanguage(ctx);
+        
+        // Create custom plan request
+        const customPlanRequest = {
+          userId: userId,
+          userFirstName: ctx.from.first_name || '',
+          userLastName: ctx.from.last_name || '',
+          username: ctx.from.username || '',
+          customPlanDetails: ctx.message.text,
+          serviceId: userState.serviceId || null,
+          serviceName: userState.serviceName || null,
+          status: 'pending',
+          createdAt: new Date(),
+          language: lang
+        };
+        
+        // Save to Firestore
+        const requestRef = await firestore.collection('customPlanRequests').add(customPlanRequest);
+        
+        // Clear user state
+        delete global.userStates[userId];
+        
+        // Send confirmation to user
+        const confirmationMsg = lang === 'am'
+          ? `✅ **ብጁ እቅድ ጥያቄዎ ተቀብሏል!**
+
+📋 **ጥያቄዎ:** ${ctx.message.text}
+
+⏰ **ሂደት:**
+• አስተዳዳሪ ጥያቄዎን ያገኛል
+• ዋጋ እና ሁኔታዎች ይላካል
+• ከተስማሙ ክፍያ ያድርጉ
+
+📞 **መልስ ጊዜ:** 24 ሰዓት ውስጥ`
+          : `✅ **Custom Plan Request Received!**
+
+📋 **Your Request:** ${ctx.message.text}
+
+⏰ **Process:**
+• Admin will review your request
+• You'll receive pricing and terms
+• Pay if you agree
+
+📞 **Response Time:** Within 24 hours`;
+        
+        await ctx.reply(confirmationMsg, { parse_mode: 'Markdown' });
+        
+        // Notify admins
+        try {
+          const admins = await firestore.collection('users')
+            .where('isAdmin', '==', true)
+            .where('status', '==', 'active')
+            .get();
+          
+          const adminNotification = `🎯 **New Custom Plan Request**
+
+👤 **User:** ${ctx.from.first_name} ${ctx.from.last_name || ''} (@${ctx.from.username || 'no_username'})
+🆔 **User ID:** ${userId}
+🌐 **Language:** ${lang.toUpperCase()}
+${userState.serviceName ? `🎬 **Service:** ${userState.serviceName}` : ''}
+
+📝 **Request Details:**
+${ctx.message.text}
+
+📋 **Request ID:** ${requestRef.id}`;
+          
+          for (const adminDoc of admins.docs) {
+            const admin = adminDoc.data();
+            if (admin.telegramId) {
+              try {
+                await bot.telegram.sendMessage(admin.telegramId, adminNotification, {
+                  parse_mode: 'Markdown',
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        { text: '💰 Set Pricing', callback_data: `set_custom_pricing_${requestRef.id}` },
+                        { text: '❌ Reject', callback_data: `reject_custom_${requestRef.id}` }
+                      ],
+                      [
+                        { text: '👤 View User', callback_data: `view_user_${userId}` }
+                      ]
+                    ]
+                  }
+                });
+              } catch (error) {
+                console.error('Error notifying admin:', error);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error notifying admins:', error);
+        }
+        
+        return; // Don't process as regular support message
+      }
+    } catch (error) {
+      console.error('Error processing custom plan request:', error);
     }
   });
 
