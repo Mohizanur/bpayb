@@ -1,6 +1,7 @@
 import { getPaymentById, updatePaymentStatus, createSupportTicket, getAdmins, updatePayment } from './database.js';
 import { bot } from '../bot.js';
 import { formatCurrency } from './payment.js';
+import { firestore } from './firestore.js';
 
 /**
  * Verify a payment and activate the subscription
@@ -203,21 +204,59 @@ export async function notifyAdminsAboutPayment(payment, screenshotUrl) {
  */
 export async function handlePaymentProofUpload({ paymentId, screenshotUrl, userId, userInfo }) {
   try {
-    // Update payment with screenshot URL
-    const paymentUpdate = {
-      screenshotUrl,
-      status: 'pending_verification',
-      updatedAt: new Date().toISOString()
-    };
-
-    const result = await updatePayment(paymentId, paymentUpdate);
+    // First, try to find the payment in pendingPayments collection
+    let payment = null;
+    let paymentCollection = 'pendingPayments';
     
-    if (!result.success) {
-      throw new Error('Failed to update payment with screenshot');
+    try {
+      const pendingPaymentDoc = await firestore.collection('pendingPayments').doc(paymentId).get();
+      if (pendingPaymentDoc.exists) {
+        payment = { id: pendingPaymentDoc.id, ...pendingPaymentDoc.data() };
+        paymentCollection = 'pendingPayments';
+      }
+    } catch (error) {
+      console.log('Payment not found in pendingPayments, checking payments collection');
     }
+    
+    // If not found in pendingPayments, try payments collection
+    if (!payment) {
+      try {
+        const paymentDoc = await firestore.collection('payments').doc(paymentId).get();
+        if (paymentDoc.exists) {
+          payment = { id: paymentDoc.id, ...paymentDoc.data() };
+          paymentCollection = 'payments';
+        }
+      } catch (error) {
+        console.log('Payment not found in payments collection either');
+      }
+    }
+    
+    // If payment still not found, create a new one
+    if (!payment) {
+      console.log('Creating new payment document for paymentId:', paymentId);
+      const newPaymentData = {
+        userId,
+        screenshotUrl,
+        status: 'pending_verification',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        ...userInfo
+      };
+      
+      await firestore.collection('payments').doc(paymentId).set(newPaymentData);
+      payment = { id: paymentId, ...newPaymentData };
+      paymentCollection = 'payments';
+    } else {
+      // Update existing payment with screenshot URL
+      const paymentUpdate = {
+        screenshotUrl,
+        status: 'pending_verification',
+        updatedAt: new Date().toISOString()
+      };
 
-    // Get the updated payment
-    const payment = await getPaymentById(paymentId);
+      await firestore.collection(paymentCollection).doc(paymentId).update(paymentUpdate);
+      payment = { ...payment, ...paymentUpdate };
+    }
     
     // Notify admins about the new payment proof
     await notifyAdminsAboutPayment(payment, screenshotUrl);
