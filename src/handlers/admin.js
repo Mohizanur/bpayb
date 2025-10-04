@@ -5230,6 +5230,109 @@ To cancel, click the Cancel button below.`;
     console.log('🔍 Full session data:', ctx.session);
     console.log('🔍 Session awaitingPaymentMethodName:', ctx.session?.awaitingPaymentMethodName);
     
+    // Check if user is in add payment method mode
+    if (ctx.session?.awaitingPaymentMethodData) {
+      console.log('🔍 Add payment method data detected');
+      console.log('🔍 Payment method data:', ctx.message.text);
+      
+      try {
+        const text = ctx.message.text.trim();
+        
+        // Parse the payment method data
+        const lines = text.split('\n');
+        const data = {};
+        
+        for (const line of lines) {
+          if (line.includes(':')) {
+            const [key, value] = line.split(':').map(s => s.trim());
+            const lowerKey = key.toLowerCase();
+            
+            if (lowerKey.includes('name')) {
+              data.name = value;
+            } else if (lowerKey.includes('account')) {
+              data.account = value;
+            } else if (lowerKey.includes('instruction')) {
+              data.instructions = value;
+            } else if (lowerKey.includes('icon')) {
+              data.icon = value;
+            }
+          }
+        }
+        
+        // Validate required fields
+        if (!data.name || !data.account) {
+          await ctx.reply('❌ **Missing Required Fields**
+
+Please provide both Name and Account. Example:
+```
+Name: Telebirr
+Account: 0951895474
+Instructions: Send money to this account
+Icon: 📱
+```', {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '❌ Cancel', callback_data: 'admin_payment_methods' }]
+              ]
+            }
+          });
+          return;
+        }
+        
+        // Generate unique ID
+        const methodId = data.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        // Get existing payment methods
+        const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
+        const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
+        
+        // Add new payment method
+        const newMethod = {
+          id: methodId,
+          name: data.name,
+          account: data.account,
+          instructions: data.instructions || 'Send payment to this account',
+          active: true,
+          icon: data.icon || '💳'
+        };
+        
+        paymentMethods.push(newMethod);
+        
+        // Save to Firestore
+        await firestore.collection('config').doc('paymentMethods').set({
+          methods: paymentMethods
+        });
+        
+        await ctx.reply(`✅ **Payment Method Added Successfully!**
+
+**${data.name}** has been added to the system.
+
+Details:
+• **Name:** ${data.name}
+• **Account:** ${data.account}
+• **Instructions:** ${data.instructions || 'Send payment to this account'}
+• **Icon:** ${data.icon || '💳'}
+• **Status:** ✅ Active`, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔙 Back to Payment Methods', callback_data: 'admin_payment_methods' }]
+            ]
+          }
+        });
+        
+        // Clear the editing state
+        delete ctx.session.awaitingPaymentMethodData;
+        
+      } catch (error) {
+        console.error('Error adding payment method:', error);
+        await ctx.reply('❌ Error adding payment method. Please try again.');
+        delete ctx.session.awaitingPaymentMethodData;
+      }
+      return;
+    }
+    
     // Check if user is in payment method editing mode
     if (ctx.session?.awaitingPaymentMethodName) {
       console.log('🔍 Payment method name editing detected');

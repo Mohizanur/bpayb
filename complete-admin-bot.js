@@ -920,6 +920,14 @@ process.on("unhandledRejection", (reason, promise) => {
     // Phone verification middleware - MUST BE BEFORE OTHER MIDDLEWARE
     bot.use(phoneVerificationMiddleware);
 
+    // Session middleware - MUST BE BEFORE OTHER MIDDLEWARE
+    bot.use((ctx, next) => {
+      if (!ctx.session) {
+        ctx.session = {};
+      }
+      return next();
+    });
+
     // Performance monitoring middleware
     bot.use(async (ctx, next) => {
       const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
