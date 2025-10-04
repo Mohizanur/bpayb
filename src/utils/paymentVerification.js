@@ -32,11 +32,23 @@ export async function verifyPayment(paymentId, adminId, notes = '') {
 
     // Notify user about successful verification
     try {
+      // Handle different amount formats
+      let amountText = payment.amount || payment.price || 'N/A';
+      if (typeof amountText === 'string' && amountText.includes('ETB')) {
+        // Already formatted
+        amountText = amountText;
+      } else if (typeof amountText === 'number') {
+        amountText = `ETB ${amountText.toLocaleString()}`;
+      }
+      
+      // Handle payment reference
+      const reference = payment.paymentReference || payment.id || 'N/A';
+      
       await bot.telegram.sendMessage(
         payment.userId,
         `✅ *Payment Verified!*\n\n` +
-        `Your payment of *${formatCurrency(payment.amount)}* has been verified.\n` +
-        `Reference: \`${payment.paymentReference}\`\n` +
+        `Your payment of *${amountText}* has been verified.\n` +
+        `Reference: \`${reference}\`\n` +
         `Service: ${payment.serviceName || 'N/A'}\n` +
         `Thank you for your purchase!`,
         { parse_mode: 'Markdown' }
@@ -82,11 +94,23 @@ export async function rejectPayment(paymentId, adminId, reason) {
 
     // Notify user about rejection
     try {
+      // Handle different amount formats
+      let amountText = payment.amount || payment.price || 'N/A';
+      if (typeof amountText === 'string' && amountText.includes('ETB')) {
+        // Already formatted
+        amountText = amountText;
+      } else if (typeof amountText === 'number') {
+        amountText = `ETB ${amountText.toLocaleString()}`;
+      }
+      
+      // Handle payment reference
+      const reference = payment.paymentReference || payment.id || 'N/A';
+      
       await bot.telegram.sendMessage(
         payment.userId,
         `❌ *Payment Rejected*\n\n` +
-        `Your payment of *${formatCurrency(payment.amount)}* was rejected.\n` +
-        `Reference: \`${payment.paymentReference}\`\n` +
+        `Your payment of *${amountText}* was rejected.\n` +
+        `Reference: \`${reference}\`\n` +
         `Reason: ${reason || 'No reason provided'}\n\n` +
         `Please contact support if you believe this is a mistake.`,
         { parse_mode: 'Markdown' }
