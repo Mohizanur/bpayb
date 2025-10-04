@@ -4041,6 +4041,7 @@ ${subscriptionData.rejectedAt ? `• **Rejected:** ${subscriptionData.rejectedAt
 
   // Handle admin_add_service action
   bot.action('admin_add_service', async (ctx) => {
+    console.log('🔍 Admin add service callback received:', ctx.callbackQuery.data);
     if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;
@@ -4451,6 +4452,7 @@ ${serviceData.plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).j
 
   // Handle manage services
   bot.action('admin_manage_services', async (ctx) => {
+    console.log('🔍 Admin manage services callback received:', ctx.callbackQuery.data);
     if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;
@@ -4531,6 +4533,7 @@ ${serviceData.plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).j
 
   // Handle edit service
   bot.action(/^editservice_(.+)$/, async (ctx) => {
+    console.log('🔍 Edit service callback received:', ctx.callbackQuery.data);
     if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;
@@ -4607,6 +4610,7 @@ ${serviceData.plans?.map((plan, index) => `${index + 1}. ${plan.billingCycle}: E
 
   // Handle delete service
   bot.action(/^delete_service_(.+)$/, async (ctx) => {
+    console.log('🔍 Delete service callback received:', ctx.callbackQuery.data);
     if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;
