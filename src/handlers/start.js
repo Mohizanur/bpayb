@@ -1507,6 +1507,95 @@ ${ctx.message.text}
     }
   });
 
+  // Handle custom plan payment initiation
+  bot.action(/^pay_custom_(.+)$/, async (ctx) => {
+    try {
+      const paymentId = ctx.match[1];
+      console.log('🔍 Custom plan payment initiated for:', paymentId);
+      
+      // Get payment details
+      const paymentDoc = await firestore.collection('pendingPayments').doc(paymentId).get();
+      if (!paymentDoc.exists) {
+        await ctx.answerCbQuery('❌ Payment not found');
+        return;
+      }
+
+      const payment = paymentDoc.data();
+      const lang = payment.language || 'en';
+      
+      // Set user state to expect payment proof
+      if (!global.userStates) global.userStates = {};
+      global.userStates[ctx.from.id] = {
+        state: 'awaiting_payment_proof',
+        paymentId: paymentId,
+        timestamp: Date.now()
+      };
+
+      // Also set in Firestore for persistence
+      await firestore.collection('userStates').doc(String(ctx.from.id)).set({
+        state: 'awaiting_payment_proof',
+        paymentId: paymentId,
+        timestamp: new Date()
+      });
+
+      const paymentMessage = lang === 'am'
+        ? `💳 **የብጁ እቅድ ክፍያ**
+
+📋 **ጥያቄዎ:** ${payment.customPlanDetails}
+💰 **ዋጋ:** ${payment.amount}
+
+⏰ **ክፍያ ለመፈጸም:**
+1. ክፍያ ያድርጉ
+2. የክፍያ ማስረጃ (ስክሪንሾት) ይላኩ
+3. አስተዳዳሪ ያጸድቃል
+
+📱 **የክፍያ ዘዴዎች:**
+• ቴሌብር
+• አማራ ባንክ
+• ኢብንክ
+• ሌሎች
+
+📸 **ክፍያ ማስረጃ ለመላክ:** የክፍያዎን ስክሪንሾት ይላኩ`
+        : `💳 **Custom Plan Payment**
+
+📋 **Your Request:** ${payment.customPlanDetails}
+💰 **Amount:** ${payment.amount}
+
+⏰ **To Complete Payment:**
+1. Make payment
+2. Upload payment proof (screenshot)
+3. Admin will approve
+
+📱 **Payment Methods:**
+• Telebirr
+• Amhara Bank
+• CBE
+• Others
+
+📸 **To Upload Proof:** Send your payment screenshot`;
+
+      await ctx.editMessageText(paymentMessage, { 
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📞 Contact Support', callback_data: 'support' }
+            ],
+            [
+              { text: '⬅️ Back to Menu', callback_data: 'back_to_start' }
+            ]
+          ]
+        }
+      });
+
+      await ctx.answerCbQuery('✅ Ready for payment proof upload');
+
+    } catch (error) {
+      console.error('Error in custom plan payment:', error);
+      await ctx.answerCbQuery('❌ Error processing payment');
+    }
+  });
+
   // Handle back_to_services callback
   bot.action('back_to_services', async (ctx) => {
     try {

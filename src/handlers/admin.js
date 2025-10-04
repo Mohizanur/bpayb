@@ -2429,6 +2429,106 @@ Users can request custom plans by selecting a service and clicking "🎯 Custom 
     await ctx.answerCbQuery();
   });
 
+  // Handle admin command to send custom plan pricing
+  bot.command('send_custom_pricing', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.reply("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const args = ctx.message.text.split(' ').slice(1);
+      if (args.length < 3) {
+        await ctx.reply(`❌ **Usage:** /send_custom_pricing <payment_id> <amount> <currency>
+
+**Example:** /send_custom_pricing custom_1234567890_123456789 1500 ETB
+
+This will send pricing to the user and ask them to pay.`);
+        return;
+      }
+
+      const paymentId = args[0];
+      const amount = parseFloat(args[1]);
+      const currency = args[2] || 'ETB';
+
+      if (isNaN(amount) || amount <= 0) {
+        await ctx.reply('❌ Invalid amount. Please provide a valid number.');
+        return;
+      }
+
+      // Get the payment document
+      const paymentDoc = await firestore.collection('pendingPayments').doc(paymentId).get();
+      if (!paymentDoc.exists) {
+        await ctx.reply('❌ Payment not found.');
+        return;
+      }
+
+      const payment = paymentDoc.data();
+      
+      // Update payment with amount
+      await firestore.collection('pendingPayments').doc(paymentId).update({
+        price: amount,
+        amount: `${currency} ${amount}`,
+        status: 'pending',
+        pricingSetAt: new Date(),
+        pricingSetBy: ctx.from.id
+      });
+
+      // Send pricing to user
+      const userMessage = payment.language === 'am'
+        ? `💰 **የብጁ እቅድ ዋጋ ተዘጋጅቷል**
+
+📋 **ጥያቄዎ:** ${payment.customPlanDetails}
+
+💵 **ዋጋ:** ${currency} ${amount.toLocaleString()}
+
+⏰ **ቀጣዩ ደረጃ:**
+1. ክፍያ ያድርጉ
+2. የክፍያ ማስረጃ ይላኩ
+3. አስተዳዳሪ ያጸድቃል
+
+📞 **መልስ ጊዜ:** 24 ሰዓት ውስጥ`
+        : `💰 **Custom Plan Pricing Ready**
+
+📋 **Your Request:** ${payment.customPlanDetails}
+
+💵 **Price:** ${currency} ${amount.toLocaleString()}
+
+⏰ **Next Steps:**
+1. Make payment
+2. Upload payment proof
+3. Admin will approve
+
+📞 **Response Time:** Within 24 hours`;
+
+      await bot.telegram.sendMessage(payment.userId, userMessage, { 
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '💳 Pay Now', callback_data: `pay_custom_${paymentId}` }
+            ],
+            [
+              { text: '📞 Contact Support', callback_data: 'support' }
+            ]
+          ]
+        }
+      });
+
+      await ctx.reply(`✅ **Pricing sent to user!**
+
+💳 **Payment ID:** \`${paymentId}\`
+👤 **User ID:** ${payment.userId}
+💰 **Amount:** ${currency} ${amount.toLocaleString()}
+
+The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
+
+    } catch (error) {
+      console.error('Error sending custom pricing:', error);
+      await ctx.reply('❌ Error sending pricing. Please try again.');
+    }
+  });
+
   // Handle custom plan pricing setting
   bot.action(/^set_custom_pricing_(.+)$/, async (ctx) => {
     if (!(await isAuthorizedAdmin(ctx))) {
@@ -2449,21 +2549,48 @@ Users can request custom plans by selecting a service and clicking "🎯 Custom 
 
       const request = requestDoc.data();
       
-      // Update request with pricing set status
+      // Create a pending payment for the custom plan
+      const paymentId = `custom_${Date.now()}_${request.userId}`;
+      const paymentReference = `CUSTOM-${Date.now()}-${request.userId}`;
+      
+      const paymentData = {
+        id: paymentId,
+        userId: request.userId,
+        serviceId: request.serviceId || 'custom_plan',
+        serviceName: request.serviceName || 'Custom Plan',
+        duration: 'custom',
+        durationName: 'Custom Plan',
+        price: 0, // Will be set by admin
+        amount: 'ETB 0', // Will be updated by admin
+        status: 'pending_pricing',
+        paymentReference: paymentReference,
+        customPlanDetails: request.customPlanDetails,
+        customPlanRequestId: requestId,
+        createdAt: new Date().toISOString(),
+        paymentMethod: 'manual',
+        paymentDetails: {},
+        language: request.language
+      };
+
+      // Save payment to pendingPayments collection
+      await firestore.collection('pendingPayments').doc(paymentId).set(paymentData);
+      
+      // Update custom plan request status
       await firestore.collection('customPlanRequests').doc(requestId).update({
         status: 'pricing_set',
         pricingSetAt: new Date(),
-        pricingSetBy: ctx.from.id
+        pricingSetBy: ctx.from.id,
+        paymentId: paymentId
       });
 
-      // Notify user about pricing
+      // Notify user about pricing and ask for payment
       const userMessage = request.language === 'am'
         ? `💰 **የብጁ እቅድ ዋጋ ተዘጋጅቷል**
 
 📋 **ጥያቄዎ:** ${request.customPlanDetails}
 
 ⏰ **ቀጣዩ ደረጃ:**
-አስተዳዳሪ ዋጋ እና ሁኔታዎች ይላካል። እባክዎ ቆይተው ይጠብቁ።
+አስተዳዳሪ ዋጋ እና የክፍያ ዝርዝሮች ይላካል። እባክዎ ቆይተው ይጠብቁ።
 
 📞 **መልስ ጊዜ:** 24 ሰዓት ውስጥ`
         : `💰 **Custom Plan Pricing Set**
@@ -2471,18 +2598,18 @@ Users can request custom plans by selecting a service and clicking "🎯 Custom 
 📋 **Your Request:** ${request.customPlanDetails}
 
 ⏰ **Next Step:**
-Admin will send pricing and terms. Please wait.
+Admin will send pricing and payment details. Please wait.
 
 📞 **Response Time:** Within 24 hours`;
 
       await bot.telegram.sendMessage(request.userId, userMessage, { parse_mode: 'Markdown' });
 
-      await ctx.answerCbQuery('✅ Pricing set successfully!');
+      await ctx.answerCbQuery('✅ Pricing set! Now send the amount to the user.');
       
-      // Update the admin notification
+      // Update the admin notification with payment ID
       try {
         await ctx.editMessageText(
-          ctx.callbackQuery.message.text + '\n\n✅ **PRICING SET** by ' + ctx.from.first_name,
+          ctx.callbackQuery.message.text + `\n\n✅ **PRICING SET** by ${ctx.from.first_name}\n\n💳 **Payment ID:** \`${paymentId}\`\n\n📝 **Next:** Send amount to user via /admin`,
           { parse_mode: 'Markdown' }
         );
       } catch (editError) {
