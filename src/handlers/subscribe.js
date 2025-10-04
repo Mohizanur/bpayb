@@ -114,7 +114,7 @@ function setupSubscribeHandler(bot) {
   });
 
   // Handle subscription with duration and price
-  bot.action(/^subscribe_([a-z0-9_-]+)_(\d+m)_(\d+)$/i, async (ctx) => {
+  bot.action(/^subscribe_([a-z0-9_()+.-]+)_(\d+m)_(\d+)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
       const duration = ctx.match[2]; // e.g., '1m', '3m', '6m', '12m'
@@ -174,7 +174,7 @@ function setupSubscribeHandler(bot) {
   });
 
   // Handle subscription confirmation
-  bot.action(/^confirm_sub_([a-z0-9_-]+)_(\d+m)_(\d+)$/i, async (ctx) => {
+  bot.action(/^confirm_sub_([a-z0-9_()+.-]+)_(\d+m)_(\d+)$/i, async (ctx) => {
     try {
       console.log('🔍 Subscription confirmation callback received:', ctx.callbackQuery.data);
       const serviceId = ctx.match[1];

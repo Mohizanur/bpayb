@@ -824,7 +824,7 @@ Please send your payment proof (screenshot).
   });
 
   // Handle service-specific custom plan requests
-  bot.action(/^custom_plan_for_(.+)$/, async (ctx) => {
+  bot.action(/^custom_plan_for_([a-z0-9_()+.-]+)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
       const lang = await getUserLanguage(ctx);
@@ -918,7 +918,7 @@ Custom plan requests are answered within 24 hours.`;
   });
 
   // Handle service-specific custom plan request
-  bot.action(/^request_custom_plan_for_(.+)$/, async (ctx) => {
+  bot.action(/^request_custom_plan_for_([a-z0-9_()+.-]+)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
       const lang = await getUserLanguage(ctx);
