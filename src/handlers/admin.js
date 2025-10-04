@@ -4632,6 +4632,7 @@ ${serviceData.plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).j
   // Handle edit service
   bot.action(/^editservice_(.+)$/, async (ctx) => {
     console.log('🔍 Edit service callback received:', ctx.callbackQuery.data);
+    console.log('🔍 Match result:', ctx.match);
     if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;
@@ -4818,6 +4819,7 @@ Are you sure you want to delete this service?`;
 
   // Handle edit service name
   bot.action(/^editname_(.+)$/, async (ctx) => {
+    console.log('🔍 Edit name callback received:', ctx.callbackQuery.data);
     if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;
