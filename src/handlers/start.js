@@ -1383,6 +1383,67 @@ Choose your preferred language:`;
     }
   });
 
+  // Handle back_to_services callback
+  bot.action('back_to_services', async (ctx) => {
+    try {
+      console.log('🔍 Back to services callback received:', ctx.callbackQuery.data);
+      const lang = await getUserLanguage(ctx);
+      const services = await loadServices();
+      if (!services || services.length === 0) {
+        await ctx.answerCbQuery();
+        await ctx.editMessageText(t('no_services_available', lang), {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: t('back_to_menu', lang), callback_data: "back_to_start" }]
+            ]
+          }
+        });
+        return;
+      }
+      
+      // Create service grid (2 services per row)
+      const keyboard = [];
+      for (let i = 0; i < services.length; i += 2) {
+        const row = [];
+        if (services[i]) {
+          row.push({
+            text: `📱 ${services[i].name}`,
+            callback_data: `select_service_${services[i].serviceID}`
+          });
+        }
+        if (services[i + 1]) {
+          row.push({
+            text: `📱 ${services[i + 1].name}`,
+            callback_data: `select_service_${services[i + 1].serviceID}`
+          });
+        }
+        keyboard.push(row);
+      }
+      
+      // Add navigation buttons
+      keyboard.push([
+        { text: t('view_plans', lang), callback_data: "plans" },
+        { text: t('my_subscriptions', lang), callback_data: "my_subs" }
+      ]);
+      
+      keyboard.push([
+        { text: t('back_to_menu', lang), callback_data: "back_to_start" }
+      ]);
+      
+      const message = t('available_services', lang);
+      
+      await ctx.editMessageText(message, {
+        reply_markup: { inline_keyboard: keyboard },
+        parse_mode: 'Markdown'
+      });
+      
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error in back_to_services action:', error);
+      await ctx.answerCbQuery('❌ Error loading services');
+    }
+  });
+
   bot.action("support", async (ctx) => {
     try {
       const lang = await getUserLanguage(ctx);

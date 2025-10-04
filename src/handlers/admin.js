@@ -2719,6 +2719,7 @@ Select a payment method to enable/disable:
 
   // Handle individual method toggle
   bot.action(/^toggle_method_(.+)$/, async (ctx) => {
+    console.log('🔍 Toggle method callback received:', ctx.callbackQuery.data);
     if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;
@@ -2819,6 +2820,7 @@ Select a payment method to edit:
 
   // Handle individual method edit
   bot.action(/^edit_method_(.+)$/, async (ctx) => {
+    console.log('🔍 Edit method callback received:', ctx.callbackQuery.data);
     if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;

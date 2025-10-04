@@ -176,11 +176,13 @@ function setupSubscribeHandler(bot) {
   // Handle subscription confirmation
   bot.action(/^confirm_sub_([a-z0-9_-]+)_(\d+m)_(\d+)$/i, async (ctx) => {
     try {
+      console.log('🔍 Subscription confirmation callback received:', ctx.callbackQuery.data);
       const serviceId = ctx.match[1];
       const duration = ctx.match[2];
       const price = parseInt(ctx.match[3], 10);
       const userId = String(ctx.from.id);
       const lang = await getUserLanguage(ctx);
+      console.log('🔍 Parsed values:', { serviceId, duration, price, userId });
       
       // Get the service details
       let service = ctx.services?.find(s => s.id === serviceId || s.serviceID === serviceId);
