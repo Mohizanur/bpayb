@@ -40,16 +40,30 @@ export async function verifyPayment(paymentId, adminId, notes = '') {
     }
 
     // Create or update subscription
+    console.log('🔍 Payment data for subscription creation:', {
+      paymentId,
+      subscriptionId: payment.subscriptionId,
+      userId: payment.userId,
+      serviceId: payment.serviceId,
+      serviceName: payment.serviceName,
+      duration: payment.duration,
+      amount: payment.amount,
+      price: payment.price
+    });
+
     if (payment.subscriptionId) {
       // Update existing subscription to active
+      console.log('🔍 Updating existing subscription:', payment.subscriptionId);
       await firestore.collection('subscriptions').doc(payment.subscriptionId).update({
         status: 'active',
         startDate: new Date().toISOString(),
         endDate: calculateEndDate(new Date(), payment.duration || '1_month'),
         updatedAt: new Date().toISOString()
       });
+      console.log('✅ Subscription updated to active');
     } else {
       // Create new subscription if it doesn't exist
+      console.log('🔍 Creating new subscription for payment:', paymentId);
       const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const subscriptionData = {
         id: subscriptionId,
@@ -67,12 +81,23 @@ export async function verifyPayment(paymentId, adminId, notes = '') {
       };
 
       await firestore.collection('subscriptions').doc(subscriptionId).set(subscriptionData);
+      console.log('✅ New subscription created:', subscriptionId);
       
-      // Update payment with subscription ID
-      await firestore.collection('payments').doc(paymentId).update({
-        subscriptionId: subscriptionId,
-        updatedAt: new Date().toISOString()
-      });
+      // Update payment with subscription ID (try both collections)
+      try {
+        await firestore.collection('payments').doc(paymentId).update({
+          subscriptionId: subscriptionId,
+          updatedAt: new Date().toISOString()
+        });
+        console.log('✅ Payment updated with subscription ID in payments collection');
+      } catch (error) {
+        console.log('🔍 Payment not in payments collection, trying pendingPayments...');
+        await firestore.collection('pendingPayments').doc(paymentId).update({
+          subscriptionId: subscriptionId,
+          updatedAt: new Date().toISOString()
+        });
+        console.log('✅ Payment updated with subscription ID in pendingPayments collection');
+      }
     }
 
     // Notify user about successful verification

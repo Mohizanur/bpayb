@@ -260,7 +260,9 @@ ${t('service_start_after_approval', lang)}`;
 
       // Save pending payment to database (without starting subscription yet)
       const paymentId = `pay_${Date.now()}_${userId}`;
+      const paymentReference = `REF-${Date.now()}-${userId}`;
       const paymentData = {
+        id: paymentId,
         userId,
         serviceId: service.id,
         serviceName: service.name,
@@ -269,6 +271,7 @@ ${t('service_start_after_approval', lang)}`;
         price,
         amount: `ETB ${price}`, // Formatted amount for display
         status: 'pending',
+        paymentReference: paymentReference,
         createdAt: new Date().toISOString(),
         paymentMethod: 'manual',
         paymentDetails: {}
