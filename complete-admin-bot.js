@@ -1329,9 +1329,9 @@ You don't have any subscriptions yet. To start a new subscription, please select
           delete global.userStates[ctx.from.id];
         }
         
-        await ctx.reply('✅ **Operation Cancelled**
+        await ctx.reply(`✅ **Operation Cancelled**
 
-All pending operations have been cancelled. You can start fresh with /start', {
+All pending operations have been cancelled. You can start fresh with /start`, {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
