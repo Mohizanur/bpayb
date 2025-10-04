@@ -359,14 +359,40 @@ export async function updatePaymentStatus(paymentId, updates) {
     // Ensure we don't override critical fields
     const { id, paymentId: _, ...safeUpdates } = updates;
     
-    const result = await firestoreManager.updateDocument('payments', paymentId, {
+    // Try to update in payments collection first
+    let result = await firestoreManager.updateDocument('payments', paymentId, {
       ...safeUpdates,
       updatedAt: new Date().toISOString()
     });
     
+    // If not found in payments, try pendingPayments collection
+    if (!result.success && result.error && result.error.includes('NOT_FOUND')) {
+      console.log('🔍 Payment not found in payments collection, trying pendingPayments...');
+      result = await firestoreManager.updateDocument('pendingPayments', paymentId, {
+        ...safeUpdates,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // If payment is being verified, move it from pendingPayments to payments
+      if (result.success && updates.status === 'completed') {
+        const payment = await getPaymentById(paymentId);
+        if (payment) {
+          // Create the payment in the payments collection
+          await firestoreManager.setDocument('payments', paymentId, {
+            ...payment,
+            ...safeUpdates,
+            updatedAt: new Date().toISOString()
+          });
+          
+          // Delete from pendingPayments
+          await firestoreManager.deleteDocument('pendingPayments', paymentId);
+        }
+      }
+    }
+    
     // If payment is being verified, update the related subscription
     if (updates.status === 'completed' && updates.verifiedBy) {
-      const payment = await getPayment(paymentId);
+      const payment = await getPaymentById(paymentId);
       if (payment && payment.subscriptionId) {
         await updateSubscription(payment.subscriptionId, {
           status: 'active',
