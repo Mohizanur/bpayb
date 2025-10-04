@@ -3286,6 +3286,104 @@ The new payment method is now available to users during subscription and renewal
     }
   });
 
+  // Handle edit payment method name
+  bot.action(/^edit_name_(.+)$/, async (ctx) => {
+    console.log('🔍 Edit name callback received:', ctx.callbackQuery.data);
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const methodId = ctx.match[1];
+      console.log('🔍 Editing payment method name:', methodId);
+      
+      await ctx.answerCbQuery();
+      
+      const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
+      const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
+      
+      const method = paymentMethods.find(m => m.id === methodId);
+      if (!method) {
+        await ctx.reply('❌ Payment method not found');
+        return;
+      }
+      
+      const message = `📝 **Edit Payment Method Name**
+
+Current name: **${method.name}**
+
+Please send the new name for this payment method:`;
+      
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Cancel', callback_data: `edit_payment_method_${methodId}` }]
+          ]
+        }
+      });
+      
+      // Set state to await new name
+      ctx.session = ctx.session || {};
+      ctx.session.awaitingPaymentMethodName = { methodId };
+      
+    } catch (error) {
+      console.error('Error editing payment method name:', error);
+      await ctx.reply('❌ Error loading payment method details');
+    }
+  });
+
+  // Handle confirm delete payment method
+  bot.action(/^confirm_delete_(.+)$/, async (ctx) => {
+    console.log('🔍 Confirm delete payment method callback received:', ctx.callbackQuery.data);
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const methodId = ctx.match[1];
+      console.log('🔍 Confirming deletion of payment method:', methodId);
+      
+      await ctx.answerCbQuery();
+      
+      const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
+      const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
+      
+      const methodIndex = paymentMethods.findIndex(m => m.id === methodId);
+      if (methodIndex === -1) {
+        await ctx.reply('❌ Payment method not found');
+        return;
+      }
+      
+      const method = paymentMethods[methodIndex];
+      
+      // Remove the method
+      paymentMethods.splice(methodIndex, 1);
+      
+      // Update in Firestore
+      await firestore.collection('config').doc('paymentMethods').set({
+        methods: paymentMethods
+      });
+      
+      await ctx.editMessageText(`✅ **Payment Method Deleted**
+
+**${method.name}** has been successfully deleted from the system.`, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Payment Methods', callback_data: 'admin_payment_methods' }]
+          ]
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error deleting payment method:', error);
+      await ctx.reply('❌ Error deleting payment method');
+    }
+  });
+
   // Handle edit account number
   bot.action(/^edit_account_(.+)$/, async (ctx) => {
     if (!(await isAuthorizedAdmin(ctx))) {
