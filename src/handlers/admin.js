@@ -4580,15 +4580,24 @@ ${serviceData.plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).j
         return;
       }
 
-      let servicesList = `🛍️ **Service Management**\n\n📦 **Available Services:**\n`;
+      // Implement pagination to avoid message too long error
+      const servicesPerPage = 8; // Show 8 services per page
+      const totalServices = servicesSnapshot.docs.length;
+      const totalPages = Math.ceil(totalServices / servicesPerPage);
+      const currentPage = 1; // For now, always show first page
+      
+      let servicesList = `🛍️ **Service Management**\n\n📦 **Available Services (${totalServices} total):**\n`;
       servicesList += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
       
       const keyboard = [];
       
-      servicesSnapshot.docs.forEach((doc, index) => {
+      // Show only first 8 services to avoid message too long
+      const servicesToShow = servicesSnapshot.docs.slice(0, servicesPerPage);
+      
+      servicesToShow.forEach((doc, index) => {
         const serviceData = doc.data();
         servicesList += `${index + 1}. **${serviceData.name || doc.id}**\n`;
-        servicesList += `   📝 Description: ${serviceData.description || 'No description'}\n`;
+        servicesList += `   📝 Description: ${(serviceData.description || 'No description').substring(0, 50)}${(serviceData.description || '').length > 50 ? '...' : ''}\n`;
         servicesList += `   🏷️ ID: \`${doc.id}\`\n`;
         servicesList += `   💰 Plans: ${serviceData.plans?.length || 0} plans\n`;
         servicesList += `   📊 Status: ${serviceData.status || 'active'}\n\n`;
@@ -4597,24 +4606,31 @@ ${serviceData.plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).j
         console.log(`📝 Adding edit button for service: "${doc.id}" (${serviceData.name})`);
         keyboard.push([
           { 
-            text: `✏️ Edit ${serviceData.name || doc.id}`, 
+            text: `✏️ Edit ${(serviceData.name || doc.id).substring(0, 15)}${(serviceData.name || doc.id).length > 15 ? '...' : ''}`, 
             callback_data: `editservice_${doc.id}` 
           }
         ]);
         keyboard.push([
           { 
-            text: `🗑️ Delete ${serviceData.name || doc.id}`, 
+            text: `🗑️ Delete ${(serviceData.name || doc.id).substring(0, 15)}${(serviceData.name || doc.id).length > 15 ? '...' : ''}`, 
             callback_data: `delete_service_${doc.id}` 
           }
         ]);
       });
       
+      // Add pagination info if there are more services
+      if (totalServices > servicesPerPage) {
+        servicesList += `\n📄 Showing ${servicesPerPage} of ${totalServices} services\n`;
+        servicesList += `💡 Use search or filters to find specific services\n`;
+      }
+      
       // Add navigation buttons
       keyboard.push([
         { text: '➕ Add New Service', callback_data: 'admin_add_service' },
-        { text: '🔄 Refresh', callback_data: 'admin_manage_services' }
+        { text: '🔍 Search Services', callback_data: 'admin_search_services' }
       ]);
       keyboard.push([
+        { text: '🔄 Refresh', callback_data: 'admin_manage_services' },
         { text: '🔙 Back to Admin', callback_data: 'back_to_admin' }
       ]);
       
@@ -4628,6 +4644,49 @@ ${serviceData.plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).j
     } catch (error) {
       console.error('Error in admin_manage_services:', error);
       await ctx.answerCbQuery('❌ Error loading services');
+    }
+  });
+
+  // Handle search services
+  bot.action('admin_search_services', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      await ctx.answerCbQuery();
+      
+      const message = `🔍 **Search Services**
+
+Please send the service name or ID you want to search for.
+
+Examples:
+• \`netflix\` - Find Netflix services
+• \`premium\` - Find all premium services
+• \`spotify\` - Find Spotify services
+
+You can search by:
+• Service name
+• Service ID
+• Keywords in description`;
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Cancel', callback_data: 'admin_manage_services' }]
+          ]
+        }
+      });
+      
+      // Set state to await search query
+      ctx.session = ctx.session || {};
+      ctx.session.awaitingServiceSearch = true;
+      
+    } catch (error) {
+      console.error('Error in admin_search_services:', error);
+      await ctx.answerCbQuery('❌ Error loading search');
     }
   });
 
@@ -5229,6 +5288,104 @@ To cancel, click the Cancel button below.`;
     // Debug session data
     console.log('🔍 Full session data:', ctx.session);
     console.log('🔍 Session awaitingPaymentMethodName:', ctx.session?.awaitingPaymentMethodName);
+    
+    // Check if user is in service search mode
+    if (ctx.session?.awaitingServiceSearch) {
+      console.log('🔍 Service search detected');
+      console.log('🔍 Search query:', ctx.message.text);
+      
+      try {
+        const searchQuery = ctx.message.text.trim().toLowerCase();
+        
+        if (!searchQuery) {
+          await ctx.reply('❌ Please provide a search term');
+          return;
+        }
+        
+        // Search services in Firestore
+        const servicesSnapshot = await firestore.collection('services').get();
+        const matchingServices = servicesSnapshot.docs.filter(doc => {
+          const serviceData = doc.data();
+          const name = (serviceData.name || '').toLowerCase();
+          const id = doc.id.toLowerCase();
+          const description = (serviceData.description || '').toLowerCase();
+          
+          return name.includes(searchQuery) || 
+                 id.includes(searchQuery) || 
+                 description.includes(searchQuery);
+        });
+        
+        if (matchingServices.length === 0) {
+          await ctx.reply(`❌ **No services found** for "${searchQuery}"
+
+Try searching for:
+• Service names (e.g., "netflix", "spotify")
+• Service IDs (e.g., "netflix", "premium")
+• Keywords (e.g., "video", "music", "vpn")`, {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔍 Search Again', callback_data: 'admin_search_services' }],
+                [{ text: '🔙 Back to Services', callback_data: 'admin_manage_services' }]
+              ]
+            }
+          });
+          return;
+        }
+        
+        // Build search results
+        let searchResults = `🔍 **Search Results for "${searchQuery}"**\n\n`;
+        searchResults += `Found ${matchingServices.length} service(s):\n`;
+        searchResults += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        
+        const keyboard = [];
+        
+        matchingServices.forEach((doc, index) => {
+          const serviceData = doc.data();
+          searchResults += `${index + 1}. **${serviceData.name || doc.id}**\n`;
+          searchResults += `   📝 Description: ${(serviceData.description || 'No description').substring(0, 50)}${(serviceData.description || '').length > 50 ? '...' : ''}\n`;
+          searchResults += `   🏷️ ID: \`${doc.id}\`\n`;
+          searchResults += `   💰 Plans: ${serviceData.plans?.length || 0} plans\n`;
+          searchResults += `   📊 Status: ${serviceData.status || 'active'}\n\n`;
+          
+          // Add service management buttons
+          keyboard.push([
+            { 
+              text: `✏️ Edit ${(serviceData.name || doc.id).substring(0, 15)}${(serviceData.name || doc.id).length > 15 ? '...' : ''}`, 
+              callback_data: `editservice_${doc.id}` 
+            }
+          ]);
+          keyboard.push([
+            { 
+              text: `🗑️ Delete ${(serviceData.name || doc.id).substring(0, 15)}${(serviceData.name || doc.id).length > 15 ? '...' : ''}`, 
+              callback_data: `delete_service_${doc.id}` 
+            }
+          ]);
+        });
+        
+        // Add navigation buttons
+        keyboard.push([
+          { text: '🔍 Search Again', callback_data: 'admin_search_services' },
+          { text: '🔙 Back to Services', callback_data: 'admin_manage_services' }
+        ]);
+        
+        await ctx.reply(searchResults, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        });
+        
+        // Clear the search state
+        delete ctx.session.awaitingServiceSearch;
+        
+      } catch (error) {
+        console.error('Error searching services:', error);
+        await ctx.reply('❌ Error searching services. Please try again.');
+        delete ctx.session.awaitingServiceSearch;
+      }
+      return;
+    }
     
     // Check if user is in add payment method mode
     if (ctx.session?.awaitingPaymentMethodData) {
