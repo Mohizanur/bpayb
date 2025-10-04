@@ -103,6 +103,53 @@ const getUserDisplayInfo = (user) => {
 };
 
 export default function adminHandler(bot) {
+  // Unified function to get subscription statistics
+  async function getSubscriptionStats() {
+    const [subscriptionsSnapshot, pendingPaymentsSnapshot, customPlanRequestsSnapshot] = await Promise.all([
+      firestore.collection('subscriptions').get(),
+      firestore.collection('pendingPayments').get(),
+      firestore.collection('customPlanRequests').where('status', '==', 'pending').get()
+    ]);
+    
+    let activeCount = 0;
+    let pendingCount = 0;
+    let expiredCount = 0;
+    let customPlanCount = customPlanRequestsSnapshot.size;
+    
+    // Count subscriptions by status
+    subscriptionsSnapshot.docs.forEach(doc => {
+      const subscription = doc.data();
+      if (subscription.status === 'active') {
+        activeCount++;
+      } else if (subscription.status === 'pending') {
+        pendingCount++;
+      } else if (subscription.status === 'expired') {
+        expiredCount++;
+      }
+    });
+    
+    // Count pending payments (these are subscriptions waiting for payment approval)
+    pendingPaymentsSnapshot.docs.forEach(doc => {
+      const payment = doc.data();
+      if (payment.status === 'pending' || payment.status === 'proof_submitted') {
+        pendingCount++;
+      }
+    });
+    
+    const totalCount = activeCount + pendingCount + expiredCount;
+    
+    return {
+      activeCount,
+      pendingCount,
+      expiredCount,
+      customPlanCount,
+      totalCount,
+      subscriptionsSnapshot,
+      pendingPaymentsSnapshot,
+      customPlanRequestsSnapshot
+    };
+  }
+
   // Helper function to safely edit messages and handle "message is not modified" error
   const safeEditMessage = async (ctx, message, options = {}) => {
     try {
@@ -820,10 +867,7 @@ export default function adminHandler(bot) {
 📊 **Real-Time Analytics**
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ 👥 **Users:** ${totalUsers.toLocaleString()} total • ${activeUsers.toLocaleString()} active
-┃ 📱 **Subscriptions:** ${activeSubscriptions.toLocaleString()} active • ${(pendingSubscriptions + pendingPaymentsSnapshot.docs.filter(doc => {
-        const paymentData = doc.data();
-        return paymentData.status === 'pending' || paymentData.status === 'proof_submitted';
-      }).length).toLocaleString()} pending  
+┃ 📱 **Subscriptions:** ${activeSubscriptions.toLocaleString()} active • ${pendingSubscriptions.toLocaleString()} pending  
 ┃ 💳 **Payments:** ${totalPayments.toLocaleString()} total • ${pendingPayments.toLocaleString()} pending
 ┃ 🎯 **Custom Plans:** ${customPlanRequestsSnapshot.size} pending requests
 ┃ 💰 **Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}
@@ -1727,10 +1771,7 @@ export default function adminHandler(bot) {
 📊 **Real-Time Analytics**
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ 👥 **Users:** ${totalUsers.toLocaleString()} total • ${activeUsers.toLocaleString()} active
-┃ 📱 **Subscriptions:** ${activeSubscriptions.toLocaleString()} active • ${(pendingSubscriptions + pendingPaymentsSnapshot.docs.filter(doc => {
-        const paymentData = doc.data();
-        return paymentData.status === 'pending' || paymentData.status === 'proof_submitted';
-      }).length).toLocaleString()} pending  
+┃ 📱 **Subscriptions:** ${activeSubscriptions.toLocaleString()} active • ${pendingSubscriptions.toLocaleString()} pending  
 ┃ 💳 **Payments:** ${totalPayments.toLocaleString()} total • ${pendingPayments.toLocaleString()} pending
 ┃ 🎯 **Custom Plans:** ${customPlanRequestsSnapshot.size} pending requests
 ┃ 💰 **Revenue:** ETB ${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}
@@ -2238,40 +2279,14 @@ ${message.length > 100 ? message.substring(0, 100) + '...' : message}`;
     await ctx.answerCbQuery();
 
         try {
-      // Get comprehensive subscription data
-      const [subscriptionsSnapshot, pendingPaymentsSnapshot, customPlanRequestsSnapshot] = await Promise.all([
-        firestore.collection('subscriptions').get(),
-        firestore.collection('pendingPayments').get(),
-        firestore.collection('customPlanRequests').where('status', '==', 'pending').get()
-      ]);
+      // Get comprehensive subscription data using unified function
+      const subscriptionStats = await getSubscriptionStats();
       
-      // Calculate subscription statistics
-      let activeCount = 0;
-      let pendingCount = 0;
-      let expiredCount = 0;
-      let customPlanCount = customPlanRequestsSnapshot.size;
-      
-      // Count active subscriptions
-      subscriptionsSnapshot.docs.forEach(doc => {
-        const subscription = doc.data();
-        if (subscription.status === 'active') {
-          activeCount++;
-        } else if (subscription.status === 'pending') {
-          pendingCount++;
-        } else if (subscription.status === 'expired') {
-          expiredCount++;
-        }
-      });
-      
-      // Count pending payments (these are subscriptions waiting for payment approval)
-      pendingPaymentsSnapshot.docs.forEach(doc => {
-        const payment = doc.data();
-        if (payment.status === 'pending' || payment.status === 'proof_submitted') {
-          pendingCount++;
-        }
-      });
-      
-      const totalCount = activeCount + pendingCount + expiredCount;
+      const activeCount = subscriptionStats.activeCount;
+      const pendingCount = subscriptionStats.pendingCount;
+      const expiredCount = subscriptionStats.expiredCount;
+      const customPlanCount = subscriptionStats.customPlanCount;
+      const totalCount = subscriptionStats.totalCount;
 
       const message = `📊 **Subscription Management** 📊
 

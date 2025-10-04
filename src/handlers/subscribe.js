@@ -274,6 +274,28 @@ ${t('service_start_after_approval', lang)}`;
         paymentDetails: {}
       };
 
+      // Create pending subscription first
+      const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const subscriptionData = {
+        id: subscriptionId,
+        userId,
+        serviceId: service.id,
+        serviceName: service.name,
+        status: 'pending',
+        duration: duration,
+        durationName: durationText,
+        amount: `ETB ${price}`,
+        price: price,
+        paymentId: paymentId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      await firestore.collection('subscriptions').doc(subscriptionId).set(subscriptionData);
+
+      // Add subscription ID to payment data
+      paymentData.subscriptionId = subscriptionId;
+
       // Save to Firestore
       await firestore.collection('pendingPayments').doc(paymentId).set(paymentData);
 

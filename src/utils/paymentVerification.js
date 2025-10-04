@@ -3,6 +3,15 @@ import { bot } from '../bot.js';
 import { formatCurrency } from './payment.js';
 import { firestore } from './firestore.js';
 
+// Helper function to calculate end date based on duration
+function calculateEndDate(startDate, duration) {
+  const date = new Date(startDate);
+  const [value, unit] = duration.split('_');
+  const months = unit === 'month' || unit === 'months' ? parseInt(value) : 1;
+  date.setMonth(date.getMonth() + months);
+  return date.toISOString();
+}
+
 /**
  * Verify a payment and activate the subscription
  * @param {string} paymentId - The payment ID to verify
@@ -28,6 +37,33 @@ export async function verifyPayment(paymentId, adminId, notes = '') {
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to update payment status');
+    }
+
+    // Create subscription if it doesn't exist
+    if (!payment.subscriptionId) {
+      const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const subscriptionData = {
+        id: subscriptionId,
+        userId: payment.userId,
+        serviceId: payment.serviceId,
+        serviceName: payment.serviceName,
+        status: 'active',
+        startDate: new Date().toISOString(),
+        endDate: calculateEndDate(new Date(), payment.duration || '1_month'),
+        amount: payment.amount || payment.price,
+        duration: payment.duration || '1_month',
+        paymentId: paymentId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      await firestore.collection('subscriptions').doc(subscriptionId).set(subscriptionData);
+      
+      // Update payment with subscription ID
+      await firestore.collection('payments').doc(paymentId).update({
+        subscriptionId: subscriptionId,
+        updatedAt: new Date().toISOString()
+      });
     }
 
     // Notify user about successful verification
