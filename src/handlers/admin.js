@@ -3411,10 +3411,16 @@ Type \`cancel\` to cancel the operation.`, {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '❌ Cancel', callback_data: `edit_method_${methodId}` }]
+            [{ text: '❌ Cancel', callback_data: `edit_payment_method_${methodId}` }]
           ]
         }
       });
+      
+      // Set state to await new account number
+      ctx.session = ctx.session || {};
+      ctx.session.awaitingPaymentMethodAccount = { methodId };
+      console.log('🔍 Set awaitingPaymentMethodAccount for user:', ctx.from.id);
+      console.log('🔍 Session after setting account state:', ctx.session);
 
       // Store the edit context in global editingStates
       global.editingStates = global.editingStates || new Map();
@@ -5494,6 +5500,66 @@ Details:
         console.error('Error adding payment method:', error);
         await ctx.reply('❌ Error adding payment method. Please try again.');
         delete ctx.session.awaitingPaymentMethodData;
+      }
+      return;
+    }
+    
+    // Check if user is in payment method account editing mode
+    if (ctx.session?.awaitingPaymentMethodAccount) {
+      console.log('🔍 Payment method account editing detected');
+      console.log('🔍 Payment method account edit state:', ctx.session.awaitingPaymentMethodAccount);
+      
+      try {
+        const { methodId } = ctx.session.awaitingPaymentMethodAccount;
+        const newAccount = ctx.message.text.trim();
+        
+        if (!newAccount) {
+          await ctx.reply('❌ Please provide a valid account number');
+          return;
+        }
+        
+        if (newAccount.toLowerCase() === 'cancel') {
+          await ctx.reply('❌ Account editing cancelled');
+          delete ctx.session.awaitingPaymentMethodAccount;
+          return;
+        }
+        
+        // Update payment method account in Firestore
+        const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
+        const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
+        
+        const methodIndex = paymentMethods.findIndex(m => m.id === methodId);
+        if (methodIndex === -1) {
+          await ctx.reply('❌ Payment method not found');
+          return;
+        }
+        
+        // Update the account
+        paymentMethods[methodIndex].account = newAccount;
+        
+        // Save to Firestore
+        await firestore.collection('config').doc('paymentMethods').set({
+          methods: paymentMethods
+        });
+        
+        await ctx.reply(`✅ **Payment Method Account Updated**
+
+**${paymentMethods[methodIndex].name}** account has been updated to: **${newAccount}**`, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔙 Back to Payment Methods', callback_data: 'admin_payment_methods' }]
+            ]
+          }
+        });
+        
+        // Clear the editing state
+        delete ctx.session.awaitingPaymentMethodAccount;
+        
+      } catch (error) {
+        console.error('Error updating payment method account:', error);
+        await ctx.reply('❌ Error updating payment method account');
+        delete ctx.session.awaitingPaymentMethodAccount;
       }
       return;
     }
