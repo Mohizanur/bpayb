@@ -200,11 +200,8 @@ Please upload your screenshot:`;
             { parse_mode: 'Markdown' }
           );
           
-          // Get payment details for admin notification
-          payment = await getPaymentById(paymentId);
-          if (payment) {
-            await notifyAdminsAboutPayment(payment);
-          }
+          // Admin notification is already handled in handlePaymentProofUpload
+          // No need to call it again here
           
           return;
         } else {

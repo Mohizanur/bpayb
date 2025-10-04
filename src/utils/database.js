@@ -396,11 +396,19 @@ function calculateEndDate(startDate, duration) {
 // Get payment by ID with proper error handling
 export async function getPaymentById(paymentId) {
   try {
-    const result = await firestoreManager.getDocument('payments', paymentId);
-    if (!result.success) {
-      throw new Error('Payment not found');
+    // First try payments collection
+    let result = await firestoreManager.getDocument('payments', paymentId);
+    if (result.success) {
+      return result.data;
     }
-    return result.data;
+    
+    // If not found, try pendingPayments collection
+    result = await firestoreManager.getDocument('pendingPayments', paymentId);
+    if (result.success) {
+      return result.data;
+    }
+    
+    throw new Error('Payment not found');
   } catch (error) {
     console.error('Error getting payment by ID:', error);
     throw error;
@@ -424,12 +432,19 @@ export async function getPendingVerificationPayments() {
 // Get all admins
 export async function getAdmins() {
   try {
-    const result = await firestoreManager.queryDocuments('users', {
-      isAdmin: true,
-      status: 'active'
+    // Use direct firestore query instead of firestoreManager to avoid query issues
+    const { firestore } = await import('./firestore.js');
+    const snapshot = await firestore.collection('users')
+      .where('isAdmin', '==', true)
+      .where('status', '==', 'active')
+      .get();
+    
+    const admins = [];
+    snapshot.forEach(doc => {
+      admins.push({ id: doc.id, ...doc.data() });
     });
     
-    return result.success ? result.data : [];
+    return admins;
   } catch (error) {
     console.error('Error getting admins:', error);
     return [];
