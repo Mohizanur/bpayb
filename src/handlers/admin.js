@@ -2429,6 +2429,112 @@ Users can request custom plans by selecting a service and clicking "🎯 Custom 
     await ctx.answerCbQuery();
   });
 
+  // Handle admin text messages for custom plan pricing
+  bot.on('text', async (ctx) => {
+    try {
+      // Check if admin is in custom pricing state
+      const adminState = global.adminStates?.[ctx.from.id];
+      if (adminState?.state === 'awaiting_custom_pricing') {
+        console.log('🔍 Admin sending custom pricing:', ctx.message.text);
+        
+        // Parse the pricing text (e.g., "ETB 700" or "700")
+        const text = ctx.message.text.trim();
+        let amount = 0;
+        let currency = 'ETB';
+        
+        // Try to extract amount and currency
+        const match = text.match(/(\w+)\s*(\d+(?:\.\d+)?)/i);
+        if (match) {
+          currency = match[1].toUpperCase();
+          amount = parseFloat(match[2]);
+        } else {
+          // Try to extract just the number
+          const numberMatch = text.match(/(\d+(?:\.\d+)?)/);
+          if (numberMatch) {
+            amount = parseFloat(numberMatch[1]);
+          }
+        }
+        
+        if (amount <= 0) {
+          await ctx.reply('❌ Invalid amount. Please send a valid price (e.g., "ETB 700" or "700")');
+          return;
+        }
+        
+        const paymentId = adminState.paymentId;
+        const requestId = adminState.requestId;
+        
+        // Update payment with amount
+        await firestore.collection('pendingPayments').doc(paymentId).update({
+          price: amount,
+          amount: `${currency} ${amount}`,
+          status: 'pending',
+          pricingSetAt: new Date(),
+          pricingSetBy: ctx.from.id
+        });
+
+        // Get payment details for user notification
+        const paymentDoc = await firestore.collection('pendingPayments').doc(paymentId).get();
+        const payment = paymentDoc.data();
+        
+        // Send pricing to user
+        const userMessage = payment.language === 'am'
+          ? `💰 **የብጁ እቅድ ዋጋ ተዘጋጅቷል**
+
+📋 **ጥያቄዎ:** ${payment.customPlanDetails}
+
+💵 **ዋጋ:** ${currency} ${amount.toLocaleString()}
+
+⏰ **ቀጣዩ ደረጃ:**
+1. ክፍያ ያድርጉ
+2. የክፍያ ማስረጃ ይላኩ
+3. አስተዳዳሪ ያጸድቃል
+
+📞 **መልስ ጊዜ:** 24 ሰዓት ውስጥ`
+          : `💰 **Custom Plan Pricing Ready**
+
+📋 **Your Request:** ${payment.customPlanDetails}
+
+💵 **Price:** ${currency} ${amount.toLocaleString()}
+
+⏰ **Next Steps:**
+1. Make payment
+2. Upload payment proof
+3. Admin will approve
+
+📞 **Response Time:** Within 24 hours`;
+
+        await bot.telegram.sendMessage(payment.userId, userMessage, { 
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '💳 Pay Now', callback_data: `pay_custom_${paymentId}` }
+              ],
+              [
+                { text: '📞 Contact Support', callback_data: 'support' }
+              ]
+            ]
+          }
+        });
+
+        // Clear admin state
+        delete global.adminStates[ctx.from.id];
+        
+        await ctx.reply(`✅ **Pricing sent to user!**
+
+💳 **Payment ID:** \`${paymentId}\`
+👤 **User ID:** ${payment.userId}
+💰 **Amount:** ${currency} ${amount.toLocaleString()}
+
+The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
+        
+        return; // Don't process as regular admin message
+      }
+    } catch (error) {
+      console.error('Error processing admin custom pricing:', error);
+    }
+  });
+
   // Handle admin command to send custom plan pricing
   bot.command('send_custom_pricing', async (ctx) => {
     if (!(await isAuthorizedAdmin(ctx))) {
@@ -2526,6 +2632,87 @@ The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
     } catch (error) {
       console.error('Error sending custom pricing:', error);
       await ctx.reply('❌ Error sending pricing. Please try again.');
+    }
+  });
+
+  // Handle custom plan pricing setting (from admin custom requests page)
+  bot.action(/^set_custom_price_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const requestId = ctx.match[1];
+      console.log('🔍 Setting custom price for request:', requestId);
+      
+      // Get the custom plan request
+      const requestDoc = await firestore.collection('customPlanRequests').doc(requestId).get();
+      if (!requestDoc.exists) {
+        await ctx.answerCbQuery('❌ Request not found');
+        return;
+      }
+
+      const request = requestDoc.data();
+      
+      // Create a pending payment for the custom plan
+      const paymentId = `custom_${Date.now()}_${request.userId}`;
+      const paymentReference = `CUSTOM-${Date.now()}-${request.userId}`;
+      
+      const paymentData = {
+        id: paymentId,
+        userId: request.userId,
+        serviceId: request.serviceId || 'custom_plan',
+        serviceName: request.serviceName || 'Custom Plan',
+        duration: 'custom',
+        durationName: 'Custom Plan',
+        price: 0, // Will be set by admin
+        amount: 'ETB 0', // Will be updated by admin
+        status: 'pending_pricing',
+        paymentReference: paymentReference,
+        customPlanDetails: request.customPlanDetails,
+        customPlanRequestId: requestId,
+        createdAt: new Date().toISOString(),
+        paymentMethod: 'manual',
+        paymentDetails: {},
+        language: request.language
+      };
+
+      // Save payment to pendingPayments collection
+      await firestore.collection('pendingPayments').doc(paymentId).set(paymentData);
+      
+      // Update custom plan request status
+      await firestore.collection('customPlanRequests').doc(requestId).update({
+        status: 'pricing_set',
+        pricingSetAt: new Date(),
+        pricingSetBy: ctx.from.id,
+        paymentId: paymentId
+      });
+
+      // Set admin state to expect pricing input
+      if (!global.adminStates) global.adminStates = {};
+      global.adminStates[ctx.from.id] = {
+        state: 'awaiting_custom_pricing',
+        paymentId: paymentId,
+        requestId: requestId,
+        timestamp: Date.now()
+      };
+
+      await ctx.answerCbQuery('✅ Now send the price (e.g., "ETB 1500")');
+      
+      // Update the admin notification
+      try {
+        await ctx.editMessageText(
+          ctx.callbackQuery.message.text + `\n\n✅ **PRICING SETUP** by ${ctx.from.first_name}\n\n💳 **Payment ID:** \`${paymentId}\`\n\n📝 **Next:** Send price (e.g., "ETB 1500")`,
+          { parse_mode: 'Markdown' }
+        );
+      } catch (editError) {
+        console.log('Could not edit message:', editError.message);
+      }
+
+    } catch (error) {
+      console.error('Error setting custom price:', error);
+      await ctx.answerCbQuery('❌ Error setting price');
     }
   });
 
