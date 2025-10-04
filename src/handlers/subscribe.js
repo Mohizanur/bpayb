@@ -9,7 +9,7 @@ import { t, getUserLanguage } from '../utils/translations.js';
 
 function setupSubscribeHandler(bot) {
   // Handle service selection with more flexible ID matching and caching
-  bot.action(/^select_service_([a-z0-9_-]+)$/i, async (ctx) => {
+  bot.action(/^select_service_([a-z0-9_()-]+)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
       const lang = await getUserLanguage(ctx);
