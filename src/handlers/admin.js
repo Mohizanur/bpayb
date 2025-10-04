@@ -2615,6 +2615,8 @@ Icon: 📱
       // Set state to await payment method data
       ctx.session = ctx.session || {};
       ctx.session.awaitingPaymentMethodData = true;
+      console.log('🔍 Set awaitingPaymentMethodData to true for user:', ctx.from.id);
+      console.log('🔍 Session after setting state:', ctx.session);
       
     } catch (error) {
       console.error('Error adding payment method:', error);
@@ -4622,6 +4624,12 @@ ${serviceData.plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).j
       if (totalServices > servicesPerPage) {
         servicesList += `\n📄 Showing ${servicesPerPage} of ${totalServices} services\n`;
         servicesList += `💡 Use search or filters to find specific services\n`;
+        
+        // Add pagination buttons
+        keyboard.push([
+          { text: '⬅️ Previous', callback_data: 'admin_services_page_0' },
+          { text: '➡️ Next', callback_data: 'admin_services_page_2' }
+        ]);
       }
       
       // Add navigation buttons

@@ -920,14 +920,21 @@ process.on("unhandledRejection", (reason, promise) => {
     // Phone verification middleware - MUST BE BEFORE OTHER MIDDLEWARE
     bot.use(phoneVerificationMiddleware);
 
-    // Session middleware - MUST BE BEFORE OTHER MIDDLEWARE
+    // Session middleware with persistence - MUST BE BEFORE OTHER MIDDLEWARE
+    const userSessions = new Map(); // Simple in-memory session store
+    
     bot.use((ctx, next) => {
-      if (!ctx.session) {
-        ctx.session = {};
-        console.log('🔍 Session initialized for user:', ctx.from?.id);
+      const userId = ctx.from?.id;
+      if (!userId) return next();
+      
+      if (!userSessions.has(userId)) {
+        userSessions.set(userId, {});
+        console.log('🔍 Session initialized for user:', userId);
       } else {
-        console.log('🔍 Session exists for user:', ctx.from?.id, 'Session:', ctx.session);
+        console.log('🔍 Session exists for user:', userId, 'Session:', userSessions.get(userId));
       }
+      
+      ctx.session = userSessions.get(userId);
       return next();
     });
 
