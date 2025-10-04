@@ -3327,6 +3327,8 @@ Please send the new name for this payment method:`;
       // Set state to await new name
       ctx.session = ctx.session || {};
       ctx.session.awaitingPaymentMethodName = { methodId };
+      console.log('🔍 Set payment method editing state:', ctx.session.awaitingPaymentMethodName);
+      console.log('🔍 Full session:', ctx.session);
       
     } catch (error) {
       console.error('Error editing payment method name:', error);
@@ -5223,6 +5225,10 @@ To cancel, click the Cancel button below.`;
     }
 
     const userId = ctx.from.id;
+    
+    // Debug session data
+    console.log('🔍 Full session data:', ctx.session);
+    console.log('🔍 Session awaitingPaymentMethodName:', ctx.session?.awaitingPaymentMethodName);
     
     // Check if user is in payment method editing mode
     if (ctx.session?.awaitingPaymentMethodName) {
