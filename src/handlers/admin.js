@@ -5212,9 +5212,9 @@ To cancel, click the Cancel button below.`;
     return Math.max(0, Math.round(score));
   }
 
-  // Handle text messages for service editing
+  // Handle text messages for service editing and payment method editing
   bot.on('text', async (ctx) => {
-    console.log('🔍 Service editing text handler called for user:', ctx.from.id);
+    console.log('🔍 Text handler called for user:', ctx.from.id);
     console.log('🔍 Message text:', ctx.message.text);
     
     if (!(await isAuthorizedAdmin(ctx))) {
@@ -5223,6 +5223,62 @@ To cancel, click the Cancel button below.`;
     }
 
     const userId = ctx.from.id;
+    
+    // Check if user is in payment method editing mode
+    if (ctx.session?.awaitingPaymentMethodName) {
+      console.log('🔍 Payment method name editing detected');
+      console.log('🔍 Payment method edit state:', ctx.session.awaitingPaymentMethodName);
+      
+      try {
+        const { methodId } = ctx.session.awaitingPaymentMethodName;
+        const newName = ctx.message.text.trim();
+        
+        if (!newName) {
+          await ctx.reply('❌ Please provide a valid name');
+          return;
+        }
+        
+        // Update payment method name in Firestore
+        const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
+        const paymentMethods = paymentMethodsDoc.exists ? paymentMethodsDoc.data().methods || [] : [];
+        
+        const methodIndex = paymentMethods.findIndex(m => m.id === methodId);
+        if (methodIndex === -1) {
+          await ctx.reply('❌ Payment method not found');
+          return;
+        }
+        
+        // Update the name
+        paymentMethods[methodIndex].name = newName;
+        
+        // Save to Firestore
+        await firestore.collection('config').doc('paymentMethods').set({
+          methods: paymentMethods
+        });
+        
+        await ctx.reply(`✅ **Payment Method Name Updated**
+
+**${newName}** has been successfully updated!`, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔙 Back to Payment Methods', callback_data: 'admin_payment_methods' }]
+            ]
+          }
+        });
+        
+        // Clear the editing state
+        delete ctx.session.awaitingPaymentMethodName;
+        
+      } catch (error) {
+        console.error('Error updating payment method name:', error);
+        await ctx.reply('❌ Error updating payment method name');
+        delete ctx.session.awaitingPaymentMethodName;
+      }
+      return;
+    }
+    
+    // Check if user is in service editing mode
     const editState = global.serviceEditState?.[userId];
     
     console.log('🔍 Edit state for user:', editState);
