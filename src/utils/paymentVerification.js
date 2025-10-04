@@ -117,39 +117,49 @@ export async function notifyAdminsAboutPayment(payment, screenshotUrl) {
       return false;
     }
 
+    // Format amount properly
+    const amount = payment.amount || payment.price || 'N/A';
+    const formattedAmount = typeof amount === 'number' ? `${amount.toLocaleString()} ETB` : amount;
+
     // Create a support ticket for tracking
     const ticket = await createSupportTicket({
       userId: payment.userId,
       type: 'payment_verification',
-      subject: `Payment Verification Required - ${payment.paymentReference}`,
+      subject: `Payment Verification Required - ${payment.paymentReference || payment.id}`,
       message: `New payment requires verification.\n` +
-               `Amount: ${formatCurrency(payment.amount)}\n` +
+               `Amount: ${formattedAmount}\n` +
                `Service: ${payment.serviceName || 'N/A'}\n` +
                `Payment Method: ${payment.paymentMethod || 'Manual'}\n` +
-               `Reference: ${payment.paymentReference}`,
+               `Reference: ${payment.paymentReference || payment.id}`,
       metadata: {
         paymentId: payment.id,
         screenshotUrl,
         serviceId: payment.serviceId,
-        amount: payment.amount
+        amount: payment.amount || payment.price
       },
       priority: 'high'
     });
-
-    // Prepare the message with verification buttons
+    
     const message = `🆕 *New Payment Requires Verification*\n\n` +
-      `💰 *Amount:* ${formatCurrency(payment.amount)}\n` +
+      `💰 *Amount:* ${formattedAmount}\n` +
       `👤 *User:* ${payment.userName || `ID: ${payment.userId}`}\n` +
-      `📝 *Reference:* \`${payment.paymentReference}\`\n` +
+      `📝 *Reference:* \`${payment.paymentReference || payment.id || 'N/A'}\`\n` +
       `🛒 *Service:* ${payment.serviceName || 'N/A'}\n` +
       `💳 *Method:* ${payment.paymentMethod || 'Manual'}\n` +
-      `📅 *Date:* ${new Date(payment.createdAt).toLocaleString()}\n\n` +
+      `📅 *Date:* ${new Date(payment.createdAt || Date.now()).toLocaleString()}\n\n` +
       `*Ticket ID:* ${ticket.id || 'N/A'}`;
 
-    // Send to all admins
-    const sendPromises = admins.map(admin => {
+    // Send to all admins (filter out admins without valid chat IDs)
+    const validAdmins = admins.filter(admin => admin.id && admin.id !== 'undefined');
+    
+    if (validAdmins.length === 0) {
+      console.warn('No admins with valid chat IDs found');
+      return false;
+    }
+    
+    const sendPromises = validAdmins.map(admin => {
       return bot.telegram.sendMessage(
-        admin.userId,
+        admin.id, // Use admin.id instead of admin.userId
         message,
         {
           parse_mode: 'Markdown',
