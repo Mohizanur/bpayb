@@ -2673,6 +2673,79 @@ Icon: 📱
     }
   });
 
+  // Handle payment approval buttons (from showPendingPayment interface)
+  bot.action(/^approve_payment_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+    
+    try {
+      const paymentId = ctx.match[1];
+      console.log('🔍 Approving payment:', paymentId);
+      
+      // Import the verification function
+      const { verifyPayment } = await import('../utils/paymentVerification.js');
+      
+      const result = await verifyPayment(paymentId, ctx.from.id, 'Payment approved by admin');
+      
+      if (result.success) {
+        await ctx.answerCbQuery('✅ Payment approved successfully!');
+        try {
+          await ctx.editMessageText(
+            ctx.callbackQuery.message.text + '\n\n✅ **APPROVED** by ' + ctx.from.first_name,
+            { parse_mode: 'Markdown' }
+          );
+        } catch (editError) {
+          console.log('Could not edit message, sending new message instead');
+          await ctx.reply('✅ Payment approved by ' + ctx.from.first_name);
+        }
+      } else {
+        await ctx.answerCbQuery('❌ Error approving payment: ' + result.error);
+      }
+      
+    } catch (error) {
+      console.error('Error approving payment:', error);
+      await ctx.answerCbQuery('❌ Error approving payment');
+    }
+  });
+
+  bot.action(/^reject_payment_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+    
+    try {
+      const paymentId = ctx.match[1];
+      console.log('🔍 Rejecting payment:', paymentId);
+      
+      // Import the verification function
+      const { rejectPayment } = await import('../utils/paymentVerification.js');
+      
+      const result = await rejectPayment(paymentId, ctx.from.id, 'Payment rejected by admin');
+      
+      if (result.success) {
+        await ctx.answerCbQuery('❌ Payment rejected successfully!');
+        try {
+          await ctx.editMessageText(
+            ctx.callbackQuery.message.text + '\n\n❌ **REJECTED** by ' + ctx.from.first_name,
+            { parse_mode: 'Markdown' }
+          );
+        } catch (editError) {
+          console.log('Could not edit message, sending new message instead');
+          await ctx.reply('❌ Payment rejected by ' + ctx.from.first_name);
+        }
+      } else {
+        await ctx.answerCbQuery('❌ Error rejecting payment: ' + result.error);
+      }
+      
+    } catch (error) {
+      console.error('Error rejecting payment:', error);
+      await ctx.answerCbQuery('❌ Error rejecting payment');
+    }
+  });
+
   // Handle payment verification buttons
   bot.action(/^verify_payment:(.+)$/, async (ctx) => {
     if (!(await isAuthorizedAdmin(ctx))) {
