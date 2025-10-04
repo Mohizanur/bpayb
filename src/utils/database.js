@@ -432,17 +432,18 @@ export async function getPendingVerificationPayments() {
 // Get all admins
 export async function getAdmins() {
   try {
-    // Use direct firestore query instead of firestoreManager to avoid query issues
-    const { firestore } = await import('./firestore.js');
-    const snapshot = await firestore.collection('users')
-      .where('isAdmin', '==', true)
-      .where('status', '==', 'active')
-      .get();
+    // Use firestoreManager with simpler approach
+    const result = await firestoreManager.getCollection('users');
     
-    const admins = [];
-    snapshot.forEach(doc => {
-      admins.push({ id: doc.id, ...doc.data() });
-    });
+    if (!result.success) {
+      console.log('No users collection found');
+      return [];
+    }
+    
+    // Filter admins from all users
+    const admins = result.data.filter(user => 
+      user.isAdmin === true && user.status === 'active'
+    );
     
     return admins;
   } catch (error) {

@@ -508,6 +508,31 @@ class FirestoreManager {
     }
   }
 
+  // Get all documents from a collection
+  async getCollection(collection) {
+    try {
+      const snapshot = await this.db.collection(collection).get();
+      const documents = [];
+      
+      snapshot.forEach(doc => {
+        documents.push({ id: doc.id, ...doc.data() });
+      });
+      
+      return {
+        success: true,
+        data: documents,
+        count: documents.length
+      };
+    } catch (error) {
+      console.error(`Error getting collection ${collection}:`, error);
+      return {
+        success: false,
+        error: error.message,
+        data: []
+      };
+    }
+  }
+
   // Get collection statistics
   async getCollectionStats(collection) {
     try {
