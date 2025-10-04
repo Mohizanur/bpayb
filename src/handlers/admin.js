@@ -4660,6 +4660,120 @@ ${serviceData.plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).j
     }
   });
 
+  // Handle service pagination
+  bot.action(/^admin_services_page_(\d+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const page = parseInt(ctx.match[1]);
+      const servicesPerPage = 8;
+      
+      await ctx.answerCbQuery();
+      
+      // Get all services
+      const servicesSnapshot = await firestore.collection('services').get();
+      
+      if (servicesSnapshot.empty) {
+        await ctx.editMessageText('❌ **No Services Found**
+
+There are no services available to manage.', {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '➕ Add New Service', callback_data: 'admin_add_service' }],
+              [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      // Calculate pagination
+      const totalServices = servicesSnapshot.docs.length;
+      const totalPages = Math.ceil(totalServices / servicesPerPage);
+      const startIndex = page * servicesPerPage;
+      const endIndex = Math.min(startIndex + servicesPerPage, totalServices);
+      
+      // Get services for current page
+      const servicesToShow = servicesSnapshot.docs.slice(startIndex, endIndex);
+      
+      let servicesList = `🛍️ **Service Management**\n\n📦 **Available Services (${totalServices} total):**\n`;
+      servicesList += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+      
+      const keyboard = [];
+      
+      servicesToShow.forEach((doc, index) => {
+        const serviceData = doc.data();
+        const globalIndex = startIndex + index + 1;
+        servicesList += `${globalIndex}. **${serviceData.name || doc.id}**\n`;
+        servicesList += `   📝 Description: ${(serviceData.description || 'No description').substring(0, 50)}${(serviceData.description || '').length > 50 ? '...' : ''}\n`;
+        servicesList += `   🏷️ ID: \`${doc.id}\`\n`;
+        servicesList += `   💰 Plans: ${serviceData.plans?.length || 0} plans\n`;
+        servicesList += `   📊 Status: ${serviceData.status || 'active'}\n\n`;
+        
+        // Add service management buttons
+        keyboard.push([
+          { 
+            text: `✏️ Edit ${(serviceData.name || doc.id).substring(0, 15)}${(serviceData.name || doc.id).length > 15 ? '...' : ''}`, 
+            callback_data: `editservice_${doc.id}` 
+          }
+        ]);
+        keyboard.push([
+          { 
+            text: `🗑️ Delete ${(serviceData.name || doc.id).substring(0, 15)}${(serviceData.name || doc.id).length > 15 ? '...' : ''}`, 
+            callback_data: `delete_service_${doc.id}` 
+          }
+        ]);
+      });
+      
+      // Add pagination info
+      servicesList += `\n📄 Showing ${startIndex + 1}-${endIndex} of ${totalServices} services\n`;
+      servicesList += `📄 Page ${page + 1} of ${totalPages}\n`;
+      servicesList += `💡 Use search or filters to find specific services\n`;
+      
+      // Add pagination buttons
+      if (totalPages > 1) {
+        const paginationButtons = [];
+        
+        if (page > 0) {
+          paginationButtons.push({ text: '⬅️ Previous', callback_data: `admin_services_page_${page - 1}` });
+        }
+        
+        if (page < totalPages - 1) {
+          paginationButtons.push({ text: '➡️ Next', callback_data: `admin_services_page_${page + 1}` });
+        }
+        
+        if (paginationButtons.length > 0) {
+          keyboard.push(paginationButtons);
+        }
+      }
+      
+      // Add navigation buttons
+      keyboard.push([
+        { text: '➕ Add New Service', callback_data: 'admin_add_service' },
+        { text: '🔍 Search Services', callback_data: 'admin_search_services' }
+      ]);
+      keyboard.push([
+        { text: '🔄 Refresh', callback_data: 'admin_manage_services' },
+        { text: '🔙 Back to Admin', callback_data: 'back_to_admin' }
+      ]);
+      
+      await ctx.editMessageText(servicesList, {
+        reply_markup: {
+          inline_keyboard: keyboard
+        },
+        parse_mode: 'Markdown'
+      });
+      
+    } catch (error) {
+      console.error('Error in admin_services_page:', error);
+      await ctx.answerCbQuery('❌ Error loading services page');
+    }
+  });
+
   // Handle search services
   bot.action('admin_search_services', async (ctx) => {
     if (!(await isAuthorizedAdmin(ctx))) {
