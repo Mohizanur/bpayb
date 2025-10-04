@@ -4677,9 +4677,9 @@ ${serviceData.plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).j
       const servicesSnapshot = await firestore.collection('services').get();
       
       if (servicesSnapshot.empty) {
-        await ctx.editMessageText('❌ **No Services Found**
+        await ctx.editMessageText(`❌ **No Services Found**
 
-There are no services available to manage.', {
+There are no services available to manage.`, {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
