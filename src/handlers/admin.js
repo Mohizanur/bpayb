@@ -1514,13 +1514,16 @@ export default function adminHandler(bot) {
     await ctx.answerCbQuery();
 
         try {
-      // Get all pending payments
-      const pendingSnapshot = await firestore
-        .collection('pendingPayments')
-        .where('status', '==', 'proof_submitted')
-        .get();
+      // Get all pending payments (both pending and proof_submitted)
+      const [pendingSnapshot, proofSubmittedSnapshot] = await Promise.all([
+        firestore.collection('pendingPayments').where('status', '==', 'pending').get(),
+        firestore.collection('pendingPayments').where('status', '==', 'proof_submitted').get()
+      ]);
+      
+      // Combine both snapshots
+      const allPendingDocs = [...pendingSnapshot.docs, ...proofSubmittedSnapshot.docs];
 
-      if (pendingSnapshot.empty) {
+      if (allPendingDocs.length === 0) {
         await ctx.editMessageText("✅ **No Pending Payment Approvals**\n\nAll payments have been processed.", {
           parse_mode: 'Markdown',
           reply_markup: {
@@ -1533,7 +1536,7 @@ export default function adminHandler(bot) {
       }
 
       const pendingPayments = [];
-      for (const doc of pendingSnapshot.docs) {
+      for (const doc of allPendingDocs) {
         const payment = { id: doc.id, ...doc.data() };
         
         // Get user info
@@ -1662,14 +1665,17 @@ export default function adminHandler(bot) {
         const index = parseInt(ctx.match[1]);
     
     try {
-      // Re-fetch pending payments to ensure current data
-      const pendingSnapshot = await firestore
-        .collection('pendingPayments')
-        .where('status', '==', 'proof_submitted')
-        .get();
+      // Re-fetch pending payments to ensure current data (both pending and proof_submitted)
+      const [pendingSnapshot, proofSubmittedSnapshot] = await Promise.all([
+        firestore.collection('pendingPayments').where('status', '==', 'pending').get(),
+        firestore.collection('pendingPayments').where('status', '==', 'proof_submitted').get()
+      ]);
+      
+      // Combine both snapshots
+      const allPendingDocs = [...pendingSnapshot.docs, ...proofSubmittedSnapshot.docs];
 
       const pendingPayments = [];
-      for (const doc of pendingSnapshot.docs) {
+      for (const doc of allPendingDocs) {
         const payment = { id: doc.id, ...doc.data() };
         
         // Get user info
