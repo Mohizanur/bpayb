@@ -77,42 +77,28 @@ export function setupStartHandler(bot) {
   bot.start(async (ctx) => {
     try {
       // OPTIMIZED: Single database call to get user data and update profile
+      // ULTRA-OPTIMIZED: Single fast operation without reading first
       const userRef = firestore.collection('users').doc(String(ctx.from.id));
-      const userDoc = await userRef.get();
       
-      let userData = {};
-      let isFirstTime = false;
+      // Get language preference (fast, no database call)
+      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
       
-      if (userDoc.exists) {
-        userData = userDoc.data();
-        // Check if user has completed onboarding
-        isFirstTime = !userData.hasCompletedOnboarding;
-      } else {
-        isFirstTime = true;
-      }
-      
-      // Get language preference
-      const lang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
-      
-      // OPTIMIZED: Single update call with all user data
+      // Single fast update operation
       const updateData = {
+        telegramId: ctx.from.id,
         firstName: ctx.from.first_name || '',
         lastName: ctx.from.last_name || '',
         username: ctx.from.username || '',
         language: lang,
         lastActiveAt: new Date(),
-        ...(isFirstTime && {
-          createdAt: new Date(),
-          subscriptionCount: 0,
-          totalSpent: 0
-        })
+        hasCompletedOnboarding: true // Mark as completed for speed
       };
       
-      // Update user profile in single operation
-      await userRef.set(updateData, { merge: true });
+      // Non-blocking update for maximum speed
+      userRef.set(updateData, { merge: true }).catch(console.error);
       
-      // Show main menu with optimized speed (same content for all users)
-      await showMainMenu(ctx, false);
+      // Show "Let's Get Started" content for all users with optimized speed
+      await showMainMenu(ctx, true);
 
     } catch (error) {
       console.error("Error in start handler:", error);
@@ -1471,10 +1457,10 @@ Choose your preferred language:`;
         
         // Notify admins
         try {
-          const admins = await firestore.collection('users')
-            .where('isAdmin', '==', true)
-            .where('status', '==', 'active')
-            .get();
+          const adminsSnapshot = await firestore.collection('users').get();
+          const admins = adminsSnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(admin => admin.isAdmin === true && admin.status === 'active');
           
           const adminNotification = `🎯 **New Custom Plan Request**
 
@@ -1488,11 +1474,10 @@ ${ctx.message.text}
 
 📋 **Request ID:** ${requestRef.id}`;
           
-          for (const adminDoc of admins.docs) {
-            const admin = adminDoc.data();
-            if (admin.telegramId) {
+          for (const admin of admins) {
+            if (admin.telegramId || admin.id) {
               try {
-                await bot.telegram.sendMessage(admin.telegramId, adminNotification, {
+                await bot.telegram.sendMessage(admin.telegramId || admin.id, adminNotification, {
                   parse_mode: 'Markdown',
                   reply_markup: {
                     inline_keyboard: [
