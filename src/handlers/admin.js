@@ -2624,6 +2624,102 @@ Icon: 📱
     }
   });
 
+  // Handle payment verification buttons
+  bot.action(/^verify_payment:(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+    
+    try {
+      const paymentId = ctx.match[1];
+      console.log('🔍 Approving payment:', paymentId);
+      
+      // Import the verification function
+      const { verifyPayment } = await import('../utils/paymentVerification.js');
+      
+      const result = await verifyPayment(paymentId, ctx.from.id, 'Payment approved by admin');
+      
+      if (result.success) {
+        await ctx.answerCbQuery('✅ Payment approved successfully!');
+        await ctx.editMessageCaption(
+          ctx.message.caption + '\n\n✅ **APPROVED** by ' + ctx.from.first_name,
+          { parse_mode: 'Markdown' }
+        );
+      } else {
+        await ctx.answerCbQuery('❌ Failed to approve payment: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error approving payment:', error);
+      await ctx.answerCbQuery('❌ Error approving payment');
+    }
+  });
+
+  bot.action(/^reject_payment:(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+    
+    try {
+      const paymentId = ctx.match[1];
+      console.log('🔍 Rejecting payment:', paymentId);
+      
+      // Import the verification function
+      const { rejectPayment } = await import('../utils/paymentVerification.js');
+      
+      const result = await rejectPayment(paymentId, ctx.from.id, 'Payment rejected by admin');
+      
+      if (result.success) {
+        await ctx.answerCbQuery('❌ Payment rejected successfully!');
+        await ctx.editMessageCaption(
+          ctx.message.caption + '\n\n❌ **REJECTED** by ' + ctx.from.first_name,
+          { parse_mode: 'Markdown' }
+        );
+      } else {
+        await ctx.answerCbQuery('❌ Failed to reject payment: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error rejecting payment:', error);
+      await ctx.answerCbQuery('❌ Error rejecting payment');
+    }
+  });
+
+  bot.action(/^view_user:(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+    
+    try {
+      const userId = ctx.match[1];
+      console.log('🔍 Viewing user profile:', userId);
+      
+      // Get user information
+      const { firestore } = await import('../utils/firestore.js');
+      const userDoc = await firestore.collection('users').doc(userId).get();
+      
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        const userInfo = `👤 **User Profile**\n\n` +
+          `🆔 **ID:** ${userId}\n` +
+          `👤 **Name:** ${userData.firstName || 'N/A'} ${userData.lastName || ''}\n` +
+          `📱 **Username:** @${userData.username || 'N/A'}\n` +
+          `📅 **Joined:** ${new Date(userData.createdAt || Date.now()).toLocaleDateString()}\n` +
+          `📊 **Status:** ${userData.status || 'active'}\n` +
+          `🌐 **Language:** ${userData.language || 'en'}`;
+        
+        await ctx.answerCbQuery('👤 User profile loaded');
+        await ctx.reply(userInfo, { parse_mode: 'Markdown' });
+      } else {
+        await ctx.answerCbQuery('❌ User not found');
+      }
+    } catch (error) {
+      console.error('Error viewing user profile:', error);
+      await ctx.answerCbQuery('❌ Error loading user profile');
+    }
+  });
+
   // Handle back to admin
   bot.action('back_to_admin', async (ctx) => {
     console.log('🔍 Back to admin callback received:', ctx.callbackQuery.data);
