@@ -1306,6 +1306,46 @@ You don't have any subscriptions yet. To start a new subscription, please select
     setupStartHandler(bot);
     setupSubscribeHandler(bot);
 
+    // Setup cancel command handler
+    bot.command('cancel', async (ctx) => {
+      try {
+        console.log('🔍 Cancel command received from user:', ctx.from.id);
+        
+        // Clear any pending user states
+        await firestore.collection('userStates').doc(String(ctx.from.id)).delete();
+        
+        // Clear session states
+        if (ctx.session) {
+          delete ctx.session.expectingScreenshot;
+          delete ctx.session.awaitingPaymentMethodData;
+          delete ctx.session.awaitingPaymentMethodName;
+          delete ctx.session.awaitingPaymentMethodAccount;
+          delete ctx.session.awaitingPaymentMethodInstructions;
+          delete ctx.session.awaitingServiceSearch;
+        }
+        
+        // Clear global states
+        if (global.userStates && global.userStates[ctx.from.id]) {
+          delete global.userStates[ctx.from.id];
+        }
+        
+        await ctx.reply('✅ **Operation Cancelled**
+
+All pending operations have been cancelled. You can start fresh with /start', {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🏠 Main Menu', callback_data: 'back_to_start' }]
+            ]
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error in cancel command:', error);
+        await ctx.reply('❌ Error cancelling operation. Please try again.');
+      }
+    });
+
     // Setup phone verification handlers
     console.log("📱 Setting up phone verification handlers...");
     setupPhoneVerification(bot);
