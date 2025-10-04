@@ -4475,55 +4475,6 @@ Enter the price and duration for this custom plan.`;
     }
   });
 
-  // Set custom plan pricing
-  bot.action(/^set_custom_price_(.+)$/, async (ctx) => {
-    if (!(await isAuthorizedAdmin(ctx))) {
-      await ctx.answerCbQuery("❌ Access denied.");
-      return;
-    }
-
-    
-    
-    // Answer callback immediately to prevent timeout
-    await ctx.answerCbQuery();
-
-        try {
-      const requestId = ctx.match[1];
-
-      await ctx.editMessageText(`💰 **Set Custom Plan Pricing**
-
-Simply enter the price for this custom plan request:
-
-**Examples:**
-• \`ETB 600\`
-• \`1250\`
-• \`ETB 2700\`
-
-The system already knows the service and user's request details.
-The user will receive this pricing and can proceed with payment if they agree.
-
-Type \`cancel\` to cancel.`, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '❌ Cancel', callback_data: `review_custom_${requestId}` }]
-          ]
-        }
-      });
-
-      // Store the pricing context
-      global.customPricingStates = global.customPricingStates || new Map();
-      global.customPricingStates.set(ctx.from.id.toString(), {
-        requestId: requestId,
-        action: 'set_pricing'
-      });
-
-      await ctx.answerCbQuery();
-    } catch (error) {
-      console.error('Error setting custom price:', error);
-      await ctx.answerCbQuery('❌ Error setting price');
-    }
-  });
 
   // Reject custom plan request
   bot.action(/^reject_custom_(.+)$/, async (ctx) => {
