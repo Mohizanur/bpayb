@@ -103,6 +103,23 @@ const getUserDisplayInfo = (user) => {
 };
 
 export default function adminHandler(bot) {
+  // Helper function to safely edit messages and handle "message is not modified" error
+  const safeEditMessage = async (ctx, message, options = {}) => {
+    try {
+      await ctx.editMessageText(message, options);
+    } catch (editError) {
+      // Handle "message is not modified" error gracefully
+      if (editError.response && editError.response.error_code === 400 && 
+          editError.response.description.includes('message is not modified')) {
+        console.log('Message content unchanged, skipping edit');
+        return true; // Indicate success
+      } else {
+        throw editError; // Re-throw other errors
+      }
+    }
+    return true;
+  };
+
   // Helper function to handle user lookup by ID/username
   const findUser = async (identifier) => {
     try {
@@ -5681,7 +5698,7 @@ ${methodsList}
         { text: '🔙 Back to Admin', callback_data: 'back_to_admin' }
       ]);
 
-      await ctx.editMessageText(message, {
+      await safeEditMessage(ctx, message, {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: keyboard
@@ -5690,7 +5707,7 @@ ${methodsList}
 
     } catch (error) {
       console.error('Error in admin_payment_methods:', error);
-      await ctx.editMessageText('❌ Error loading payment methods. Please try again.', {
+      await safeEditMessage(ctx, '❌ Error loading payment methods. Please try again.', {
         reply_markup: {
           inline_keyboard: [
             [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
