@@ -2642,10 +2642,15 @@ Icon: 📱
       
       if (result.success) {
         await ctx.answerCbQuery('✅ Payment approved successfully!');
-        await ctx.editMessageCaption(
-          ctx.message.caption + '\n\n✅ **APPROVED** by ' + ctx.from.first_name,
-          { parse_mode: 'Markdown' }
-        );
+        try {
+          await ctx.editMessageCaption(
+            ctx.callbackQuery.message.caption + '\n\n✅ **APPROVED** by ' + ctx.from.first_name,
+            { parse_mode: 'Markdown' }
+          );
+        } catch (editError) {
+          console.log('Could not edit message caption, sending new message instead');
+          await ctx.reply('✅ Payment approved by ' + ctx.from.first_name);
+        }
       } else {
         await ctx.answerCbQuery('❌ Failed to approve payment: ' + result.error);
       }
@@ -2672,10 +2677,15 @@ Icon: 📱
       
       if (result.success) {
         await ctx.answerCbQuery('❌ Payment rejected successfully!');
-        await ctx.editMessageCaption(
-          ctx.message.caption + '\n\n❌ **REJECTED** by ' + ctx.from.first_name,
-          { parse_mode: 'Markdown' }
-        );
+        try {
+          await ctx.editMessageCaption(
+            ctx.callbackQuery.message.caption + '\n\n❌ **REJECTED** by ' + ctx.from.first_name,
+            { parse_mode: 'Markdown' }
+          );
+        } catch (editError) {
+          console.log('Could not edit message caption, sending new message instead');
+          await ctx.reply('❌ Payment rejected by ' + ctx.from.first_name);
+        }
       } else {
         await ctx.answerCbQuery('❌ Failed to reject payment: ' + result.error);
       }
