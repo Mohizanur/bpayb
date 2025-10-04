@@ -76,29 +76,47 @@ const createUserProfile = async (ctx) => {
 export function setupStartHandler(bot) {
   bot.start(async (ctx) => {
     try {
-      // Get user's saved language preference from database
-      const lang = await getUserLanguage(ctx);
-      const isFirstTime = await isNewUser(ctx.from.id);
+      // OPTIMIZED: Single database call to get user data and update profile
+      const userRef = firestore.collection('users').doc(String(ctx.from.id));
+      const userDoc = await userRef.get();
       
-      // Update user info and create profile
-      await createUserProfile(ctx);
+      let userData = {};
+      let isFirstTime = false;
+      
+      if (userDoc.exists) {
+        userData = userDoc.data();
+        isFirstTime = false;
+      } else {
+        isFirstTime = true;
+      }
+      
+      // Get language preference
+      const lang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+      
+      // OPTIMIZED: Single update call with all user data
+      const updateData = {
+        firstName: ctx.from.first_name || '',
+        lastName: ctx.from.last_name || '',
+        username: ctx.from.username || '',
+        language: lang,
+        lastActiveAt: new Date(),
+        ...(isFirstTime && {
+          createdAt: new Date(),
+          subscriptionCount: 0,
+          totalSpent: 0
+        })
+      };
+      
+      // Update user profile in single operation
+      await userRef.set(updateData, { merge: true });
       
       // Show main menu with appropriate welcome message
       await showMainMenu(ctx, isFirstTime);
-      
-      // Update last active time
-      await firestore.collection('users').doc(String(ctx.from.id)).update({
-        lastActiveAt: new Date()
-      });
 
     } catch (error) {
       console.error("Error in start handler:", error);
-      const lang = await getUserLanguage(ctx);
-      await ctx.reply(
-        lang === 'am' 
-          ? "ሰላምታ! እባክዎ እንደገና ይሞክሩ።" 
-          : "Welcome! Please try again."
-      );
+      // Fallback response without database calls
+      await ctx.reply("Welcome to BirrPay! Please try again.");
     }
   });
 

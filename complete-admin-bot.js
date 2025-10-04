@@ -1292,11 +1292,11 @@ You don't have any subscriptions yet. To start a new subscription, please select
     console.log("📱 Setting up phone verification handlers...");
     setupPhoneVerification(bot);
 
-    // Register other handlers
+    // Register other handlers - ADMIN FIRST to handle service editing before support
+    adminHandler(bot); // This registers all working admin handlers from src/handlers/admin.js
     supportHandler(bot);
     helpHandler(bot);
     mySubscriptionsHandler(bot);
-    adminHandler(bot); // This registers all working admin handlers from src/handlers/admin.js
 
     // Initialize performance tracking with some test operations
     try {
