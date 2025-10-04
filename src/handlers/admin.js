@@ -5261,15 +5261,15 @@ To cancel, click the Cancel button below.`;
         
         // Validate required fields
         if (!data.name || !data.account) {
-          await ctx.reply('❌ **Missing Required Fields**
+          await ctx.reply(`❌ **Missing Required Fields**
 
 Please provide both Name and Account. Example:
-```
+\`\`\`
 Name: Telebirr
 Account: 0951895474
 Instructions: Send money to this account
 Icon: 📱
-```', {
+\`\`\``, {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
