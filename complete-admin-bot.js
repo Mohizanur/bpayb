@@ -924,6 +924,9 @@ process.on("unhandledRejection", (reason, promise) => {
     bot.use((ctx, next) => {
       if (!ctx.session) {
         ctx.session = {};
+        console.log('🔍 Session initialized for user:', ctx.from?.id);
+      } else {
+        console.log('🔍 Session exists for user:', ctx.from?.id, 'Session:', ctx.session);
       }
       return next();
     });
