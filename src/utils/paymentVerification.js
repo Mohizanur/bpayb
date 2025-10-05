@@ -54,22 +54,40 @@ export async function verifyPayment(paymentId, adminId, notes = '') {
     if (payment.subscriptionId) {
       // Update existing subscription to active
       console.log('🔍 Updating existing subscription:', payment.subscriptionId);
-      await firestore.collection('subscriptions').doc(payment.subscriptionId).update({
+      
+      // Determine if this is a custom plan
+      const isCustomPlan = payment.serviceId === 'custom_plan' || payment.customPlanDetails || payment.customPlanRequestId;
+      
+      const updateData = {
         status: 'active',
         startDate: new Date().toISOString(),
         endDate: calculateEndDate(new Date(), payment.duration || '1_month'),
         updatedAt: new Date().toISOString()
-      });
+      };
+      
+      // Add custom plan details if this is a custom plan
+      if (isCustomPlan) {
+        updateData.isCustomPlan = true;
+        updateData.customPlanDetails = payment.customPlanDetails;
+        updateData.customPlanRequestId = payment.customPlanRequestId;
+        updateData.serviceName = `Custom Plan: ${payment.customPlanDetails || 'Custom Service'}`;
+      }
+      
+      await firestore.collection('subscriptions').doc(payment.subscriptionId).update(updateData);
       console.log('✅ Subscription updated to active');
     } else {
       // Create new subscription if it doesn't exist
       console.log('🔍 Creating new subscription for payment:', paymentId);
       const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Determine if this is a custom plan
+      const isCustomPlan = payment.serviceId === 'custom_plan' || payment.customPlanDetails || payment.customPlanRequestId;
+      
       const subscriptionData = {
         id: subscriptionId,
         userId: payment.userId,
         serviceId: payment.serviceId,
-        serviceName: payment.serviceName,
+        serviceName: isCustomPlan ? `Custom Plan: ${payment.customPlanDetails || 'Custom Service'}` : payment.serviceName,
         status: 'active',
         startDate: new Date().toISOString(),
         endDate: calculateEndDate(new Date(), payment.duration || '1_month'),
@@ -77,7 +95,11 @@ export async function verifyPayment(paymentId, adminId, notes = '') {
         duration: payment.duration || '1_month',
         paymentId: paymentId,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        // Custom plan specific fields
+        isCustomPlan: isCustomPlan,
+        customPlanDetails: payment.customPlanDetails,
+        customPlanRequestId: payment.customPlanRequestId
       };
 
       await firestore.collection('subscriptions').doc(subscriptionId).set(subscriptionData);
