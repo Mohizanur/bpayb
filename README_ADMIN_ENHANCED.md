@@ -308,7 +308,7 @@ FIREBASE_CLIENT_EMAIL=your_client_email
 
 ### Contact
 - **Email**: support@birrpay.com
-- **Telegram**: @birrpay_support
+- **Telegram**: @birrpaysupportline or @Birrpaysupport
 - **GitHub**: Create an issue for technical problems
 
 ## 📄 License

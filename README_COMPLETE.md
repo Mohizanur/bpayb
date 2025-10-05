@@ -354,7 +354,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For support and questions:
 - 📧 Email: support@admin.birr‑pay
-- 💬 Telegram: Contact through the bot
+- 💬 Telegram: @birrpaysupportline or @Birrpaysupport
 - 🐛 Issues: GitHub Issues page
 
 ---

@@ -1125,6 +1125,7 @@ Please send the following information:
 📧 **ኢሜይል:** support@birrpay.et
 📱 **ስልክ:** +251-911-123456
 🌐 **ድህረ ገጽ:** www.birrpay.et
+💬 **ቴሌግራም:** @birrpaysupportline ወይም @Birrpaysupport
 
 🏢 **አድራሻ:**
 BirrPay Technologies
@@ -1143,6 +1144,7 @@ Bole Sub-city
 📧 **Email:** support@birrpay.et
 📱 **Phone:** +251-911-123456
 🌐 **Website:** www.birrpay.et
+💬 **Telegram:** @birrpaysupportline or @Birrpaysupport
 
 🏢 **Address:**
 BirrPay Technologies
@@ -1226,13 +1228,13 @@ Choose your preferred language:`;
         { q: "እንዴት ምዝገባ እጀምራለሁ?", a: "አገልግሎት ይምረጡ፣ የክፍያ እቅድ ይምረጡ፣ ክፍያ ያድርጉ እና አስተዳዳሪ ካጸደቀ በኋላ ይጀምሩ።" },
         { q: "ምን ዓይነት የክፍያ መንገዶች ይቀበላሉ?", a: "የሞባይል ገንዘብ፣ የባንክ ዝውውር እና ሌሎች የአካባቢ የክፍያ መንገዶች እንቀበላለን።" },
         { q: "ምዝገባዬን መሰረዝ እችላለሁ?", a: "አዎ፣ በማንኛውም ጊዜ ምዝገባዎን መሰረዝ ይችላሉ። ወደ 'የእኔ ምዝገባዎች' ይሂዱ።" },
-        { q: "ድጋፍ እንዴት አገኛለሁ?", a: "በዚህ ቦት ውስጥ መልእክት ይላኩ ወይም support@birrpay.et ላይ ያግኙን።" }
+        { q: "ድጋፍ እንዴት አገኛለሁ?", a: "በዚህ ቦት ውስጥ መልእክት ይላኩ፣ @birrpaysupportline ወይም @Birrpaysupport ያግኙ።" }
       ] : [
         { q: "What is BirrPay?", a: "BirrPay is Ethiopia's premier subscription hub. You can manage all your digital subscriptions in one secure place." },
         { q: "How do I start a subscription?", a: "Choose a service, select a payment plan, make payment, and start after admin approval." },
         { q: "What payment methods do you accept?", a: "We accept mobile money, bank transfers, and other local payment methods." },
         { q: "Can I cancel my subscription?", a: "Yes, you can cancel your subscription anytime. Go to 'My Subscriptions' section." },
-        { q: "How do I get support?", a: "Send a message in this bot or contact us at support@birrpay.et" }
+        { q: "How do I get support?", a: "Send a message in this bot or contact us at @birrpaysupportline or @Birrpaysupport" }
       ];
       
       const keyboard = faqs.map((f, i) => [
@@ -1267,13 +1269,13 @@ Choose your preferred language:`;
         { q: "እንዴት ምዝገባ እጀምራለሁ?", a: "አገልግሎት ይምረጡ፣ የክፍያ እቅድ ይምረጡ፣ ክፍያ ያድርጉ እና አስተዳዳሪ ካጸደቀ በኋላ ይጀምሩ።" },
         { q: "ምን ዓይነት የክፍያ መንገዶች ይቀበላሉ?", a: "የሞባይል ገንዘብ፣ የባንክ ዝውውር እና ሌሎች የአካባቢ የክፍያ መንገዶች እንቀበላለን።" },
         { q: "ምዝገባዬን መሰረዝ እችላለሁ?", a: "አዎ፣ በማንኛውም ጊዜ ምዝገባዎን መሰረዝ ይችላሉ። ወደ 'የእኔ ምዝገባዎች' ይሂዱ።" },
-        { q: "ድጋፍ እንዴት አገኛለሁ?", a: "በዚህ ቦት ውስጥ መልእክት ይላኩ ወይም support@birrpay.et ላይ ያግኙን።" }
+        { q: "ድጋፍ እንዴት አገኛለሁ?", a: "በዚህ ቦት ውስጥ መልእክት ይላኩ፣ @birrpaysupportline ወይም @Birrpaysupport ያግኙ።" }
       ] : [
         { q: "What is BirrPay?", a: "BirrPay is Ethiopia's premier subscription hub. You can manage all your digital subscriptions in one secure place." },
         { q: "How do I start a subscription?", a: "Choose a service, select a payment plan, make payment, and start after admin approval." },
         { q: "What payment methods do you accept?", a: "We accept mobile money, bank transfers, and other local payment methods." },
         { q: "Can I cancel my subscription?", a: "Yes, you can cancel your subscription anytime. Go to 'My Subscriptions' section." },
-        { q: "How do I get support?", a: "Send a message in this bot or contact us at support@birrpay.et" }
+        { q: "How do I get support?", a: "Send a message in this bot or contact us at @birrpaysupportline or @Birrpaysupport" }
       ];
       
       const faq = faqs[index];
@@ -1668,6 +1670,7 @@ ${ctx.message.text}
           ? `💬 Support Information:
 
 📧 Contact: support@admin.birr‑pay
+💬 Telegram: @birrpaysupportline or @Birrpaysupport
 
 📱 How to get help:
 • Send any message to this bot
@@ -1682,6 +1685,7 @@ ${ctx.message.text}
           : `💬 የድጋፍ መረጃ:
 
 📧 አድራሻ: support@admin.birr‑pay
+💬 ቴሌግራም: @birrpaysupportline ወይም @Birrpaysupport
 
 📱 እርዳታ እንዴት እንደሚያገኙ:
 • ለዚህ ቦት ማንኛውንም መልእክት ይላኩ
