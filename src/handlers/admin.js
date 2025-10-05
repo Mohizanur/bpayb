@@ -103,111 +103,6 @@ const getUserDisplayInfo = (user) => {
 };
 
 export default function adminHandler(bot) {
-  // Handle admin text messages for custom plan pricing - MUST BE FIRST
-  bot.on('text', async (ctx) => {
-    try {
-      // Check if admin is in custom pricing state
-      const adminState = global.adminStates?.[ctx.from.id];
-      if (adminState?.state === 'awaiting_custom_pricing') {
-        console.log('🔍 Admin sending custom pricing:', ctx.message.text);
-        
-        // Parse the pricing text (e.g., "ETB 700" or "700")
-        const text = ctx.message.text.trim();
-        let amount = 0;
-        let currency = 'ETB';
-        
-        // Try to extract amount and currency
-        const match = text.match(/(\w+)\s*(\d+(?:\.\d+)?)/i);
-        if (match) {
-          currency = match[1].toUpperCase();
-          amount = parseFloat(match[2]);
-        } else {
-          // Try to extract just the number
-          const numberMatch = text.match(/(\d+(?:\.\d+)?)/);
-          if (numberMatch) {
-            amount = parseFloat(numberMatch[1]);
-          }
-        }
-        
-        if (amount <= 0) {
-          await ctx.reply('❌ Invalid amount. Please send a valid price (e.g., "ETB 700" or "700")');
-          return;
-        }
-        
-        const paymentId = adminState.paymentId;
-        const requestId = adminState.requestId;
-        
-        // Update payment with amount
-        await firestore.collection('pendingPayments').doc(paymentId).update({
-          price: amount,
-          amount: `${currency} ${amount}`,
-          status: 'pending',
-          pricingSetAt: new Date(),
-          pricingSetBy: ctx.from.id
-        });
-
-        // Get payment details for user notification
-        const paymentDoc = await firestore.collection('pendingPayments').doc(paymentId).get();
-        const payment = paymentDoc.data();
-        
-        // Send pricing to user
-        const userMessage = payment.language === 'am'
-          ? `💰 **የብጁ እቅድ ዋጋ ተዘጋጅቷል**
-
-📋 **ጥያቄዎ:** ${payment.customPlanDetails}
-
-💵 **ዋጋ:** ${currency} ${amount.toLocaleString()}
-
-⏰ **ቀጣዩ ደረጃ:**
-1. ክፍያ ያድርጉ
-2. የክፍያ ማስረጃ ይላኩ
-3. አስተዳዳሪ ያጸድቃል
-
-📞 **መልስ ጊዜ:** 24 ሰዓት ውስጥ`
-          : `💰 **Custom Plan Pricing Ready**
-
-📋 **Your Request:** ${payment.customPlanDetails}
-
-💵 **Price:** ${currency} ${amount.toLocaleString()}
-
-⏰ **Next Steps:**
-1. Make payment
-2. Upload payment proof
-3. Admin will approve
-
-📞 **Response Time:** Within 24 hours`;
-
-        await bot.telegram.sendMessage(payment.userId, userMessage, { 
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: '💳 Pay Now', callback_data: `pay_custom_${paymentId}` }
-              ],
-              [
-                { text: '📞 Contact Support', callback_data: 'support' }
-              ]
-            ]
-          }
-        });
-
-        // Clear admin state
-        delete global.adminStates[ctx.from.id];
-        
-        await ctx.reply(`✅ **Pricing sent to user!**
-
-💳 **Payment ID:** \`${paymentId}\`
-👤 **User ID:** ${payment.userId}
-💰 **Amount:** ${currency} ${amount.toLocaleString()}
-
-The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
-        
-        return; // Don't process as regular admin message
-      }
-    } catch (error) {
-      console.error('Error processing admin custom pricing:', error);
-    }
-  });
 
   // Unified function to get subscription statistics
   async function getSubscriptionStats() {
@@ -6061,6 +5956,105 @@ To cancel, click the Cancel button below.`;
     if (!(await isAuthorizedAdmin(ctx))) {
       console.log('🔍 User not authorized as admin');
       return; // Not an admin, ignore
+    }
+
+    // Check if admin is in custom pricing state - MUST BE FIRST
+    const adminState = global.adminStates?.[ctx.from.id];
+    if (adminState?.state === 'awaiting_custom_pricing') {
+      console.log('🔍 Admin sending custom pricing:', ctx.message.text);
+      
+      // Parse the pricing text (e.g., "ETB 700" or "700")
+      const text = ctx.message.text.trim();
+      let amount = 0;
+      let currency = 'ETB';
+      
+      // Try to extract amount and currency
+      const match = text.match(/(\w+)\s*(\d+(?:\.\d+)?)/i);
+      if (match) {
+        currency = match[1].toUpperCase();
+        amount = parseFloat(match[2]);
+      } else {
+        // Try to extract just the number
+        const numberMatch = text.match(/(\d+(?:\.\d+)?)/);
+        if (numberMatch) {
+          amount = parseFloat(numberMatch[1]);
+        }
+      }
+      
+      if (amount <= 0) {
+        await ctx.reply('❌ Invalid amount. Please send a valid price (e.g., "ETB 700" or "700")');
+        return;
+      }
+      
+      const paymentId = adminState.paymentId;
+      const requestId = adminState.requestId;
+      
+      // Update payment with amount
+      await firestore.collection('pendingPayments').doc(paymentId).update({
+        price: amount,
+        amount: `${currency} ${amount}`,
+        status: 'pending',
+        pricingSetAt: new Date(),
+        pricingSetBy: ctx.from.id
+      });
+
+      // Get payment details for user notification
+      const paymentDoc = await firestore.collection('pendingPayments').doc(paymentId).get();
+      const payment = paymentDoc.data();
+      
+      // Send pricing to user
+      const userMessage = payment.language === 'am'
+        ? `💰 **የብጁ እቅድ ዋጋ ተዘጋጅቷል**
+
+📋 **ጥያቄዎ:** ${payment.customPlanDetails}
+
+💵 **ዋጋ:** ${currency} ${amount.toLocaleString()}
+
+⏰ **ቀጣዩ ደረጃ:**
+1. ክፍያ ያድርጉ
+2. የክፍያ ማስረጃ ይላኩ
+3. አስተዳዳሪ ያጸድቃል
+
+📞 **መልስ ጊዜ:** 24 ሰዓት ውስጥ`
+        : `💰 **Custom Plan Pricing Ready**
+
+📋 **Your Request:** ${payment.customPlanDetails}
+
+💵 **Price:** ${currency} ${amount.toLocaleString()}
+
+⏰ **Next Steps:**
+1. Make payment
+2. Upload payment proof
+3. Admin will approve
+
+📞 **Response Time:** Within 24 hours`;
+
+      await bot.telegram.sendMessage(payment.userId, userMessage, { 
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '💳 Pay Now', callback_data: `pay_custom_${paymentId}` }
+            ],
+            [
+              { text: '📞 Contact Support', callback_data: 'support' }
+            ]
+          ]
+        }
+      });
+
+      // Clear admin state
+      delete global.adminStates[ctx.from.id];
+      
+      await ctx.reply(`✅ **Pricing sent to user!**
+
+💳 **Payment ID:** \`${paymentId}\`
+👤 **User ID:** ${payment.userId}
+💰 **Amount:** ${currency} ${amount.toLocaleString()}
+
+The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
+      
+      return; // Don't process as regular admin message
     }
 
     const userId = ctx.from.id;
