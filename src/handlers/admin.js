@@ -184,7 +184,7 @@ export default function adminHandler(bot) {
 
   // Handle /ban command
   bot.command('ban', async (ctx) => {
-    if (!isAuthorizedAdmin(ctx)) {
+    if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.reply("❌ **Access Denied**\n\nThis command is restricted to authorized administrators only.");
       return;
     }
@@ -238,7 +238,7 @@ export default function adminHandler(bot) {
 
   // Handle /unban command
   bot.command('unban', async (ctx) => {
-    if (!isAuthorizedAdmin(ctx)) {
+    if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.reply("❌ **Access Denied**\n\nThis command is restricted to authorized administrators only.");
       return;
     }
@@ -290,7 +290,7 @@ export default function adminHandler(bot) {
   
   // Handle pagination for users list
   bot.action(/^users_(prev|next)_(\d+)$/, async (ctx) => {
-    if (!isAuthorizedAdmin(ctx)) {
+    if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;
     }
@@ -1424,7 +1424,7 @@ export default function adminHandler(bot) {
 
   // Handle unban user
   bot.action(/^unban_(.+?)_(\d+)_(\w+)$/, async (ctx) => {
-    if (!isAuthorizedAdmin(ctx)) {
+    if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;
     }
@@ -1454,7 +1454,7 @@ export default function adminHandler(bot) {
 
   // Handle support messages view
   bot.action('admin_support_messages', async (ctx) => {
-    if (!isAuthorizedAdmin(ctx)) {
+    if (!(await isAuthorizedAdmin(ctx))) {
       await ctx.answerCbQuery("❌ Access denied.");
       return;
     }

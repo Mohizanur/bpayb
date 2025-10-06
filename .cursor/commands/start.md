@@ -1,0 +1,38 @@
+
+DATABASE_URL=postgresql://ri:f2_5giLgioPHNz6KmidHtw@petty-rugrat-8341.jxf.gcp-europe-west3.cockroachlabs.cloud:26257/defaultdb?sslmode=require
+DB_PROVIDER=cockroach
+PORT=3000
+
+
+
+
+
+
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN=7219143369:AAGmqU9S658RTEqf1KbSdaeBEMyxnqQQrCU
+
+# Firebase Configuration
+FIREBASE_API_KEY=AIzaSyDvJx5J5J5J5J5J5J5J5J5J5J5J5J5J5J5
+FIREBASE_AUTH_DOMAIN=birrpay-20e82.firebaseapp.com
+FIREBASE_PROJECT_ID=birrpay-20e82
+FIREBASE_STORAGE_BUCKET=birrpay-20e82.appspot.com
+FIREBASE_MESSAGING_SENDER_ID=1061719975824
+FIREBASE_APP_ID=1:1061719975824:web:8bf65f49e75eb8a18bb4c
+FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
+
+WEBHOOK_URL=https://bpayb.onrender.com/webhook
+# Admin Configuration
+ADMIN_TELEGRAM_ID=5186537254
+NODE_ENV=production
+WEB_APP_URL=https://bp
+ayb.onrender.com
+
+  
+
+JWT_SECRET=eac36aec2db4c79aecbaa90b5c08beea095f1bd1e9f10bcd9985daee3d4ef1e7c12c766866fca30dd0bf3dd70aa00d7d74ffa09e997d5786c2461302f7a97303
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
+ 
+
+SUPABASE_URL=https://mqhebsyyhhgpvttxblui.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xaGVic3l5aGhncHZ0dHhibHVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1OTM2NDksImV4cCI6MjA3NTE2OTY0OX0.ytRXSQXS9pUg1U2ghM3snfRrTkdzsi77FmcvP8HWQ4A

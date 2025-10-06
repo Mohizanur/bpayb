@@ -204,6 +204,50 @@ export const clearAllCaches = () => {
   cache.clear();
 };
 
+// Get all admin IDs for notifications
+export const getAllAdmins = async () => {
+  try {
+    const admins = [];
+    
+    // Add main admin from environment variable
+    if (process.env.ADMIN_TELEGRAM_ID) {
+      admins.push({
+        id: process.env.ADMIN_TELEGRAM_ID,
+        telegramId: process.env.ADMIN_TELEGRAM_ID,
+        isMainAdmin: true
+      });
+    }
+    
+    // Get additional admins from Firestore
+    const adminDoc = await firestore.collection('config').doc('admins').get();
+    if (adminDoc.exists) {
+      const adminData = adminDoc.data();
+      const userIds = adminData.userIds || [];
+      
+      userIds.forEach(userId => {
+        // Don't duplicate main admin
+        if (userId !== process.env.ADMIN_TELEGRAM_ID) {
+          admins.push({
+            id: userId,
+            telegramId: userId,
+            isMainAdmin: false
+          });
+        }
+      });
+    }
+    
+    return admins;
+  } catch (error) {
+    console.error('Error getting all admins:', error);
+    // Fallback to main admin only
+    return process.env.ADMIN_TELEGRAM_ID ? [{
+      id: process.env.ADMIN_TELEGRAM_ID,
+      telegramId: process.env.ADMIN_TELEGRAM_ID,
+      isMainAdmin: true
+    }] : [];
+  }
+};
+
 // Get cache statistics
 export const getCacheStats = () => {
   return {
@@ -213,3 +257,4 @@ export const getCacheStats = () => {
     memoryUsage: cache.getMemoryUsage()
   };
 };
+

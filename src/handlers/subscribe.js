@@ -5,6 +5,7 @@
 
 import { firestore } from '../utils/firestore.js';
 import { cache } from '../utils/cache.js';
+import { getAllAdmins } from '../middleware/smartVerification.js';
 import { t, getUserLanguage } from '../utils/translations.js';
 
 function setupSubscribeHandler(bot) {
@@ -328,11 +329,21 @@ ${t('service_start_after_approval', lang)}`;
         `💰 Amount: ${price.toLocaleString()} ETB\n\n` +
         `Payment ID: ${paymentId}`;
 
-      await ctx.telegram.sendMessage(
-        process.env.ADMIN_TELEGRAM_ID,
-        adminMessage,
-        { parse_mode: 'Markdown' }
-      );
+      // Notify all admins
+      const allAdmins = await getAllAdmins();
+      for (const admin of allAdmins) {
+        if (admin.telegramId || admin.id) {
+          try {
+            await ctx.telegram.sendMessage(
+              admin.telegramId || admin.id,
+              adminMessage,
+              { parse_mode: 'Markdown' }
+            );
+          } catch (error) {
+            console.log(`Could not notify admin ${admin.id}:`, error.message);
+          }
+        }
+      }
       
     } catch (error) {
       console.error('Error in payment instructions:', error);

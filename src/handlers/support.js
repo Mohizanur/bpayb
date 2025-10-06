@@ -1,4 +1,5 @@
 import { firestore } from "../utils/firestore.js";
+import { getAllAdmins } from "../middleware/smartVerification.js";
 
 export default function supportHandler(bot) {
   // Handle /support command
@@ -90,23 +91,29 @@ export default function supportHandler(bot) {
         : '✅ Your support message has been received! We will respond soon.';
       await ctx.reply(confirmationMsg);
       
-      // Notify admin if available
+      // Notify all admins
       try {
-        const adminId = process.env.ADMIN_TELEGRAM_ID;
-        if (adminId) {
-          const adminNotification = `🔔 **New Support Message**\n\n👤 **From:** ${userInfo.firstName} ${userInfo.lastName || ''}${userInfo.username ? ` (@${userInfo.username})` : ''}\n🆔 **User ID:** ${userInfo.id}\n🌐 **Language:** ${lang.toUpperCase()}\n\n💬 **Message:**\n${ctx.message.text}\n\n📋 **Message ID:** ${supportDoc.id}`;
-          
-          await bot.telegram.sendMessage(adminId, adminNotification, {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "✅ Mark as Handled", callback_data: `admin_handled_${supportDoc.id}` }]
-              ]
+        const allAdmins = await getAllAdmins();
+        const adminNotification = `🔔 **New Support Message**\n\n👤 **From:** ${userInfo.firstName} ${userInfo.lastName || ''}${userInfo.username ? ` (@${userInfo.username})` : ''}\n🆔 **User ID:** ${userInfo.id}\n🌐 **Language:** ${lang.toUpperCase()}\n\n💬 **Message:**\n${ctx.message.text}\n\n📋 **Message ID:** ${supportDoc.id}`;
+        
+        for (const admin of allAdmins) {
+          if (admin.telegramId || admin.id) {
+            try {
+              await bot.telegram.sendMessage(admin.telegramId || admin.id, adminNotification, {
+                parse_mode: "Markdown",
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: "✅ Mark as Handled", callback_data: `admin_handled_${supportDoc.id}` }]
+                  ]
+                }
+              });
+            } catch (error) {
+              console.log(`Could not notify admin ${admin.id}:`, error.message);
             }
-          });
+          }
         }
       } catch (adminError) {
-        console.log("Could not notify admin:", adminError.message);
+        console.log("Could not notify admins:", adminError.message);
       }
       
     } catch (error) {

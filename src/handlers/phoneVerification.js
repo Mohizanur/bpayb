@@ -230,3 +230,7 @@ export const setupPhoneVerificationHandlers = (bot) => {
   
   console.log('✅ Smart phone verification handlers registered');
 };
+
+
+
+

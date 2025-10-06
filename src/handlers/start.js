@@ -3,6 +3,7 @@ import { firestore } from "../utils/firestore.js";
 import { loadServices } from "../utils/loadServices.js";
 import { getBackToMenuButton, getInlineKeyboard, showMainMenu } from "../utils/navigation.js";
 import { t } from "../utils/translations.js";
+import { getAllAdmins } from "../middleware/smartVerification.js";
 
 // Helper function to get user language from database
 const getUserLanguage = async (ctx) => {
@@ -174,7 +175,8 @@ export function setupStartHandler(bot) {
         username: ctx.from.username || '',
         language: lang,
         lastActiveAt: new Date(),
-        hasCompletedOnboarding: true // Mark as completed for speed
+        phoneVerified: false, // New users need verification
+        hasCompletedOnboarding: false // Don't bypass verification
       };
       
       // Non-blocking update for maximum speed
@@ -1559,7 +1561,10 @@ ${ctx.message.text}
 
 📋 **Request ID:** ${requestRef.id}`;
           
-          for (const admin of admins) {
+          // Get all admins for notifications
+          const allAdmins = await getAllAdmins();
+          
+          for (const admin of allAdmins) {
             if (admin.telegramId || admin.id) {
               try {
                 await bot.telegram.sendMessage(admin.telegramId || admin.id, adminNotification, {
