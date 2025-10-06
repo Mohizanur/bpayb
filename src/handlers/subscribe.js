@@ -7,6 +7,7 @@ import { firestore } from '../utils/firestore.js';
 import { cache } from '../utils/cache.js';
 import { getAllAdmins } from '../middleware/smartVerification.js';
 import { t, getUserLanguage } from '../utils/translations.js';
+import optimizedDatabase from '../utils/optimizedDatabase.js';
 
 function setupSubscribeHandler(bot) {
   // Handle service selection with more flexible ID matching and caching
@@ -21,12 +22,12 @@ function setupSubscribeHandler(bot) {
       // Get the service details using cache first
       let service = cache.getServices()?.find(s => s.id === serviceId || s.serviceID === serviceId);
       
-      // If not found in cache, try to fetch from Firestore
+      // If not found in cache, try to fetch from Firestore - OPTIMIZED with smart caching
       if (!service) {
         try {
-          const serviceDoc = await firestore.collection('services').doc(serviceId).get();
-          if (serviceDoc.exists) {
-            service = { id: serviceDoc.id, ...serviceDoc.data() };
+          service = await optimizedDatabase.getService(serviceId);
+          if (service) {
+            service = { id: serviceId, ...service };
           }
         } catch (error) {
           console.error('Error fetching service from Firestore:', error);
@@ -125,12 +126,12 @@ function setupSubscribeHandler(bot) {
       // Get the service details
       let service = ctx.services?.find(s => s.id === serviceId || s.serviceID === serviceId);
       
-      // If not found in context, try to fetch from Firestore
+      // If not found in context, try to fetch from Firestore - OPTIMIZED with smart caching
       if (!service) {
         try {
-          const serviceDoc = await firestore.collection('services').doc(serviceId).get();
-          if (serviceDoc.exists) {
-            service = { id: serviceDoc.id, ...serviceDoc.data() };
+          service = await optimizedDatabase.getService(serviceId);
+          if (service) {
+            service = { id: serviceId, ...service };
           }
         } catch (error) {
           console.error('Error fetching service from Firestore:', error);
@@ -188,12 +189,12 @@ function setupSubscribeHandler(bot) {
       // Get the service details
       let service = ctx.services?.find(s => s.id === serviceId || s.serviceID === serviceId);
       
-      // If not found in context, try to fetch from Firestore
+      // If not found in context, try to fetch from Firestore - OPTIMIZED with smart caching
       if (!service) {
         try {
-          const serviceDoc = await firestore.collection('services').doc(serviceId).get();
-          if (serviceDoc.exists) {
-            service = { id: serviceDoc.id, ...serviceDoc.data() };
+          service = await optimizedDatabase.getService(serviceId);
+          if (service) {
+            service = { id: serviceId, ...service };
           }
         } catch (error) {
           console.error('Error fetching service from Firestore:', error);
@@ -212,13 +213,11 @@ function setupSubscribeHandler(bot) {
       const plan = service.plans?.find(p => p.duration === months);
       
       // Payment instructions
-        // Get payment methods from Firestore
+        // Get payment methods from Firestore - OPTIMIZED with smart caching
         let paymentMethods = [];
         try {
-          const paymentMethodsDoc = await firestore.collection('config').doc('paymentMethods').get();
-          if (paymentMethodsDoc.exists) {
-            paymentMethods = paymentMethodsDoc.data().methods?.filter(method => method.active) || [];
-          }
+          paymentMethods = await optimizedDatabase.getPaymentMethods();
+          paymentMethods = paymentMethods.filter(method => method.active);
         } catch (error) {
           console.error('Error fetching payment methods:', error);
         }
@@ -387,8 +386,8 @@ ${t('service_start_after_approval', lang)}`;
       if (!userId) {
         return ctx.from.language_code === 'am' ? 'am' : 'en';
       }
-      const userDoc = await firestore.collection('users').doc(userId).get();
-      return userDoc.exists ? (userDoc.data().language || 'en') : 'en';
+      const userData = await optimizedDatabase.getUser(userId);
+      return userData ? (userData.language || 'en') : 'en';
     } catch (error) {
       console.error('Error getting user language:', error);
       return ctx.from.language_code === 'am' ? 'am' : 'en';

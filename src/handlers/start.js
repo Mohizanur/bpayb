@@ -4,24 +4,24 @@ import { loadServices } from "../utils/loadServices.js";
 import { getBackToMenuButton, getInlineKeyboard, showMainMenu } from "../utils/navigation.js";
 import { t } from "../utils/translations.js";
 import { getAllAdmins } from "../middleware/smartVerification.js";
+import optimizedDatabase from "../utils/optimizedDatabase.js";
 
-// Helper function to get user language from database
+// Helper function to get user language from database - OPTIMIZED with smart caching
 const getUserLanguage = async (ctx) => {
   try {
-    const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-    const userData = userDoc.data() || {};
-    return userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+    const userData = await optimizedDatabase.getUser(String(ctx.from.id));
+    return userData?.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
   } catch (error) {
     console.error('Error getting user language:', error);
     return ctx.from?.language_code === 'am' ? 'am' : 'en';
   }
 };
 
-// Helper function to check if user is new
+// Helper function to check if user is new - OPTIMIZED with smart caching
 const isNewUser = async (userId) => {
   try {
-    const userDoc = await firestore.collection('users').doc(String(userId)).get();
-    return !userDoc.exists || !userDoc.data().hasCompletedOnboarding;
+    const userData = await optimizedDatabase.getUser(String(userId));
+    return !userData || !userData.hasCompletedOnboarding;
   } catch (error) {
     console.error('Error checking user status:', error);
     return false;

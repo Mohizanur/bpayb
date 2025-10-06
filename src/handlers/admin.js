@@ -2,6 +2,7 @@ import { firestore } from "../utils/firestore.js";
 import { FirestoreOptimizer } from "../utils/firestoreOptimizer.js";
 import { getPerformanceSummary } from "../utils/performanceTracker.js";
 import { getSupportMessages } from "../utils/database.js";
+import optimizedDatabase from "../utils/optimizedDatabase.js";
 import path from 'path';
 
 // Utility function to escape Markdown special characters
@@ -88,22 +89,25 @@ const getUserDisplayInfo = (user) => {
 
 export default function adminHandler(bot) {
 
-  // Unified function to get subscription statistics
+  // Unified function to get subscription statistics - OPTIMIZED with smart caching
   async function getSubscriptionStats() {
-    const [subscriptionsSnapshot, pendingPaymentsSnapshot, customPlanRequestsSnapshot] = await Promise.all([
-      firestore.collection('subscriptions').get(),
-      firestore.collection('pendingPayments').get(),
-      firestore.collection('customPlanRequests').where('status', '==', 'pending').get()
+    // Get cached statistics first
+    const cachedStats = await optimizedDatabase.getSubscriptionStats();
+    
+    // Get detailed data for processing (cached)
+    const [subscriptions, pendingPayments, customRequests] = await Promise.all([
+      optimizedDatabase.smartQuery('subscriptions', {}, {}),
+      optimizedDatabase.getPendingPayments(),
+      optimizedDatabase.getCustomPlanRequests('pending')
     ]);
     
     let activeCount = 0;
     let pendingCount = 0;
     let expiredCount = 0;
-    let customPlanCount = customPlanRequestsSnapshot.size;
+    let customPlanCount = customRequests.length;
     
     // Count subscriptions by status
-    subscriptionsSnapshot.docs.forEach(doc => {
-      const subscription = doc.data();
+    subscriptions.forEach(subscription => {
       if (subscription.status === 'active') {
         activeCount++;
       } else if (subscription.status === 'pending') {
@@ -111,12 +115,10 @@ export default function adminHandler(bot) {
       } else if (subscription.status === 'expired') {
         expiredCount++;
       }
-      // Note: rejected subscriptions are not counted in totals
     });
     
-    // Count pending payments (these are subscriptions waiting for payment approval)
-    pendingPaymentsSnapshot.docs.forEach(doc => {
-      const payment = doc.data();
+    // Count pending payments
+    pendingPayments.forEach(payment => {
       if (payment.status === 'pending' || payment.status === 'proof_submitted') {
         pendingCount++;
       }
@@ -130,9 +132,9 @@ export default function adminHandler(bot) {
       expiredCount,
       customPlanCount,
       totalCount,
-      subscriptionsSnapshot,
-      pendingPaymentsSnapshot,
-      customPlanRequestsSnapshot
+      subscriptionsSnapshot: { docs: subscriptions.map(sub => ({ data: () => sub })) },
+      pendingPaymentsSnapshot: { docs: pendingPayments.map(pay => ({ data: () => pay })) },
+      customPlanRequestsSnapshot: { docs: customRequests.map(req => ({ data: () => req })) }
     };
   }
 
@@ -153,33 +155,9 @@ export default function adminHandler(bot) {
     return true;
   };
 
-  // Helper function to handle user lookup by ID/username
+  // Helper function to handle user lookup by ID/username - OPTIMIZED with smart caching
   const findUser = async (identifier) => {
-    try {
-      // Try to find by ID first
-      const userDoc = await firestore.collection('users').doc(identifier).get();
-      if (userDoc.exists) {
-        return { id: userDoc.id, ...userDoc.data() };
-      }
-      
-      // Try to find by username (without @)
-      const username = identifier.startsWith('@') ? identifier.slice(1) : identifier;
-      const usersSnapshot = await firestore
-        .collection('users')
-        .where('username', '==', username)
-        .limit(1)
-        .get();
-        
-      if (!usersSnapshot.empty) {
-        const userDoc = usersSnapshot.docs[0];
-        return { id: userDoc.id, ...userDoc.data() };
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Error finding user:', error);
-      return null;
-    }
+    return await optimizedDatabase.findUserByIdentifier(identifier);
   };
 
   // Handle /ban command
@@ -323,9 +301,9 @@ export default function adminHandler(bot) {
     const [userId, page, filter] = ctx.match.slice(1);
     
     try {
-      // Get admin config
-      const adminDoc = await firestore.collection('config').doc('admins').get();
-      const admins = adminDoc.exists ? adminDoc.data().userIds || [] : [];
+      // Get admin config - OPTIMIZED with smart caching
+      const adminConfig = await optimizedDatabase.getAdmins();
+      const admins = adminConfig?.userIds || [];
       
       // Check if already admin
       if (admins.includes(userId)) {
@@ -361,9 +339,9 @@ export default function adminHandler(bot) {
     const [userId, page, filter] = ctx.match.slice(1);
     
     try {
-      // Get admin config
-      const adminDoc = await firestore.collection('config').doc('admins').get();
-      const admins = adminDoc.exists ? adminDoc.data().userIds || [] : [];
+      // Get admin config - OPTIMIZED with smart caching
+      const adminConfig = await optimizedDatabase.getAdmins();
+      const admins = adminConfig?.userIds || [];
       
       // Check if not an admin
       if (!admins.includes(userId)) {
@@ -417,15 +395,13 @@ export default function adminHandler(bot) {
         return;
       }
       
-      // Get user data from users collection
-      const userDoc = await firestore.collection('users').doc(userId).get();
+      // Get user data from users collection - OPTIMIZED with smart caching
+      const userData = await optimizedDatabase.getUser(userId);
       
-      if (!userDoc.exists) {
+      if (!userData) {
         await ctx.reply('❌ User not found');
         return;
       }
-      
-      const userData = userDoc.data();
       const userIdDisplay = userData.telegramId || userId;
       
       // Format user details with proper error handling for dates
@@ -492,10 +468,9 @@ export default function adminHandler(bot) {
       // Check if user is admin
       let isAdmin = false;
       try {
-        const adminDoc = await firestore.collection('config').doc('admins').get();
-        if (adminDoc.exists) {
-          const adminData = adminDoc.data();
-          const adminIds = Array.isArray(adminData.userIds) ? adminData.userIds : [];
+        const adminConfig = await optimizedDatabase.getAdmins();
+        if (adminConfig) {
+          const adminIds = Array.isArray(adminConfig.userIds) ? adminConfig.userIds : [];
           isAdmin = adminIds.includes(userId);
         }
       } catch (error) {
@@ -720,11 +695,8 @@ export default function adminHandler(bot) {
   
   // Helper function to handle users list display
   async function handleUsersList(ctx, page = 0) {
-    const usersSnapshot = await firestore.collection('users').get();
-    const users = usersSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    // OPTIMIZED with smart caching and pagination
+    const users = await optimizedDatabase.getAllUsers(page, 10);
     
     // Sort users by status (banned users first)
     users.sort((a, b) => {

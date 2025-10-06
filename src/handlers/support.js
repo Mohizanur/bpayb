@@ -1,17 +1,16 @@
 import { firestore } from "../utils/firestore.js";
 import { getAllAdmins } from "../middleware/smartVerification.js";
+import optimizedDatabase from "../utils/optimizedDatabase.js";
 
 export default function supportHandler(bot) {
   // Handle /support command
   bot.command("support", async (ctx) => {
     try {
-      // Get user's language preference from database
+      // Get user's language preference from database - OPTIMIZED with smart caching
       let lang = 'en';
       try {
-        const { firestore } = await import('../utils/firestore.js');
-        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-        const userData = userDoc.data() || {};
-        lang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+        const userData = await optimizedDatabase.getUser(String(ctx.from.id));
+        lang = userData?.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
       } catch (error) {
         console.log('Could not get user language, using default:', error.message);
         lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
