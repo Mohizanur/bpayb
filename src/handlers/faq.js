@@ -74,8 +74,7 @@ export default function faqHandler(bot) {
             {
               title: "🛠️ ድጋፍ እና እርዳታ",
               questions: [
-                { q: "ድጋፍ እንዴት አገኛለሁ?", a: "ድጋፍ ለማግኘት በርካታ መንገዶች:\n• /support ትዕዛዝ ይጠቀሙ\n• ማንኛውንም መልእክት ይላኩ (በ24 ሰዓት ውስጥ እንመልሳለን)\n• ኢሜይል: support@admin.birr-pay.com
-• ቴሌግራም: @birrpaysupportline ወይም @Birrpaysupport\n• 24/7 በአማርኛ እና እንግሊዝኛ ዝግጁ" },
+                { q: "ድጋፍ እንዴት አገኛለሁ?", a: "ድጋፍ ለማግኘት በርካታ መንገዶች:\n• /support ትዕዛዝ ይጠቀሙ\n• ማንኛውንም መልእክት ይላኩ (በ24 ሰዓት ውስጥ እንመልሳለን)\n• ኢሜይል: support@admin.birr-pay.com\n• ቴሌግራም: @birrpaysupportline ወይም @Birrpaysupport\n• 24/7 በአማርኛ እና እንግሊዝኛ ዝግጁ" },
                 { q: "ማጽደቅ ምን ያህል ጊዜ ይወስዳል?", a: "የምዝገባ ማጽደቅ አብዛኛውን ጊዜ:\n• መደበኛ ማጽደቅ: በ24 ሰዓት ውስጥ\n• በስራ ሰዓት: አብዛኛውን ጊዜ 2-6 ሰዓት\n• ቅዳሜ/በዓላት: እስከ 24 ሰዓት ሊወስድ ይችላል\n\nከተጸደቀ በኋላ ማሳወቂያ ይደርስዎታል!" }
               ]
             }
@@ -226,8 +225,7 @@ export default function faqHandler(bot) {
             {
               title: "🛠️ Support & Help",
               questions: [
-                { q: "How do I get support?", a: "**Multiple Support Channels:**\n\n💬 **Telegram:**\n• Use /support command\n• Send any message directly
-• @birrpaysupportline or @Birrpaysupport\n\n📧 **Email:**\n• support@admin.birr-pay.com\n\n🕐 **Response Time:**\n• Usually within 24 hours\n• Faster during business hours\n\n🌐 **Languages:** Amharic & English" },
+                { q: "How do I get support?", a: "**Multiple Support Channels:**\n\n💬 **Telegram:**\n• Use /support command\n• Send any message directly\n• @birrpaysupportline or @Birrpaysupport\n\n📧 **Email:**\n• support@admin.birr-pay.com\n\n🕐 **Response Time:**\n• Usually within 24 hours\n• Faster during business hours\n\n🌐 **Languages:** Amharic & English" },
                 { q: "How long does approval take?", a: "**Approval Timeline:**\n\n⚡ **Business Hours:**\n• 2-6 hours typical\n• Monday-Friday: 9 AM - 6 PM\n\n🌙 **After Hours/Weekends:**\n• Up to 24 hours\n\n📱 **You'll receive notification:**\n• Telegram message\n• Status update in /mysubs\n\n🚀 **Factors affecting speed:**\n• Clear payment screenshot\n• Complete information\n• Payment verification" }
               ]
             }
@@ -259,8 +257,7 @@ export default function faqHandler(bot) {
             {
               title: "🛠️ ድጋፍ እና እርዳታ",
               questions: [
-                { q: "ድጋፍ እንዴት አገኛለሁ?", a: "**በርካታ የድጋፍ መንገዶች:**\n\n💬 **ቴሌግራም:**\n• /support ትዕዛዝ ይጠቀሙ\n• ማንኛውንም መልእክት በቀጥታ ይላኩ
-• @birrpaysupportline ወይም @Birrpaysupport\n\n📧 **ኢሜይል:**\n• support@admin.birr-pay.com\n\n🕐 **የምላሽ ጊዜ:**\n• አብዛኛውን ጊዜ በ24 ሰዓት ውስጥ\n• በስራ ሰዓት ፈጣን\n\n🌐 **ቋንቋዎች:** አማርኛ እና እንግሊዝኛ" },
+                { q: "ድጋፍ እንዴት አገኛለሁ?", a: "**በርካታ የድጋፍ መንገዶች:**\n\n💬 **ቴሌግራም:**\n• /support ትዕዛዝ ይጠቀሙ\n• ማንኛውንም መልእክት በቀጥታ ይላኩ\n• @birrpaysupportline ወይም @Birrpaysupport\n\n📧 **ኢሜይል:**\n• support@admin.birr-pay.com\n\n🕐 **የምላሽ ጊዜ:**\n• አብዛኛውን ጊዜ በ24 ሰዓት ውስጥ\n• በስራ ሰዓት ፈጣን\n\n🌐 **ቋንቋዎች:** አማርኛ እና እንግሊዝኛ" },
                 { q: "ማጽደቅ ምን ያህል ጊዜ ይወስዳል?", a: "**የማጽደቅ የጊዜ ሰሌዳ:**\n\n⚡ **የስራ ሰዓት:**\n• 2-6 ሰዓት ተለምዷዊ\n• ሰኞ-አርብ: ከጠዋቱ 9 - ከምሽቱ 6\n\n🌙 **ከሰዓት በኋላ/ቅዳሜ:**\n• እስከ 24 ሰዓት\n\n📱 **ማሳወቂያ ይደርስዎታል:**\n• የቴሌግራም መልእክት\n• በ/mysubs ውስጥ የሁኔታ ዝማኔ\n\n🚀 **ፍጥነትን የሚነኩ ነገሮች:**\n• ግልጽ የክፍያ ፎቶ\n• ሙሉ መረጃ\n• የክፍያ ማረጋገጫ" }
               ]
             }
@@ -339,8 +336,7 @@ export default function faqHandler(bot) {
             {
               title: "🛠️ Support & Help",
               questions: [
-                { q: "How do I get support?", a: "**Multiple Support Channels:**\n\n💬 **Telegram:**\n• Use /support command\n• Send any message directly
-• @birrpaysupportline or @Birrpaysupport\n\n📧 **Email:**\n• support@admin.birr-pay.com\n\n🕐 **Response Time:**\n• Usually within 24 hours\n• Faster during business hours\n\n🌐 **Languages:** Amharic & English" },
+                { q: "How do I get support?", a: "**Multiple Support Channels:**\n\n💬 **Telegram:**\n• Use /support command\n• Send any message directly\n• @birrpaysupportline or @Birrpaysupport\n\n📧 **Email:**\n• support@admin.birr-pay.com\n\n🕐 **Response Time:**\n• Usually within 24 hours\n• Faster during business hours\n\n🌐 **Languages:** Amharic & English" },
                 { q: "How long does approval take?", a: "**Approval Timeline:**\n\n⚡ **Business Hours:**\n• 2-6 hours typical\n• Monday-Friday: 9 AM - 6 PM\n\n🌙 **After Hours/Weekends:**\n• Up to 24 hours\n\n📱 **You'll receive notification:**\n• Telegram message\n• Status update in /mysubs\n\n🚀 **Factors affecting speed:**\n• Clear payment screenshot\n• Complete information\n• Payment verification" }
               ]
             }
@@ -372,8 +368,7 @@ export default function faqHandler(bot) {
             {
               title: "🛠️ ድጋፍ እና እርዳታ",
               questions: [
-                { q: "ድጋፍ እንዴት አገኛለሁ?", a: "**በርካታ የድጋፍ መንገዶች:**\n\n💬 **ቴሌግራም:**\n• /support ትዕዛዝ ይጠቀሙ\n• ማንኛውንም መልእክት በቀጥታ ይላኩ
-• @birrpaysupportline ወይም @Birrpaysupport\n\n📧 **ኢሜይል:**\n• support@admin.birr-pay.com\n\n🕐 **የምላሽ ጊዜ:**\n• አብዛኛውን ጊዜ በ24 ሰዓት ውስጥ\n• በስራ ሰዓት ፈጣን\n\n🌐 **ቋንቋዎች:** አማርኛ እና እንግሊዝኛ" },
+                { q: "ድጋፍ እንዴት አገኛለሁ?", a: "**በርካታ የድጋፍ መንገዶች:**\n\n💬 **ቴሌግራም:**\n• /support ትዕዛዝ ይጠቀሙ\n• ማንኛውንም መልእክት በቀጥታ ይላኩ\n• @birrpaysupportline ወይም @Birrpaysupport\n\n📧 **ኢሜይል:**\n• support@admin.birr-pay.com\n\n🕐 **የምላሽ ጊዜ:**\n• አብዛኛውን ጊዜ በ24 ሰዓት ውስጥ\n• በስራ ሰዓት ፈጣን\n\n🌐 **ቋንቋዎች:** አማርኛ እና እንግሊዝኛ" },
                 { q: "ማጽደቅ ምን ያህል ጊዜ ይወስዳል?", a: "**የማጽደቅ የጊዜ ሰሌዳ:**\n\n⚡ **የስራ ሰዓት:**\n• 2-6 ሰዓት ተለምዷዊ\n• ሰኞ-አርብ: ከጠዋቱ 9 - ከምሽቱ 6\n\n🌙 **ከሰዓት በኋላ/ቅዳሜ:**\n• እስከ 24 ሰዓት\n\n📱 **ማሳወቂያ ይደርስዎታል:**\n• የቴሌግራም መልእክት\n• በ/mysubs ውስጥ የሁኔታ ዝማኔ\n\n🚀 **ፍጥነትን የሚነኩ ነገሮች:**\n• ግልጽ የክፍያ ፎቶ\n• ሙሉ መረጃ\n• የክፍያ ማረጋገጫ" }
               ]
             }
