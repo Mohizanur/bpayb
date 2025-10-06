@@ -2658,7 +2658,18 @@ Admin will send pricing and payment details. Please wait.
 
 📞 **Response Time:** Within 24 hours`;
 
-      await bot.telegram.sendMessage(request.userId, userMessage, { parse_mode: 'Markdown' });
+      // Try to send message to user, handle if they blocked the bot
+      try {
+        await bot.telegram.sendMessage(request.userId, userMessage, { parse_mode: 'Markdown' });
+      } catch (sendError) {
+        if (sendError.response?.error_code === 403) {
+          console.log(`⚠️ User ${request.userId} has blocked the bot. Pricing set but notification not sent.`);
+          // Notify admin that user blocked the bot
+          await ctx.reply(`⚠️ Pricing set successfully, but user has blocked the bot.\n\n💡 You'll need to contact them through another channel to send the pricing.`);
+        } else {
+          throw sendError; // Re-throw if it's a different error
+        }
+      }
 
       await ctx.answerCbQuery('✅ Pricing set! Now send the amount to the user.');
       

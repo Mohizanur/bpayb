@@ -314,17 +314,15 @@ const smartCache = new SmartCache();
 
 export default smartCache;
 
-// Export individual methods for easy use
-export const {
-  smartGet,
-  smartQuery,
-  smartGetAll,
-  smartCount,
-  invalidateUser,
-  invalidateService,
-  invalidatePayment,
-  invalidateSubscription,
-  getStats,
-  clear: clearCache,
-  healthCheck
-} = smartCache;
+// Export individual methods with proper binding to maintain 'this' context
+export const smartGet = smartCache.smartGet.bind(smartCache);
+export const smartQuery = smartCache.smartQuery.bind(smartCache);
+export const smartGetAll = smartCache.smartGetAll.bind(smartCache);
+export const smartCount = smartCache.smartCount.bind(smartCache);
+export const invalidateUser = smartCache.invalidateUser.bind(smartCache);
+export const invalidateService = smartCache.invalidateService.bind(smartCache);
+export const invalidatePayment = smartCache.invalidatePayment.bind(smartCache);
+export const invalidateSubscription = smartCache.invalidateSubscription.bind(smartCache);
+export const getStats = smartCache.getStats.bind(smartCache);
+export const clearCache = smartCache.clear.bind(smartCache);
+export const healthCheck = smartCache.healthCheck.bind(smartCache);
