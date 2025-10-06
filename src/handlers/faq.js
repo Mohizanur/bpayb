@@ -40,8 +40,7 @@ export default function faqHandler(bot) {
             {
               title: "🛠️ Support & Help",
               questions: [
-                { q: "How do I get support?", a: "Multiple ways to get help:\n• Use /support command\n• Send any message (we'll respond within 24 hours)\n• Email: support@admin.birr-pay.com
-• Telegram: @birrpaysupportline or @Birrpaysupport\n• Available 24/7 in Amharic and English" },
+                { q: "How do I get support?", a: "Multiple ways to get help:\n• Use /support command\n• Send any message (we'll respond within 24 hours)\n• Email: support@admin.birr-pay.com\n• Telegram: @birrpaysupportline or @Birrpaysupport\n• Available 24/7 in Amharic and English" },
                 { q: "How long does approval take?", a: "Subscription approval typically takes:\n• Standard approval: Within 24 hours\n• During business hours: Usually 2-6 hours\n• Weekends/holidays: May take up to 24 hours\n\nYou'll receive a notification once approved!" }
               ]
             }
