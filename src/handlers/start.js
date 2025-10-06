@@ -73,6 +73,89 @@ const createUserProfile = async (ctx) => {
   }
 };
 
+// Generate dynamic pricing message from services data
+const generateDynamicPricingMessage = (services, lang) => {
+  const currency = lang === 'am' ? 'ብር' : 'ETB';
+  const monthText = lang === 'am' ? 'ወር' : 'Month';
+  const monthsText = lang === 'am' ? 'ወር' : 'Months';
+  const yearText = lang === 'am' ? 'ዓመት' : 'Year';
+  const savingsText = lang === 'am' ? 'ቅናሽ' : 'savings';
+  
+  // Header
+  const header = lang === 'am' 
+    ? `💰 **BirrPay የዋጋ አሰጣጥ**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 **የአገልግሎት ዋጋዎች**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+    : `💰 **BirrPay Pricing**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 **Service Pricing**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+  
+  // Generate service pricing sections
+  const serviceSections = services.slice(0, 6).map(service => { // Limit to 6 services for readability
+    const serviceIcon = getServiceIcon(service.name);
+    let serviceText = `\n${serviceIcon} **${service.name}**\n`;
+    
+    if (service.plans && service.plans.length > 0) {
+      // Sort plans by duration
+      const sortedPlans = [...service.plans].sort((a, b) => a.duration - b.duration);
+      
+      sortedPlans.forEach(plan => {
+        const duration = plan.duration;
+        const price = plan.price;
+        
+        let durationText;
+        if (duration === 1) {
+          durationText = `1 ${monthText}`;
+        } else if (duration < 12) {
+          durationText = `${duration} ${monthsText}`;
+        } else {
+          durationText = `${duration / 12} ${yearText}`;
+        }
+        
+        // Calculate savings for longer plans
+        let savingsInfo = '';
+        if (duration > 1 && sortedPlans.length > 1) {
+          const monthlyPrice = sortedPlans.find(p => p.duration === 1)?.price || price;
+          const totalMonthlyCost = monthlyPrice * duration;
+          const savings = totalMonthlyCost - price;
+          if (savings > 0) {
+            savingsInfo = lang === 'am' 
+              ? ` (${savings} ${currency} ${savingsText})`
+              : ` (${savings} ${currency} ${savingsText})`;
+          }
+        }
+        
+        serviceText += `• ${durationText} - ${price} ${currency}${savingsInfo}\n`;
+      });
+    } else {
+      // Fallback to single price
+      serviceText += `• ${monthText} - ${service.price || 0} ${currency}\n`;
+    }
+    
+    return serviceText;
+  }).join('');
+  
+  // Footer
+  const footer = lang === 'am'
+    ? `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n💡 **ቅናሽ ጥቅሞች**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n✅ የረዥም ጊዜ እቅድ ይመረጡ እና ብር ይቆጥቡ\n✅ ሁሉም ክፍያዎች በብር ናቸው\n✅ ምንም የተደበቀ ክፍያ የለም\n✅ በማንኛውም ጊዜ ሰርዝ ይችላሉ`
+    : `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n💡 **Discount Benefits**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n✅ Choose longer plans and save money\n✅ All payments in Ethiopian Birr\n✅ No hidden fees\n✅ Cancel anytime`;
+  
+  return header + serviceSections + footer;
+};
+
+// Get service icon based on service name
+const getServiceIcon = (serviceName) => {
+  const name = serviceName.toLowerCase();
+  if (name.includes('netflix')) return '📺';
+  if (name.includes('spotify')) return '🎵';
+  if (name.includes('amazon') || name.includes('prime')) return '📦';
+  if (name.includes('disney')) return '🏰';
+  if (name.includes('hulu')) return '🎬';
+  if (name.includes('hbo') || name.includes('max')) return '🎭';
+  if (name.includes('paramount')) return '🎪';
+  if (name.includes('peacock')) return '🦚';
+  if (name.includes('youtube')) return '📹';
+  if (name.includes('apple')) return '🍎';
+  if (name.includes('google')) return '🔍';
+  return '📱'; // Default icon
+};
+
 export function setupStartHandler(bot) {
   bot.start(async (ctx) => {
     try {
@@ -1706,7 +1789,7 @@ ${ctx.message.text}
     }
   });
 
-  // Pricing button handler
+  // Smart Pricing button handler - uses real service data
   bot.action("pricing", async (ctx) => {
     try {
       // Mark onboarding as completed when user views pricing
@@ -1714,72 +1797,21 @@ ${ctx.message.text}
       
       const lang = await getUserLanguage(ctx);
       
-      const pricingMessage = lang === 'am'
-        ? `💰 **BirrPay የዋጋ አሰጣጥ**
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 **የአገልግሎት ዋጋዎች**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📺 **Netflix**
-• 1 ወር - 350 ብር
-• 3 ወር - 900 ብር (50 ብር ቅናሽ)
-• 6 ወር - 1,700 ብር (100 ብር ቅናሽ)
-• 12 ወር - 3,200 ብር (200 ብር ቅናሽ)
-
-🎵 **Spotify Premium**
-• 1 ወር - 250 ብር
-• 3 ወር - 650 ብር (100 ብር ቅናሽ)
-• 6 ወር - 1,200 ብር (300 ብር ቅናሽ)
-• 12 ወር - 2,200 ብር (800 ብር ቅናሽ)
-
-📦 **Amazon Prime**
-• 1 ወር - 300 ብር
-• 3 ወር - 800 ብር (100 ብር ቅናሽ)
-• 6 ወር - 1,500 ብር (300 ብር ቅናሽ)
-• 12 ወር - 2,800 ብር (800 ብር ቅናሽ)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💡 **ቅናሽ ጥቅሞች**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✅ የረዥም ጊዜ እቅድ ይመረጡ እና ብር ይቆጥቡ
-✅ ሁሉም ክፍያዎች በብር ናቸው
-✅ ምንም የተደበቀ ክፍያ የለም
-✅ በማንኛውም ጊዜ ሰርዝ ይችላሉ`
-        : `💰 **BirrPay Pricing**
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 **Service Pricing**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📺 **Netflix**
-• 1 Month - 350 ETB
-• 3 Months - 900 ETB (50 ETB savings)
-• 6 Months - 1,700 ETB (100 ETB savings)
-• 12 Months - 3,200 ETB (200 ETB savings)
-
-🎵 **Spotify Premium**
-• 1 Month - 250 ETB
-• 3 Months - 650 ETB (100 ETB savings)
-• 6 Months - 1,200 ETB (300 ETB savings)
-• 12 Months - 2,200 ETB (800 ETB savings)
-
-📦 **Amazon Prime**
-• 1 Month - 300 ETB
-• 3 Months - 800 ETB (100 ETB savings)
-• 6 Months - 1,500 ETB (300 ETB savings)
-• 12 Months - 2,800 ETB (800 ETB savings)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💡 **Discount Benefits**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✅ Choose longer plans and save money
-✅ All payments in Ethiopian Birr
-✅ No hidden fees
-✅ Cancel anytime`;
-
+      // Get services data dynamically
+      const services = await loadServices();
+      
+      if (!services || services.length === 0) {
+        const errorMsg = lang === 'am' 
+          ? '❌ አገልግሎቶች አልተገኙም። እባክዎ ቆይተው ይሞክሩ።'
+          : '❌ Services not found. Please try again later.';
+        await ctx.editMessageText(errorMsg);
+        await ctx.answerCbQuery();
+        return;
+      }
+      
+      // Generate dynamic pricing message
+      const pricingMessage = generateDynamicPricingMessage(services, lang);
+      
       await ctx.editMessageText(pricingMessage, {
         parse_mode: 'Markdown',
         reply_markup: {
