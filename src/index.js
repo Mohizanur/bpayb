@@ -77,6 +77,8 @@ import {
 } from "./api/routes.js";
 import { requireAdmin } from './middleware/requireAdmin.js';
 import { getBackToMenuButton } from './utils/navigation.js';
+import { smartPhoneVerificationMiddleware } from './middleware/smartVerification.js';
+import { setupPhoneVerificationHandlers } from './handlers/phoneVerification.js';
 
 console.log("Starting bot initialization...");
 console.log("Bot token:", process.env.TELEGRAM_BOT_TOKEN ? "Set" : "Not set");
@@ -321,6 +323,10 @@ async function startApp() {
         }
         return next();
       });
+
+      // 🚀 SMART PHONE VERIFICATION MIDDLEWARE - MUST BE BEFORE OTHER HANDLERS
+      bot.use(smartPhoneVerificationMiddleware);
+      console.log("✅ Smart phone verification middleware registered");
       
       try {
         // Register admin handler first so /admin works and inline buttons are available
@@ -465,6 +471,13 @@ async function startApp() {
         console.log("✅ Admin payment handlers registered");
       } catch (e) {
         console.error("❌ Failed to register admin payment handlers:", e.message);
+      }
+
+      try {
+        setupPhoneVerificationHandlers(bot);
+        console.log("✅ Smart phone verification handlers registered");
+      } catch (e) {
+        console.error("❌ Failed to register phone verification handlers:", e.message);
       }
 
       try {

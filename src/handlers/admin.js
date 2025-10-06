@@ -10,28 +10,12 @@ const escapeMarkdown = (text) => {
   return String(text).replace(/[_*\[\]()~`>#+\-={}|.!\\]/g, '\\$&');
 };
 
-// Helper function for admin security check
+// Helper function for admin security check - now uses smart caching
 export const isAuthorizedAdmin = async (ctx) => {
   try {
-    const userId = ctx.from?.id?.toString();
-    if (!userId) return false;
-    
-    // Check against environment variable first (for backward compatibility)
-    if (process.env.ADMIN_TELEGRAM_ID && userId === process.env.ADMIN_TELEGRAM_ID) {
-      return true;
-    }
-    
-    // Check against Firestore config
-    const adminDoc = await firestore.collection('config').doc('admins').get();
-    if (adminDoc.exists) {
-      const admins = adminDoc.data().userIds || [];
-      if (admins.includes(userId)) {
-        return true;
-      }
-    }
-    
-      // Don't log unauthorized attempts for regular users
-      return false;
+    // Import the smart admin check function
+    const { isAuthorizedAdmin: smartAdminCheck } = await import('../middleware/smartVerification.js');
+    return await smartAdminCheck(ctx);
   } catch (error) {
     console.error('Error checking admin status:', error);
     return false;
@@ -5949,13 +5933,13 @@ To cancel, click the Cancel button below.`;
   }
 
   // Handle text messages for service editing and payment method editing
-  bot.on('text', async (ctx, next) => {
+  bot.on('text', async (ctx) => {
     console.log('🔍 Text handler called for user:', ctx.from.id);
     console.log('🔍 Message text:', ctx.message.text);
     
     if (!(await isAuthorizedAdmin(ctx))) {
-      console.log('🔍 User not authorized as admin, passing to next handler');
-      return next(); // Pass to other handlers
+      console.log('🔍 User not authorized as admin');
+      return; // Not an admin, ignore
     }
 
     // Check if admin is in custom pricing state - MUST BE FIRST
@@ -6447,8 +6431,8 @@ ${newInstructions}`, {
     console.log('🔍 Global serviceEditState:', global.serviceEditState);
     
     if (!editState) {
-      console.log('🔍 No edit state found, passing to next handler');
-      return next(); // Pass to other handlers
+      console.log('🔍 No edit state found, ignoring message');
+      return; // Not in edit mode, ignore
     }
 
     try {
