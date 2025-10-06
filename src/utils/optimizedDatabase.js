@@ -353,6 +353,28 @@ class OptimizedDatabase {
     }
   }
   
+  // ==================== DIRECT CACHE ACCESS ====================
+  
+  // Expose smartQuery for direct cache queries
+  async smartQuery(collection, filters = {}, options = {}, forceRefresh = false) {
+    return await this.cache.smartQuery(collection, filters, options, forceRefresh);
+  }
+  
+  // Expose smartGet for direct cache gets
+  async smartGet(collection, docId, forceRefresh = false) {
+    return await this.cache.smartGet(collection, docId, forceRefresh);
+  }
+  
+  // Expose smartGetAll for direct cache gets
+  async smartGetAll(collection, page = 0, limit = 50, forceRefresh = false) {
+    return await this.cache.smartGetAll(collection, page, limit, forceRefresh);
+  }
+  
+  // Expose smartCount for direct cache counts
+  async smartCount(collection, filters = {}, forceRefresh = false) {
+    return await this.cache.smartCount(collection, filters, forceRefresh);
+  }
+  
   // ==================== CACHE MANAGEMENT ====================
   
   getCacheStats() {
@@ -373,37 +395,39 @@ const optimizedDatabase = new OptimizedDatabase();
 
 export default optimizedDatabase;
 
-// Export individual methods for easy use
-export const {
-  getUser,
-  updateUser,
-  createUser,
-  getService,
-  getAllServices,
-  updateService,
-  createService,
-  getUserSubscriptions,
-  getSubscription,
-  createSubscription,
-  updateSubscription,
-  getPayment,
-  getPendingPayments,
-  createPayment,
-  createPendingPayment,
-  updatePayment,
-  updatePendingPayment,
-  getConfig,
-  getPaymentMethods,
-  getAdmins,
-  updateConfig,
-  getCustomPlanRequests,
-  getCustomPlanRequest,
-  updateCustomPlanRequest,
-  getSubscriptionStats,
-  getAdminStats,
-  getAllUsers,
-  findUserByIdentifier,
-  getCacheStats,
-  clearCache,
-  healthCheck
-} = optimizedDatabase;
+// Export individual methods for easy use with proper binding
+export const getUser = optimizedDatabase.getUser.bind(optimizedDatabase);
+export const updateUser = optimizedDatabase.updateUser.bind(optimizedDatabase);
+export const createUser = optimizedDatabase.createUser.bind(optimizedDatabase);
+export const getService = optimizedDatabase.getService.bind(optimizedDatabase);
+export const getAllServices = optimizedDatabase.getAllServices.bind(optimizedDatabase);
+export const updateService = optimizedDatabase.updateService.bind(optimizedDatabase);
+export const createService = optimizedDatabase.createService.bind(optimizedDatabase);
+export const getUserSubscriptions = optimizedDatabase.getUserSubscriptions.bind(optimizedDatabase);
+export const getSubscription = optimizedDatabase.getSubscription.bind(optimizedDatabase);
+export const createSubscription = optimizedDatabase.createSubscription.bind(optimizedDatabase);
+export const updateSubscription = optimizedDatabase.updateSubscription.bind(optimizedDatabase);
+export const getPayment = optimizedDatabase.getPayment.bind(optimizedDatabase);
+export const getPendingPayments = optimizedDatabase.getPendingPayments.bind(optimizedDatabase);
+export const createPayment = optimizedDatabase.createPayment.bind(optimizedDatabase);
+export const createPendingPayment = optimizedDatabase.createPendingPayment.bind(optimizedDatabase);
+export const updatePayment = optimizedDatabase.updatePayment.bind(optimizedDatabase);
+export const updatePendingPayment = optimizedDatabase.updatePendingPayment.bind(optimizedDatabase);
+export const getConfig = optimizedDatabase.getConfig.bind(optimizedDatabase);
+export const getPaymentMethods = optimizedDatabase.getPaymentMethods.bind(optimizedDatabase);
+export const getAdmins = optimizedDatabase.getAdmins.bind(optimizedDatabase);
+export const updateConfig = optimizedDatabase.updateConfig.bind(optimizedDatabase);
+export const getCustomPlanRequests = optimizedDatabase.getCustomPlanRequests.bind(optimizedDatabase);
+export const getCustomPlanRequest = optimizedDatabase.getCustomPlanRequest.bind(optimizedDatabase);
+export const updateCustomPlanRequest = optimizedDatabase.updateCustomPlanRequest.bind(optimizedDatabase);
+export const getSubscriptionStats = optimizedDatabase.getSubscriptionStats.bind(optimizedDatabase);
+export const getAdminStats = optimizedDatabase.getAdminStats.bind(optimizedDatabase);
+export const getAllUsers = optimizedDatabase.getAllUsers.bind(optimizedDatabase);
+export const findUserByIdentifier = optimizedDatabase.findUserByIdentifier.bind(optimizedDatabase);
+export const smartQuery = optimizedDatabase.smartQuery.bind(optimizedDatabase);
+export const smartGet = optimizedDatabase.smartGet.bind(optimizedDatabase);
+export const smartGetAll = optimizedDatabase.smartGetAll.bind(optimizedDatabase);
+export const smartCount = optimizedDatabase.smartCount.bind(optimizedDatabase);
+export const getCacheStats = optimizedDatabase.getCacheStats.bind(optimizedDatabase);
+export const clearCache = optimizedDatabase.clearCache.bind(optimizedDatabase);
+export const healthCheck = optimizedDatabase.healthCheck.bind(optimizedDatabase);
