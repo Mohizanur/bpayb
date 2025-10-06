@@ -130,12 +130,16 @@ class SmartCache {
   async smartQuery(collection, filters = {}, options = {}, forceRefresh = false) {
     const key = this.generateKey(collection, null, { filters, options });
     
+    console.log(`🔍 smartQuery called for ${collection}, forceRefresh: ${forceRefresh}`);
+    
     // Check cache first (unless force refresh)
     if (!forceRefresh) {
       const cached = this.get(key, this.TTL[collection.toUpperCase()] || this.TTL.USERS);
       if (cached) {
+        console.log(`✅ Returning cached data for ${collection}: ${cached.length} items`);
         return cached;
       }
+      console.log(`⚠️ No cached data for ${collection}, fetching from database...`);
     }
     
     // Execute query

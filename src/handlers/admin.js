@@ -114,17 +114,27 @@ export default function adminHandler(bot) {
       });
       
       console.log('📊 Subscription data fetched:');
-      console.log(`   - Subscriptions: ${subscriptions?.length || 0}`);
-      console.log(`   - Pending Payments: ${pendingPayments?.length || 0}`);
-      console.log(`   - Custom Requests: ${customRequests?.length || 0}`);
+      console.log(`   - Subscriptions: ${subscriptions?.length || 0} (type: ${typeof subscriptions})`);
+      console.log(`   - Pending Payments: ${pendingPayments?.length || 0} (type: ${typeof pendingPayments})`);
+      console.log(`   - Custom Requests: ${customRequests?.length || 0} (type: ${typeof customRequests})`);
+    
+      // Ensure all results are arrays (fix undefined issue)
+      const safeSubscriptions = Array.isArray(subscriptions) ? subscriptions : [];
+      const safePendingPayments = Array.isArray(pendingPayments) ? pendingPayments : [];
+      const safeCustomRequests = Array.isArray(customRequests) ? customRequests : [];
+      
+      console.log('✅ Safe arrays created:');
+      console.log(`   - Subscriptions: ${safeSubscriptions.length}`);
+      console.log(`   - Pending Payments: ${safePendingPayments.length}`);
+      console.log(`   - Custom Requests: ${safeCustomRequests.length}`);
     
     let activeCount = 0;
     let pendingCount = 0;
     let expiredCount = 0;
-    let customPlanCount = customRequests.length;
+    let customPlanCount = safeCustomRequests.length;
     
     // Count subscriptions by status
-    subscriptions.forEach(subscription => {
+    safeSubscriptions.forEach(subscription => {
       if (subscription.status === 'active') {
         activeCount++;
       } else if (subscription.status === 'pending') {
@@ -135,7 +145,7 @@ export default function adminHandler(bot) {
     });
     
     // Count pending payments
-    pendingPayments.forEach(payment => {
+    safePendingPayments.forEach(payment => {
       if (payment.status === 'pending' || payment.status === 'proof_submitted') {
         pendingCount++;
       }
@@ -149,9 +159,9 @@ export default function adminHandler(bot) {
         expiredCount,
         customPlanCount,
         totalCount,
-        subscriptionsSnapshot: { docs: subscriptions.map(sub => ({ data: () => sub })) },
-        pendingPaymentsSnapshot: { docs: pendingPayments.map(pay => ({ data: () => pay })) },
-        customPlanRequestsSnapshot: { docs: customRequests.map(req => ({ data: () => req })) }
+        subscriptionsSnapshot: { docs: safeSubscriptions.map(sub => ({ data: () => sub })) },
+        pendingPaymentsSnapshot: { docs: safePendingPayments.map(pay => ({ data: () => pay })) },
+        customPlanRequestsSnapshot: { docs: safeCustomRequests.map(req => ({ data: () => req })) }
       };
     } catch (error) {
       console.error('❌ Error in getSubscriptionStats:', error);
