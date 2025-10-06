@@ -105,7 +105,7 @@ export default function adminHandler(bot) {
       // Get detailed data for processing (cached)
       console.log('🔍 Fetching subscription data...');
       const [subscriptions, pendingPayments, customRequests] = await Promise.all([
-        optimizedDatabase.smartQuery('subscriptions', {}, {}),
+        optimizedDatabase.smartQuery('subscriptions', {}, {}, true), // Force refresh to bypass bad cache
         optimizedDatabase.getPendingPayments(),
         optimizedDatabase.getCustomPlanRequests('pending')
       ]).catch(error => {
