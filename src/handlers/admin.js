@@ -5949,13 +5949,13 @@ To cancel, click the Cancel button below.`;
   }
 
   // Handle text messages for service editing and payment method editing
-  bot.on('text', async (ctx) => {
+  bot.on('text', async (ctx, next) => {
     console.log('🔍 Text handler called for user:', ctx.from.id);
     console.log('🔍 Message text:', ctx.message.text);
     
     if (!(await isAuthorizedAdmin(ctx))) {
-      console.log('🔍 User not authorized as admin');
-      return; // Not an admin, ignore
+      console.log('🔍 User not authorized as admin, passing to next handler');
+      return next(); // Pass to other handlers
     }
 
     // Check if admin is in custom pricing state - MUST BE FIRST
@@ -6447,8 +6447,8 @@ ${newInstructions}`, {
     console.log('🔍 Global serviceEditState:', global.serviceEditState);
     
     if (!editState) {
-      console.log('🔍 No edit state found, ignoring message');
-      return; // Not in edit mode, ignore
+      console.log('🔍 No edit state found, passing to next handler');
+      return next(); // Pass to other handlers
     }
 
     try {
