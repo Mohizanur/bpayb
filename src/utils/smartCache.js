@@ -70,12 +70,26 @@ class SmartCache {
       return null;
     }
     
+    // Validate cached data - if undefined, delete and return null
+    if (entry.data === undefined) {
+      console.warn(`⚠️ Cached data for ${key} is undefined, clearing cache`);
+      this.cache.delete(key);
+      this.stats.misses++;
+      return null;
+    }
+    
     this.stats.hits++;
     return entry.data;
   }
   
   // Set cache with TTL
   set(key, data, ttl = 5 * 60 * 1000) {
+    // Never cache undefined values
+    if (data === undefined) {
+      console.warn(`⚠️ Attempted to cache undefined value for ${key}, skipping`);
+      return;
+    }
+    
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
