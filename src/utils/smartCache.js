@@ -144,6 +144,12 @@ class SmartCache {
     
     // Execute query
     try {
+      // Verify firestore is available
+      if (!firestore || typeof firestore.collection !== 'function') {
+        console.error(`❌ Firestore not available in smartQuery for ${collection}`);
+        return [];
+      }
+      
       let query = firestore.collection(collection);
       
       // Apply filters
@@ -156,7 +162,10 @@ class SmartCache {
       if (options.orderBy) query = query.orderBy(options.orderBy.field, options.orderBy.direction || 'asc');
       if (options.offset) query = query.offset(options.offset);
       
+      console.log(`🔍 Executing Firestore query for ${collection}...`);
       const snapshot = await query.get();
+      console.log(`✅ Query completed: ${snapshot.docs.length} documents`);
+      
       const results = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -166,16 +175,19 @@ class SmartCache {
       console.log(`📊 smartQuery(${collection}): Found ${results.length} documents`);
       if (results.length === 0) {
         console.log(`⚠️ No documents found in collection: ${collection}`);
-        console.log(`   Filters applied:`, filters);
-        console.log(`   Options applied:`, options);
+        console.log(`   Filters applied:`, JSON.stringify(filters));
+        console.log(`   Options applied:`, JSON.stringify(options));
       }
       
-      // Cache the results
-      this.set(key, results, this.TTL[collection.toUpperCase()] || this.TTL.USERS);
+      // Cache the results (ensure it's an array)
+      const safeResults = Array.isArray(results) ? results : [];
+      this.set(key, safeResults, this.TTL[collection.toUpperCase()] || this.TTL.USERS);
       
-      return results;
+      return safeResults;
     } catch (error) {
       console.error(`❌ Error querying ${collection}:`, error);
+      console.error(`   Error details:`, error.message, error.stack);
+      // Always return empty array on error
       return [];
     }
   }
