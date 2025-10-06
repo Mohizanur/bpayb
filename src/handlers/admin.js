@@ -2498,14 +2498,20 @@ The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
       const requestId = ctx.match[1];
       console.log('🔍 Setting custom price for request:', requestId);
       
-      // Get the custom plan request
-      const requestDoc = await firestore.collection('customPlanRequests').doc(requestId).get();
-      if (!requestDoc.exists) {
+      // Get the custom plan request - OPTIMIZED with smart caching
+      const request = await optimizedDatabase.getCustomPlanRequest(requestId);
+      if (!request) {
         await ctx.answerCbQuery('❌ Request not found');
+        console.error('❌ Custom plan request not found:', requestId);
         return;
       }
 
-      const request = requestDoc.data();
+      // Validate required fields
+      if (!request.userId) {
+        await ctx.answerCbQuery('❌ Invalid request data (missing userId)');
+        console.error('❌ Invalid request data:', request);
+        return;
+      }
       
       // Create a pending payment for the custom plan
       const paymentId = `custom_${Date.now()}_${request.userId}`;
@@ -2530,11 +2536,11 @@ The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
         language: request.language
       };
 
-      // Save payment to pendingPayments collection
-      await firestore.collection('pendingPayments').doc(paymentId).set(paymentData);
+      // Save payment to pendingPayments collection - OPTIMIZED
+      await optimizedDatabase.createPendingPayment(paymentData);
       
-      // Update custom plan request status
-      await firestore.collection('customPlanRequests').doc(requestId).update({
+      // Update custom plan request status - OPTIMIZED with cache invalidation
+      await optimizedDatabase.updateCustomPlanRequest(requestId, {
         status: 'pricing_set',
         pricingSetAt: new Date(),
         pricingSetBy: ctx.from.id,
@@ -2564,7 +2570,12 @@ The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
 
     } catch (error) {
       console.error('Error setting custom price:', error);
-      await ctx.answerCbQuery('❌ Error setting price');
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        requestId: ctx.match?.[1]
+      });
+      await ctx.answerCbQuery('❌ Error setting price. Check logs for details.');
     }
   });
 
@@ -2579,14 +2590,20 @@ The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
       const requestId = ctx.match[1];
       console.log('🔍 Setting custom pricing for request:', requestId);
       
-      // Get the custom plan request
-      const requestDoc = await firestore.collection('customPlanRequests').doc(requestId).get();
-      if (!requestDoc.exists) {
+      // Get the custom plan request - OPTIMIZED with smart caching
+      const request = await optimizedDatabase.getCustomPlanRequest(requestId);
+      if (!request) {
         await ctx.answerCbQuery('❌ Request not found');
+        console.error('❌ Custom plan request not found:', requestId);
         return;
       }
 
-      const request = requestDoc.data();
+      // Validate required fields
+      if (!request.userId) {
+        await ctx.answerCbQuery('❌ Invalid request data (missing userId)');
+        console.error('❌ Invalid request data:', request);
+        return;
+      }
       
       // Create a pending payment for the custom plan
       const paymentId = `custom_${Date.now()}_${request.userId}`;
@@ -2611,11 +2628,11 @@ The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
         language: request.language
       };
 
-      // Save payment to pendingPayments collection
-      await firestore.collection('pendingPayments').doc(paymentId).set(paymentData);
+      // Save payment to pendingPayments collection - OPTIMIZED
+      await optimizedDatabase.createPendingPayment(paymentData);
       
-      // Update custom plan request status
-      await firestore.collection('customPlanRequests').doc(requestId).update({
+      // Update custom plan request status - OPTIMIZED with cache invalidation
+      await optimizedDatabase.updateCustomPlanRequest(requestId, {
         status: 'pricing_set',
         pricingSetAt: new Date(),
         pricingSetBy: ctx.from.id,
@@ -2657,7 +2674,12 @@ Admin will send pricing and payment details. Please wait.
 
     } catch (error) {
       console.error('Error setting custom pricing:', error);
-      await ctx.answerCbQuery('❌ Error setting pricing');
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        requestId: ctx.match?.[1]
+      });
+      await ctx.answerCbQuery('❌ Error setting pricing. Check logs for details.');
     }
   });
 
