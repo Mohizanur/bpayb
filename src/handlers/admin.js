@@ -91,15 +91,26 @@ export default function adminHandler(bot) {
 
   // Unified function to get subscription statistics - OPTIMIZED with smart caching
   async function getSubscriptionStats() {
-    // Get cached statistics first
-    const cachedStats = await optimizedDatabase.getSubscriptionStats();
-    
-    // Get detailed data for processing (cached)
-    const [subscriptions, pendingPayments, customRequests] = await Promise.all([
-      optimizedDatabase.smartQuery('subscriptions', {}, {}),
-      optimizedDatabase.getPendingPayments(),
-      optimizedDatabase.getCustomPlanRequests('pending')
-    ]);
+    try {
+      // Get cached statistics first
+      const cachedStats = await optimizedDatabase.getSubscriptionStats();
+      
+      // Verify smartQuery method exists
+      if (typeof optimizedDatabase.smartQuery !== 'function') {
+        console.error('❌ optimizedDatabase.smartQuery is not a function');
+        console.error('Available methods:', Object.keys(optimizedDatabase));
+        throw new Error('smartQuery method not available');
+      }
+      
+      // Get detailed data for processing (cached)
+      const [subscriptions, pendingPayments, customRequests] = await Promise.all([
+        optimizedDatabase.smartQuery('subscriptions', {}, {}),
+        optimizedDatabase.getPendingPayments(),
+        optimizedDatabase.getCustomPlanRequests('pending')
+      ]).catch(error => {
+        console.error('❌ Error fetching subscription data:', error);
+        throw error;
+      });
     
     let activeCount = 0;
     let pendingCount = 0;
@@ -124,18 +135,33 @@ export default function adminHandler(bot) {
       }
     });
     
-    const totalCount = activeCount + pendingCount + expiredCount;
-    
-    return {
-      activeCount,
-      pendingCount,
-      expiredCount,
-      customPlanCount,
-      totalCount,
-      subscriptionsSnapshot: { docs: subscriptions.map(sub => ({ data: () => sub })) },
-      pendingPaymentsSnapshot: { docs: pendingPayments.map(pay => ({ data: () => pay })) },
-      customPlanRequestsSnapshot: { docs: customRequests.map(req => ({ data: () => req })) }
-    };
+      const totalCount = activeCount + pendingCount + expiredCount;
+      
+      return {
+        activeCount,
+        pendingCount,
+        expiredCount,
+        customPlanCount,
+        totalCount,
+        subscriptionsSnapshot: { docs: subscriptions.map(sub => ({ data: () => sub })) },
+        pendingPaymentsSnapshot: { docs: pendingPayments.map(pay => ({ data: () => pay })) },
+        customPlanRequestsSnapshot: { docs: customRequests.map(req => ({ data: () => req })) }
+      };
+    } catch (error) {
+      console.error('❌ Error in getSubscriptionStats:', error);
+      console.error('Error stack:', error.stack);
+      // Return default values on error
+      return {
+        activeCount: 0,
+        pendingCount: 0,
+        expiredCount: 0,
+        customPlanCount: 0,
+        totalCount: 0,
+        subscriptionsSnapshot: { docs: [] },
+        pendingPaymentsSnapshot: { docs: [] },
+        customPlanRequestsSnapshot: { docs: [] }
+      };
+    }
   }
 
   // Helper function to safely edit messages and handle "message is not modified" error
