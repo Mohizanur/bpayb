@@ -266,7 +266,7 @@ export async function createPayment(paymentData) {
       }
     });
     
-    const result = await firestoreManager.createDocument('payments', paymentDoc);
+    const result = await firestoreManager.createDocument('pendingPayments', paymentDoc);
     
     return result;
   } catch (error) {
@@ -359,35 +359,34 @@ export async function updatePaymentStatus(paymentId, updates) {
     // Ensure we don't override critical fields
     const { id, paymentId: _, ...safeUpdates } = updates;
     
-    // Try to update in payments collection first
-    let result = await firestoreManager.updateDocument('payments', paymentId, {
+    // Try to update in pendingPayments collection first (where new payments go)
+    let result = await firestoreManager.updateDocument('pendingPayments', paymentId, {
       ...safeUpdates,
       updatedAt: new Date().toISOString()
     });
     
-    // If not found in payments, try pendingPayments collection
+    // If found in pendingPayments and being verified, move to payments collection
+    if (result.success && updates.status === 'completed') {
+      const payment = await getPaymentById(paymentId);
+      if (payment) {
+        // Create the payment in the payments collection
+        await firestoreManager.setDocument('payments', paymentId, {
+          ...payment,
+          ...safeUpdates,
+          updatedAt: new Date().toISOString()
+        });
+        
+        // Delete from pendingPayments
+        await firestoreManager.deleteDocument('pendingPayments', paymentId);
+      }
+    }
+    
+    // If not found in pendingPayments, try payments collection (for already verified payments)
     if (!result.success && result.error && result.error.includes('NOT_FOUND')) {
-      console.log('🔍 Payment not found in payments collection, trying pendingPayments...');
-      result = await firestoreManager.updateDocument('pendingPayments', paymentId, {
+      result = await firestoreManager.updateDocument('payments', paymentId, {
         ...safeUpdates,
         updatedAt: new Date().toISOString()
       });
-      
-      // If payment is being verified, move it from pendingPayments to payments
-      if (result.success && updates.status === 'completed') {
-        const payment = await getPaymentById(paymentId);
-        if (payment) {
-          // Create the payment in the payments collection
-          await firestoreManager.setDocument('payments', paymentId, {
-            ...payment,
-            ...safeUpdates,
-            updatedAt: new Date().toISOString()
-          });
-          
-          // Delete from pendingPayments
-          await firestoreManager.deleteDocument('pendingPayments', paymentId);
-        }
-      }
     }
     
     // If payment is being verified, update the related subscription
@@ -422,14 +421,14 @@ function calculateEndDate(startDate, duration) {
 // Get payment by ID with proper error handling
 export async function getPaymentById(paymentId) {
   try {
-    // First try payments collection
-    let result = await firestoreManager.getDocument('payments', paymentId);
+    // First try pendingPayments collection (where new payments go)
+    let result = await firestoreManager.getDocument('pendingPayments', paymentId);
     if (result.success) {
       return result.data;
     }
     
-    // If not found, try pendingPayments collection
-    result = await firestoreManager.getDocument('pendingPayments', paymentId);
+    // If not found, try payments collection (where completed payments go)
+    result = await firestoreManager.getDocument('payments', paymentId);
     if (result.success) {
       return result.data;
     }
