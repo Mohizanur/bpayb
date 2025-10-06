@@ -158,6 +158,14 @@ class SmartCache {
         ...doc.data()
       }));
       
+      // Log query results for debugging
+      console.log(`📊 smartQuery(${collection}): Found ${results.length} documents`);
+      if (results.length === 0) {
+        console.log(`⚠️ No documents found in collection: ${collection}`);
+        console.log(`   Filters applied:`, filters);
+        console.log(`   Options applied:`, options);
+      }
+      
       // Cache the results
       this.set(key, results, this.TTL[collection.toUpperCase()] || this.TTL.USERS);
       

@@ -103,6 +103,7 @@ export default function adminHandler(bot) {
       }
       
       // Get detailed data for processing (cached)
+      console.log('🔍 Fetching subscription data...');
       const [subscriptions, pendingPayments, customRequests] = await Promise.all([
         optimizedDatabase.smartQuery('subscriptions', {}, {}),
         optimizedDatabase.getPendingPayments(),
@@ -111,6 +112,11 @@ export default function adminHandler(bot) {
         console.error('❌ Error fetching subscription data:', error);
         throw error;
       });
+      
+      console.log('📊 Subscription data fetched:');
+      console.log(`   - Subscriptions: ${subscriptions?.length || 0}`);
+      console.log(`   - Pending Payments: ${pendingPayments?.length || 0}`);
+      console.log(`   - Custom Requests: ${customRequests?.length || 0}`);
     
     let activeCount = 0;
     let pendingCount = 0;
