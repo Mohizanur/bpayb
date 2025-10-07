@@ -104,13 +104,16 @@ export default function adminHandler(bot) {
       
       // Get detailed data for processing (cached)
       console.log('🔍 Fetching subscription data...');
+      
+      // QUOTA SAVING MODE: Use cache aggressively to avoid quota exhaustion
       const [subscriptions, pendingPayments, customRequests] = await Promise.all([
-        optimizedDatabase.smartQuery('subscriptions', {}, {}, true), // Force refresh to bypass bad cache
-        optimizedDatabase.getPendingPayments(),
-        optimizedDatabase.getCustomPlanRequests('pending')
+        optimizedDatabase.smartQuery('subscriptions', {}, {}, false), // Use cache to save quota
+        optimizedDatabase.getPendingPayments(false), // Use cache
+        optimizedDatabase.getCustomPlanRequests('pending', false) // Use cache
       ]).catch(error => {
         console.error('❌ Error fetching subscription data:', error);
-        throw error;
+        // Return empty arrays on quota exhaustion
+        return [[], [], []];
       });
       
       console.log('📊 Subscription data fetched:');

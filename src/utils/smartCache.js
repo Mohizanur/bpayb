@@ -201,6 +201,14 @@ class SmartCache {
     } catch (error) {
       console.error(`❌ Error querying ${collection}:`, error);
       console.error(`   Error details:`, error.message, error.stack);
+      
+      // Check if quota exhausted
+      if (error.code === 8 || error.message?.includes('Quota exceeded')) {
+        console.error(`🚨 QUOTA EXHAUSTED for ${collection}!`);
+        console.error(`   Solution: Upgrade to Blaze Plan or wait for quota reset`);
+        console.error(`   Returning empty array to prevent further quota usage`);
+      }
+      
       // Always return empty array on error
       return [];
     }
