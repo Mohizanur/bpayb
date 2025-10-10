@@ -37,13 +37,11 @@ export const getInlineKeyboard = (buttons = [], lang = 'en') => {
 // Function to show main menu with consistent content
 export const showMainMenu = async (ctx, isNewUser = false) => {
   try {
-    // Get user language from database
+    // Get user language from ULTRA-CACHE (no DB read!)
     let lang = 'en';
     try {
-      const { firestore } = await import('./firestore.js');
-      const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-      const userData = userDoc.data() || {};
-      lang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+      const { getUserLang } = await import('./i18n.js');
+      lang = await getUserLang(ctx);
     } catch (error) {
       console.error('Error getting user language:', error);
       lang = ctx.from?.language_code === 'am' ? 'am' : 'en';

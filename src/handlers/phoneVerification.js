@@ -68,9 +68,10 @@ export const handleVerifyPhone = async (ctx) => {
 export const handleContactSharing = async (ctx) => {
   try {
     const userId = String(ctx.from.id);
-    const userDoc = await firestore.collection('users').doc(userId).get();
-    const userData = userDoc.data() || {};
-    const lang = userData.language || (ctx.from.language_code === 'am' ? 'am' : 'en');
+    
+    // ULTRA-CACHE: Get language from cache (no DB read!)
+    const { getUserLang } = await import('../utils/i18n.js');
+    const lang = await getUserLang(ctx);
     
     const phoneNumber = ctx.message.contact.phone_number;
     

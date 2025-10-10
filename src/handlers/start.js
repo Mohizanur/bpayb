@@ -160,27 +160,35 @@ const getServiceIcon = (serviceName) => {
 export function setupStartHandler(bot) {
   bot.start(async (ctx) => {
     try {
-      // OPTIMIZED: Single database call to get user data and update profile
-      // ULTRA-OPTIMIZED: Single fast operation without reading first
-      const userRef = firestore.collection('users').doc(String(ctx.from.id));
+      // ULTRA-OPTIMIZED: Batch user updates (only write once per day)
+      const userId = String(ctx.from.id);
+      const userRef = firestore.collection('users').doc(userId);
       
-      // Get language preference (fast, no database call)
-      const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+      // Check if user was updated recently (avoid redundant writes)
+      const { getCachedUserData, cacheUserData } = await import('../utils/ultraCache.js');
+      const cachedUser = getCachedUserData(userId);
+      const now = Date.now();
       
-      // Single fast update operation
-      const updateData = {
-        telegramId: ctx.from.id,
-        firstName: ctx.from.first_name || '',
-        lastName: ctx.from.last_name || '',
-        username: ctx.from.username || '',
-        language: lang,
-        lastActiveAt: new Date(),
-        phoneVerified: false, // New users need verification
-        hasCompletedOnboarding: false // Don't bypass verification
-      };
+      // Only update if: (1) not cached, OR (2) cached but >12 hours old
+      const shouldUpdate = !cachedUser || !cachedUser.lastActiveAt || 
+                          (now - new Date(cachedUser.lastActiveAt).getTime()) > (12 * 60 * 60 * 1000);
       
-      // Non-blocking update for maximum speed
-      userRef.set(updateData, { merge: true }).catch(console.error);
+      if (shouldUpdate) {
+        const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
+        const updateData = {
+          telegramId: ctx.from.id,
+          firstName: ctx.from.first_name || '',
+          lastName: ctx.from.last_name || '',
+          username: ctx.from.username || '',
+          language: lang,
+          lastActiveAt: new Date()
+        };
+        
+        // Non-blocking update + cache the data
+        userRef.set(updateData, { merge: true })
+          .then(() => cacheUserData(userId, updateData))
+          .catch(console.error);
+      }
       
       // Show "Let's Get Started" content for all users with optimized speed
       await showMainMenu(ctx, true);

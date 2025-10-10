@@ -57,16 +57,9 @@ export default function supportHandler(bot) {
       
       console.log('🔍 Processing as support message');
 
-      // Get user's language preference from database
-      let lang = 'en';
-      try {
-        const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-        const userData = userDoc.data() || {};
-        lang = userData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
-      } catch (error) {
-        console.log('Could not get user language, using default:', error.message);
-        lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
-      }
+      // Get user's language preference from ULTRA-CACHE (no DB read!)
+      const { getUserLang } = await import('../utils/i18n.js');
+      const lang = await getUserLang(ctx);
       const userInfo = {
         id: ctx.from.id,
         firstName: ctx.from.first_name,
