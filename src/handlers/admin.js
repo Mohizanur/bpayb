@@ -2185,6 +2185,26 @@ Send a message to all active users of the bot.
     }
   };
 
+  // Handle broadcast messages for all media types
+  const handleBroadcastMessage = async (ctx, next) => {
+    try {
+      const userId = ctx.from?.id;
+      if (userId && global.broadcastState && global.broadcastState[userId]?.awaitingBroadcast) {
+        if (!(await isAuthorizedAdmin(ctx))) {
+          delete global.broadcastState[userId];
+          return next();
+        }
+
+        delete global.broadcastState[userId];
+        await processBroadcast(ctx, ctx.message);
+        return;
+      }
+    } catch (error) {
+      console.error('Error in broadcast message handler:', error);
+    }
+    return next();
+  };
+
   // Register unified text handler
   bot.on('text', handleAdminTextMessage);
   bot.on('photo', handleBroadcastMessage);
