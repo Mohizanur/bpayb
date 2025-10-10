@@ -2133,9 +2133,14 @@ Send a message to all active users of the bot.
 
   // UNIFIED TEXT HANDLER - handles all admin text messages
   const handleAdminTextMessage = async (ctx) => {
+    console.log('🔍 ADMIN TEXT HANDLER CALLED - User:', ctx.from.id);
+    console.log('🔍 ADMIN TEXT HANDLER - Message:', ctx.message.text);
+    console.log('🔍 ADMIN TEXT HANDLER - Session:', ctx.session);
+    
     try {
       // Only process admin messages
       if (!(await isAuthorizedAdmin(ctx))) {
+        console.log('🔍 ADMIN TEXT HANDLER - User not admin, ignoring');
         return; // Not an admin, ignore
       }
 

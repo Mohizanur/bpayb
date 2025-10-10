@@ -28,6 +28,7 @@ export default function supportHandler(bot) {
   });
   
   // Handle text messages for support (but only if not a command and not in service creation flow)
+  // NOTE: This handler runs AFTER admin handler to avoid conflicts
   bot.on("text", async (ctx) => {
     try {
       console.log('🔍 Support handler called for user:', ctx.from?.id);
