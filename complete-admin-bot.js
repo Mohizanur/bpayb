@@ -1975,8 +1975,14 @@ All pending operations have been cancelled. You can start fresh with /start`, {
     // Setup admin payment handlers
     registerAdminPaymentHandlers(bot);
 
-    // Setup firestore listener
-    firestoreListener(bot);
+    // Setup firestore listener (DISABLED by default for quota optimization)
+    if (process.env.ENABLE_FIRESTORE_LISTENER === 'true') {
+      firestoreListener(bot);
+      console.log("⚠️ Firestore listener enabled - this may increase database reads");
+    } else {
+      console.log("⏭️ Firestore listener DISABLED (quota optimization)");
+      console.log("💡 Set ENABLE_FIRESTORE_LISTENER=true to enable if needed");
+    }
 
     // Setup help handler
     helpHandler(bot);
