@@ -39,20 +39,22 @@ export default function supportHandler(bot) {
         return;
       }
 
-      // Skip if user is in service creation, editing, or custom plan flow
+      // Skip if user is in service creation, editing, custom plan flow, OR admin search
       const userId = ctx.from?.id;
       console.log('🔍 Checking states for user:', userId);
       console.log('🔍 serviceCreationState:', global.serviceCreationState?.[userId]);
       console.log('🔍 serviceEditState:', global.serviceEditState?.[userId]);
       console.log('🔍 userStates:', global.userStates?.[userId]);
+      console.log('🔍 session awaitingUserSearch:', ctx.session?.awaitingUserSearch);
       
       if (userId && (
         (global.serviceCreationState && global.serviceCreationState[userId]) ||
         (global.serviceEditState && global.serviceEditState[userId]) ||
-        (global.userStates && global.userStates[userId]?.state === 'awaiting_custom_plan_details')
+        (global.userStates && global.userStates[userId]?.state === 'awaiting_custom_plan_details') ||
+        (ctx.session?.awaitingUserSearch === true) // Skip if admin is searching users
       )) {
-        console.log('🔍 User is in service/custom plan flow, skipping support handler');
-        return; // Let service creation/editing/custom plan handler process this
+        console.log('🔍 User is in service/custom plan/admin search flow, skipping support handler');
+        return; // Let service creation/editing/custom plan/admin handler process this
       }
       
       console.log('🔍 Processing as support message');
