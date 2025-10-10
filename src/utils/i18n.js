@@ -1,5 +1,13 @@
 import fs from "fs/promises";
 import { firestore, isFirebaseConnected } from "./firestore.js";
+import { 
+  cacheUserLanguage, 
+  getCachedUserLanguage, 
+  clearUserLanguageCache,
+  recordCacheHit,
+  recordCacheMiss,
+  deduplicateRequest
+} from "./ultraCache.js";
 
 let i18nCache = null;
 export async function loadI18n() {
@@ -11,16 +19,13 @@ export async function loadI18n() {
   return i18nCache;
 }
 
-// Language cache to ensure immediate persistence
-const languageCache = new Map();
-
+// Legacy compatibility wrappers
 export function setLanguageCache(userId, language) {
-  languageCache.set(String(userId), language);
-  console.log(`🔄 Language cached: ${language} for user ${userId}`);
+  cacheUserLanguage(userId, language);
 }
 
 export function getLanguageCache(userId) {
-  return languageCache.get(String(userId));
+  return getCachedUserLanguage(userId);
 }
 
 // Function to escape MarkdownV2 text
@@ -34,38 +39,45 @@ export async function getUserLang(ctx) {
   try {
     const userId = String(ctx.from.id);
     
-    // First check language cache for immediate persistence
-    const cachedLang = getLanguageCache(userId);
+    // ULTRA-CACHE: Check cache first (instant response)
+    const cachedLang = getCachedUserLanguage(userId);
     if (cachedLang) {
-      console.log(`🚀 Using cached language: ${cachedLang} for user ${userId}`);
-      return cachedLang;
+      recordCacheHit('language');
+      return cachedLang; // Instant return, no DB hit!
     }
+    
+    recordCacheMiss('language');
 
     // If Firebase is not connected, use fallback immediately
     if (!isFirebaseConnected) {
       const lang = ctx.from?.language_code === "am" ? "am" : "en";
-      console.log(`Using fallback language: ${lang} (Firebase not connected)`);
+      cacheUserLanguage(userId, lang);
       return lang;
     }
 
-    // Try Firestore
-    const userDoc = await firestore
-      .collection("users")
-      .doc(userId)
-      .get();
+    // DEDUPLICATION: If multiple simultaneous requests for same user, wait for first one
+    const lang = await deduplicateRequest(`getUserLang_${userId}`, async () => {
+      // Try Firestore
+      const userDoc = await firestore
+        .collection("users")
+        .doc(userId)
+        .get();
+      
+      if (userDoc.exists && userDoc.data().language) {
+        const savedLang = userDoc.data().language;
+        // Cache for future use (7 days)
+        cacheUserLanguage(userId, savedLang);
+        return savedLang;
+      }
+      
+      // If no saved language, use Telegram language_code as default
+      const defaultLang = ctx.from?.language_code === "am" ? "am" : "en";
+      // Cache the default too
+      cacheUserLanguage(userId, defaultLang);
+      return defaultLang;
+    });
     
-    if (userDoc.exists && userDoc.data().language) {
-      const savedLang = userDoc.data().language;
-      // Cache the language for immediate future use
-      setLanguageCache(userId, savedLang);
-      console.log(`✅ Retrieved saved language: ${savedLang} for user ${userId}`);
-      return savedLang;
-    }
-    
-    // If no saved language, use Telegram language_code as default
-    const defaultLang = ctx.from?.language_code === "am" ? "am" : "en";
-    console.log(`📝 No saved language, using default: ${defaultLang} for user ${userId}`);
-    return defaultLang;
+    return lang;
   } catch (error) {
     // Only log error once, not repeatedly
     if (error.code === 16) {
@@ -75,26 +87,36 @@ export async function getUserLang(ctx) {
     }
     // Fallback to Telegram language_code or 'en'
     const lang = ctx.from?.language_code === "am" ? "am" : "en";
-    console.log(`⚠️ Error fallback language: ${lang} for user ${ctx.from.id}`);
+    cacheUserLanguage(userId, lang); // Cache fallback too
     return lang;
   }
 }
 
 export async function setUserLang(ctx, lang) {
   try {
+    const userId = String(ctx.from.id);
+    
+    // ULTRA-CACHE: Update cache immediately (instant for next request)
+    cacheUserLanguage(userId, lang);
+    
     if (!isFirebaseConnected) {
-      console.log(`Mock: Setting user ${ctx.from.id} language to ${lang}`);
+      console.log(`Mock: Setting user ${userId} language to ${lang}`);
       return;
     }
 
-    await firestore.collection("users").doc(String(ctx.from.id)).set({
+    // Update database in background (don't wait)
+    firestore.collection("users").doc(userId).set({
       telegramUserID: ctx.from.id,
       language: lang,
       firstName: ctx.from.first_name,
       lastName: ctx.from.last_name,
       username: ctx.from.username,
+      lastActivity: new Date()
+    }, { merge: true }).catch(err => {
+      console.error("Error setting user language:", err.message);
     });
-    console.log(`User ${ctx.from.id} language set to ${lang}`);
+    
+    console.log(`✅ User ${userId} language set to ${lang} (cached + background save)`);
   } catch (error) {
     console.error("Error setting user language:", error.message);
   }

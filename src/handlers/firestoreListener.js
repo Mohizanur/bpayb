@@ -2,12 +2,21 @@ import { firestore } from "../utils/firestore.js";
 
 export default function firestoreListener(bot) {
   try {
+    // ⚠️ NOTE: This polling listener is REDUNDANT and wastes database reads!
+    // Notifications are already sent via verifyPayment() in paymentVerification.js
+    // when admin approves payments. This was causing excessive quota usage.
+    // 
+    // Keep this disabled unless you need backup notification system.
+    // Set ENABLE_FIRESTORE_LISTENER=true ONLY if verifyPayment notifications fail.
+    
     if (process.env.ENABLE_FIRESTORE_LISTENER !== 'true') {
-      console.log("Firestore listener disabled (set ENABLE_FIRESTORE_LISTENER=true to enable)");
+      console.log("✅ Firestore polling listener disabled (quota optimization)");
+      console.log("💡 Notifications are sent via verifyPayment() when admin approves payments");
       return;
     }
     
     // Use a polling approach instead of onSnapshot for better compatibility
+    console.log("⚠️ Firestore listener enabled - this may increase database reads");
     console.log("🔄 Setting up Firestore listener (polling mode)...");
     
     // Check for new subscriptions every 30 seconds

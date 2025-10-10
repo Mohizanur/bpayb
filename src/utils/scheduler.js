@@ -3,13 +3,24 @@ import { checkExpirationReminders } from './expirationReminder.js';
 
 /**
  * Scheduler for automated tasks
- * Runs subscription expiration checks daily
+ * DISABLED BY DEFAULT - Set ENABLE_EXPIRATION_REMINDERS=true to enable
+ * 
+ * Note: Expiration reminders are resource-intensive and optional
+ * They read all active subscriptions to check for expiring ones
+ * Only enable if you need automated expiration notifications
  */
 
 let schedulerRunning = false;
 
 // Schedule expiration checks to run daily at 9:00 AM
 export const startScheduler = () => {
+  // Check if expiration reminders are enabled
+  if (process.env.ENABLE_EXPIRATION_REMINDERS !== 'true') {
+    console.log('⏭️  Expiration reminder scheduler DISABLED (quota optimization)');
+    console.log('💡 Set ENABLE_EXPIRATION_REMINDERS=true to enable if needed');
+    return;
+  }
+
   if (schedulerRunning) {
     console.log('⚠️ Scheduler already running');
     return;

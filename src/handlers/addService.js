@@ -1,4 +1,5 @@
 import { firestore } from "../utils/firestore.js";
+import { clearServicesCache } from "../utils/loadServices.js";
 import path from 'path';
 import fs from 'fs';
 
@@ -360,6 +361,9 @@ Is this information correct?`;
       };
 
       await firestore.collection('services').doc(serviceData.serviceID).set(serviceData);
+
+      // Clear services cache to force reload with new service (QUOTA OPTIMIZATION)
+      clearServicesCache();
 
       // Also save to local services.json for backup
       try {

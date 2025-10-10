@@ -11,12 +11,12 @@ const escapeMarkdown = (text) => {
   return String(text).replace(/[_*\[\]()~`>#+\-={}|.!\\]/g, '\\$&');
 };
 
-// Helper function for admin security check - now uses smart caching
+// Helper function for admin security check - ULTRA-FAST with aggressive caching
 export const isAuthorizedAdmin = async (ctx) => {
   try {
-    // Import the smart admin check function
-    const { isAuthorizedAdmin: smartAdminCheck } = await import('../middleware/smartVerification.js');
-    return await smartAdminCheck(ctx);
+    // Import the ultra-fast admin check function
+    const { isAuthorizedAdmin: ultraAdminCheck } = await import('../middleware/ultraAdminCheck.js');
+    return await ultraAdminCheck(ctx);
   } catch (error) {
     console.error('Error checking admin status:', error);
     return false;
@@ -901,7 +901,7 @@ export default function adminHandler(bot) {
   });
 
   // Function to display users list with pagination and filters
-  async function showUsersList(ctx, page = 0, filter = 'all') {
+  async function showUsersList(ctx, page = 0, filter = 'all', searchQuery = '') {
     try {
       // Check admin authorization
       if (!(await isAuthorizedAdmin(ctx))) {
@@ -916,6 +916,24 @@ export default function adminHandler(bot) {
       } catch (error) {
         console.error('Error fetching users:', error);
         throw new Error('Failed to fetch users from database');
+      }
+
+      // Apply search filter if search query exists
+      if (searchQuery && searchQuery.trim().length > 0) {
+        const searchLower = searchQuery.toLowerCase().trim();
+        users = users.filter(user => {
+          const firstName = (user.firstName || '').toLowerCase();
+          const lastName = (user.lastName || '').toLowerCase();
+          const username = (user.username || '').toLowerCase();
+          const phone = (user.phoneNumber || '').toLowerCase();
+          const userId = (user.id || '').toLowerCase();
+          
+          return firstName.includes(searchLower) ||
+                 lastName.includes(searchLower) ||
+                 username.includes(searchLower) ||
+                 phone.includes(searchLower) ||
+                 userId.includes(searchLower);
+        });
       }
 
       // Apply filters
@@ -969,6 +987,9 @@ export default function adminHandler(bot) {
       
       let message = `👥 *Users Management* (${users.length} ${filter === 'all' ? 'total' : escapedFilter})`;
       message += `\n\n📊 *Filters:* ${escapeMarkdown(filterDisplay)} users`;
+      if (searchQuery && searchQuery.trim().length > 0) {
+        message += `\n🔍 *Search:* ${escapeMarkdown(searchQuery)}`;
+      }
       message += '\n' + '─'.repeat(30) + '\n\n';
       
       usersToShow.forEach((user, index) => {
@@ -1077,6 +1098,11 @@ export default function adminHandler(bot) {
         }
       ];
 
+      // Add search and clear search buttons
+      const searchButtons = searchQuery && searchQuery.trim().length > 0
+        ? [{ text: '❌ Clear Search', callback_data: 'users_clear_search' }]
+        : [{ text: '🔍 Search User', callback_data: 'users_search' }];
+
       // Combine all keyboard sections
       const keyboard = {
         inline_keyboard: [
@@ -1085,6 +1111,7 @@ export default function adminHandler(bot) {
             text: btn.text.replace(/\s*✅$/, '') + (btn.callback_data.includes(filter) ? ' ✅' : '')
           })),
           ...userActionButtons,
+          searchButtons,
           paginationControls.filter(btn => !btn.hide)
         ]
       };
@@ -1180,9 +1207,9 @@ export default function adminHandler(bot) {
     const filter = ctx.match[3];
     
     if (direction === 'next') {
-      page = Math.max(0, page - 1);
-    } else if (direction === 'prev') {
       page++;
+    } else if (direction === 'prev') {
+      page = Math.max(0, page - 1);
     }
     
     await ctx.answerCbQuery();
@@ -1206,6 +1233,47 @@ export default function adminHandler(bot) {
     
     await ctx.answerCbQuery(`Showing ${filter} users...`);
     await showUsersList(ctx, page, filter);
+  });
+
+  // Handle search user action
+  bot.action('users_search', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    await ctx.answerCbQuery();
+
+    // Store the search state
+    if (!ctx.session) ctx.session = {};
+    ctx.session.awaitingUserSearch = true;
+
+    await ctx.reply('🔍 *Search Users*\n\nPlease enter search term (username, name, phone, or user ID):\n\nType /cancel to cancel search.', {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '❌ Cancel', callback_data: 'users_clear_search' }]
+        ]
+      }
+    });
+  });
+
+  // Handle clear search action
+  bot.action('users_clear_search', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    await ctx.answerCbQuery();
+
+    // Clear search state
+    if (ctx.session) {
+      ctx.session.awaitingUserSearch = false;
+      ctx.session.userSearchQuery = '';
+    }
+
+    await showUsersList(ctx, 0, 'all');
   });
   
   // No-op handler for disabled navigation buttons
@@ -5990,6 +6058,26 @@ To cancel, click the Cancel button below.`;
     if (!(await isAuthorizedAdmin(ctx))) {
       console.log('🔍 User not authorized as admin');
       return; // Not an admin, ignore
+    }
+
+    // Check if admin is searching for users
+    if (ctx.session?.awaitingUserSearch) {
+      const searchQuery = ctx.message.text.trim();
+
+      if (searchQuery.toLowerCase() === '/cancel') {
+        ctx.session.awaitingUserSearch = false;
+        ctx.session.userSearchQuery = '';
+        await ctx.reply('❌ Search cancelled.');
+        await showUsersList(ctx, 0, 'all');
+        return;
+      }
+
+      ctx.session.awaitingUserSearch = false;
+      ctx.session.userSearchQuery = searchQuery;
+
+      await ctx.reply(`🔍 Searching for: *${searchQuery}*...`, { parse_mode: 'Markdown' });
+      await showUsersList(ctx, 0, 'all', searchQuery);
+      return;
     }
 
     // Check if admin is in custom pricing state - MUST BE FIRST

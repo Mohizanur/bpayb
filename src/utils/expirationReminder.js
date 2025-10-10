@@ -22,6 +22,7 @@ class ExpirationReminder {
     await this.checkExpirationReminders();
 
     // Set up daily checks at 9:00 AM and 6:00 PM
+    // OPTIMIZED: Check every 6 hours instead of every hour to reduce database reads
     this.checkInterval = setInterval(async () => {
       const now = new Date();
       const hour = now.getHours();
@@ -31,7 +32,7 @@ class ExpirationReminder {
         console.log(`⏰ Running scheduled expiration check at ${hour}:00`);
         await this.checkExpirationReminders();
       }
-    }, 60 * 60 * 1000); // Check every hour
+    }, 6 * 60 * 60 * 1000); // Check every 6 hours (reduced from 1 hour for quota optimization)
 
     console.log('✅ Expiration reminder system started');
   }

@@ -128,5 +128,17 @@
     "logoUrl": "/public/logos/peacock.svg",
     "approvalRequiredFlag": true,
     "description": "NBC content and originals"
+  },
+  {
+    "serviceID": "upwork",
+    "name": "Upwork Connects",
+    "plans": [
+      { "duration": 30, "price": 1350, "billingCycle": "30 Connects" },
+      { "duration": 50, "price": 1800, "billingCycle": "50 Connects" },
+      { "duration": 100, "price": 3250, "billingCycle": "100 Connects" }
+    ],
+    "logoUrl": "/public/logos/upwork.svg",
+    "approvalRequiredFlag": true,
+    "description": "Upwork connects for freelancing"
   }
 ]
