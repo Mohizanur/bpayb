@@ -1370,7 +1370,13 @@ All pending operations have been cancelled. You can start fresh with /start`, {
     setupPhoneVerification(bot);
 
     // Register other handlers - ADMIN FIRST to handle service editing before support
-    adminHandler(bot); // This registers all working admin handlers from src/handlers/admin.js
+    console.log('🔧 ABOUT TO REGISTER ADMIN HANDLER...');
+    try {
+      adminHandler(bot); // This registers all working admin handlers from src/handlers/admin.js
+      console.log('✅ ADMIN HANDLER REGISTERED SUCCESSFULLY');
+    } catch (error) {
+      console.error('❌ ERROR REGISTERING ADMIN HANDLER:', error);
+    }
     supportHandler(bot);
     helpHandler(bot);
     mySubscriptionsHandler(bot);
