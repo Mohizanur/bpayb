@@ -88,6 +88,7 @@ const getUserDisplayInfo = (user) => {
 };
 
 export default function adminHandler(bot) {
+  console.log('🚀 ADMIN HANDLER INITIALIZING...');
 
   // Unified function to get subscription statistics - OPTIMIZED with smart caching
   async function getSubscriptionStats() {
@@ -2210,8 +2211,10 @@ Send a message to all active users of the bot.
     return next();
   };
 
-  // Register unified text handler
+  // Register unified text handler with debug logging
+  console.log('🔧 REGISTERING ADMIN TEXT HANDLER');
   bot.on('text', handleAdminTextMessage);
+  console.log('✅ ADMIN TEXT HANDLER REGISTERED');
   bot.on('photo', handleBroadcastMessage);
   bot.on('video', handleBroadcastMessage);
   bot.on('document', handleBroadcastMessage);
@@ -6115,4 +6118,12 @@ To cancel, click the Cancel button below.`;
   bot.action('noop', async (ctx) => {
     await ctx.answerCbQuery();
   });
+
+  // TEST HANDLER - Simple test to see if admin handler is working
+  bot.action('test_admin_handler', async (ctx) => {
+    console.log('🧪 TEST ADMIN HANDLER CALLED');
+    await ctx.answerCbQuery('Admin handler is working!');
+  });
+
+  console.log('✅ ADMIN HANDLER FULLY INITIALIZED');
 }
