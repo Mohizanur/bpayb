@@ -2158,9 +2158,14 @@ All pending operations have been cancelled. You can start fresh with /start`, {
       console.log(`🌐 Webhook URL: ${webhookUrl}`);
       console.log("⚡ Webhook mode: Instant response times (50-100ms)");
 
-      // Start expiration reminder system
-      await expirationReminder.start();
-      console.log("⏰ Expiration reminder system started");
+      // Start expiration reminder system (DISABLED by default for quota optimization)
+      if (process.env.ENABLE_EXPIRATION_REMINDERS === 'true') {
+        await expirationReminder.start();
+        console.log("⏰ Expiration reminder system started");
+      } else {
+        console.log("⏭️  Expiration reminder system DISABLED (quota optimization)");
+        console.log("💡 Set ENABLE_EXPIRATION_REMINDERS=true to enable if needed");
+      }
     } catch (error) {
       console.log("⚠️ Webhook setup failed, falling back to polling...");
       console.log("Error:", error.message);
