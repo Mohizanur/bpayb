@@ -5,6 +5,15 @@ import { firestore } from './firestore.js';
 
 // Helper function to calculate end date based on duration
 function calculateEndDate(startDate, duration) {
+  // Handle special cases (connects don't have expiry)
+  if (duration && duration.includes('connect')) {
+    // Connects are immediate delivery, no expiry date
+    // Set expiry far in the future (10 years) to indicate "permanent"
+    const date = new Date(startDate);
+    date.setFullYear(date.getFullYear() + 10);
+    return date.toISOString();
+  }
+  
   const date = new Date(startDate);
   const [value, unit] = duration.split('_');
   const months = unit === 'month' || unit === 'months' ? parseInt(value) : 1;

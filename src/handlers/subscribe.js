@@ -55,16 +55,30 @@ function setupSubscribeHandler(bot) {
       
       // Create inline keyboard with available plans
       const planButtons = service.plans.map(plan => {
-        const durationText = plan.duration === 1 
-          ? t('month', lang)
-          : plan.duration < 12 
-            ? t('months', lang)
-            : t('year', lang);
+        // Determine if this is a connect-based service (Upwork) or month-based
+        const isConnectBased = plan.billingCycle && plan.billingCycle.toLowerCase().includes('connect');
+        
+        let durationText;
+        if (isConnectBased) {
+          // For connect-based services (Upwork)
+          durationText = plan.billingCycle; // e.g., "30 Connects"
+        } else {
+          // For month-based services (Netflix, etc.)
+          durationText = plan.duration === 1 
+            ? t('month', lang)
+            : plan.duration < 12 
+              ? t('months', lang)
+              : t('year', lang);
+        }
+        
         const currency = lang === 'am' ? t('birr', lang) : 'ETB';
+        const durationType = isConnectBased ? 'c' : 'm'; // 'c' = connects, 'm' = months
         
         return {
-          text: `${plan.duration} ${durationText} - ${plan.price} ${currency}`,
-        callback_data: `subscribe_${service.id || service.serviceID}_${plan.duration}m_${plan.price}`
+          text: isConnectBased 
+            ? `${plan.billingCycle} - ${plan.price} ${currency}`
+            : `${plan.duration} ${durationText} - ${plan.price} ${currency}`,
+          callback_data: `subscribe_${service.id || service.serviceID}_${plan.duration}${durationType}_${plan.price}`
         };
       });
       
@@ -115,11 +129,11 @@ function setupSubscribeHandler(bot) {
     }
   });
 
-  // Handle subscription with duration and price
-  bot.action(/^subscribe_([a-z0-9_()+.-]+)_(\d+m)_(\d+)$/i, async (ctx) => {
+  // Handle subscription with duration and price (supports both months and connects)
+  bot.action(/^subscribe_([a-z0-9_()+.-]+)_(\d+[mc])_(\d+)$/i, async (ctx) => {
     try {
       const serviceId = ctx.match[1];
-      const duration = ctx.match[2]; // e.g., '1m', '3m', '6m', '12m'
+      const duration = ctx.match[2]; // e.g., '1m', '3m', '30c', '50c'
       const price = parseInt(ctx.match[3], 10);
       const lang = await getUserLanguage(ctx);
       
@@ -143,9 +157,17 @@ function setupSubscribeHandler(bot) {
         return;
       }
 
-      // Parse duration
-      const months = parseInt(duration, 10);
-      const durationText = `${months} ${months === 1 ? t('month', lang) : t('months', lang)}`;
+      // Parse duration (supports months 'm' and connects 'c')
+      const durationType = duration.slice(-1); // 'm' or 'c'
+      const durationValue = parseInt(duration, 10);
+      const isConnectBased = durationType === 'c';
+      
+      let durationText;
+      if (isConnectBased) {
+        durationText = `${durationValue} Connects`;
+      } else {
+        durationText = `${durationValue} ${durationValue === 1 ? t('month', lang) : t('months', lang)}`;
+      }
 
       // Format price
       const formattedPrice = price.toLocaleString('en-US');
@@ -175,8 +197,8 @@ function setupSubscribeHandler(bot) {
     }
   });
 
-  // Handle subscription confirmation
-  bot.action(/^confirm_sub_([a-z0-9_()+.-]+)_(\d+m)_(\d+)$/i, async (ctx) => {
+  // Handle subscription confirmation (supports both months and connects)
+  bot.action(/^confirm_sub_([a-z0-9_()+.-]+)_(\d+[mc])_(\d+)$/i, async (ctx) => {
     try {
       console.log('🔍 Subscription confirmation callback received:', ctx.callbackQuery.data);
       const serviceId = ctx.match[1];
@@ -206,11 +228,20 @@ function setupSubscribeHandler(bot) {
         return;
       }
 
-      const months = parseInt(duration, 10);
-      const durationText = `${months} ${months === 1 ? t('month', lang) : t('months', lang)}`;
+      // Parse duration (supports months 'm' and connects 'c')
+      const durationType = duration.slice(-1); // 'm' or 'c'
+      const durationValue = parseInt(duration, 10);
+      const isConnectBased = durationType === 'c';
+      
+      let durationText;
+      if (isConnectBased) {
+        durationText = `${durationValue} Connects`;
+      } else {
+        durationText = `${durationValue} ${durationValue === 1 ? t('month', lang) : t('months', lang)}`;
+      }
       
       // Find the matching plan
-      const plan = service.plans?.find(p => p.duration === months);
+      const plan = service.plans?.find(p => p.duration === durationValue);
       
       // Payment instructions
         // Get payment methods from Firestore - OPTIMIZED with smart caching
