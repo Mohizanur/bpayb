@@ -355,7 +355,7 @@ ${t('service_start_after_approval', lang)}`;
         `👤 User: ${ctx.from.first_name} ${ctx.from.last_name || ''} (@${ctx.from.username || 'no_username'})\n` +
         `🆔 User ID: ${userId}\n` +
         `📱 Service: ${service.name}\n` +
-        `⏳ Duration: ${months} ${months === 1 ? 'Month' : 'Months'}\n` +
+        `⏳ Duration: ${durationText}\n` +
         `💰 Amount: ${price.toLocaleString()} ETB\n\n` +
         `Payment ID: ${paymentId}`;
 
