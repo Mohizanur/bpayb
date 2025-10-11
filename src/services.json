@@ -1,144 +1,860 @@
 [
   {
-    "serviceID": "netflix",
-    "name": "Netflix",
+    "serviceID": "adobecreativecloud(allapps)",
+    "name": "Adobe Creative Cloud (All Apps)",
     "plans": [
-      { "duration": 1, "price": 350, "billingCycle": "Monthly" },
-      { "duration": 3, "price": 1000, "billingCycle": "3 Months" },
-      { "duration": 6, "price": 1900, "billingCycle": "6 Months" },
-      { "duration": 12, "price": 3600, "billingCycle": "12 Months" }
+      {
+        "duration": 1,
+        "price": 11515,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 32820,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 61320,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 106950,
+        "billingCycle": "12 Months"
+      }
     ],
-    "logoUrl": "/public/logos/netflix.svg",
+    "logoUrl": "/public/logos/adobecreativecloud(allapps).svg",
     "approvalRequiredFlag": true,
-    "description": "Stream movies, TV shows and more"
+    "description": "Get Adobe Creative Cloud (All Apps) service easily  with local currency"
+  },
+  {
+    "serviceID": "adobeexpress(premium)",
+    "name": "Adobe Express (Premium)",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 2960,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 8320,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 15120,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 26250,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/adobeexpress(premium).svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Adobe Express (Premium) service easily  with local currency"
+  },
+  {
+    "serviceID": "amazonprime",
+    "name": "Amazon Prime",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 2474,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 6960,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 12880,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 22500,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/amazonprime.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Amazon Prime service easily  with local currency"
   },
   {
     "serviceID": "prime",
     "name": "Amazon Prime",
-    "plans": [
-      { "duration": 1, "price": 300, "billingCycle": "Monthly" },
-      { "duration": 3, "price": 850, "billingCycle": "3 Months" },
-      { "duration": 6, "price": 1600, "billingCycle": "6 Months" },
-      { "duration": 12, "price": 3000, "billingCycle": "12 Months" }
-    ],
-    "logoUrl": "/public/logos/prime.svg",
+    "plans": [],
+    "logoUrl": "/logos/prime.svg",
     "approvalRequiredFlag": true,
     "description": "Prime Video, Music and Shopping benefits"
   },
   {
-    "serviceID": "spotify",
-    "name": "Spotify Premium",
+    "serviceID": "amazon-prime",
+    "name": "amzon prime edited",
     "plans": [
-      { "duration": 1, "price": 250, "billingCycle": "Monthly" },
-      { "duration": 3, "price": 700, "billingCycle": "3 Months" },
-      { "duration": 6, "price": 1350, "billingCycle": "6 Months" },
-      { "duration": 12, "price": 2500, "billingCycle": "12 Months" }
+      {
+        "duration": 1,
+        "price": 300,
+        "billingCycle": "monthly"
+      },
+      {
+        "duration": 3,
+        "price": 810,
+        "billingCycle": "quarterly"
+      },
+      {
+        "duration": 6,
+        "price": 1500,
+        "billingCycle": "semi-annual"
+      },
+      {
+        "duration": 12,
+        "price": 2700,
+        "billingCycle": "annual"
+      }
     ],
-    "logoUrl": "/public/logos/spotify.svg",
+    "logoUrl": "/public/logos/amazon-prime.svg",
     "approvalRequiredFlag": true,
-    "description": "Music streaming without ads"
-  },
-  {
-    "serviceID": "disney",
-    "name": "Disney+",
-    "plans": [
-      { "duration": 1, "price": 280, "billingCycle": "Monthly" },
-      { "duration": 3, "price": 800, "billingCycle": "3 Months" },
-      { "duration": 6, "price": 1500, "billingCycle": "6 Months" },
-      { "duration": 12, "price": 2800, "billingCycle": "12 Months" }
-    ],
-    "logoUrl": "/public/logos/disney.svg",
-    "approvalRequiredFlag": true,
-    "description": "Disney, Marvel, Star Wars content"
-  },
-  {
-    "serviceID": "hulu",
-    "name": "Hulu",
-    "plans": [
-      { "duration": 1, "price": 320, "billingCycle": "Monthly" },
-      { "duration": 3, "price": 900, "billingCycle": "3 Months" },
-      { "duration": 6, "price": 1700, "billingCycle": "6 Months" },
-      { "duration": 12, "price": 3200, "billingCycle": "12 Months" }
-    ],
-    "logoUrl": "/public/logos/hulu.svg",
-    "approvalRequiredFlag": true,
-    "description": "TV shows and movies streaming"
-  },
-  {
-    "serviceID": "youtube",
-    "name": "YouTube Premium",
-    "plans": [
-      { "duration": 1, "price": 200, "billingCycle": "Monthly" },
-      { "duration": 3, "price": 550, "billingCycle": "3 Months" },
-      { "duration": 6, "price": 1050, "billingCycle": "6 Months" },
-      { "duration": 12, "price": 2000, "billingCycle": "12 Months" }
-    ],
-    "logoUrl": "/public/logos/youtube.svg",
-    "approvalRequiredFlag": true,
-    "description": "Ad-free YouTube with offline downloads"
+    "description": "Amazon Prime Video subscri"
   },
   {
     "serviceID": "apple",
     "name": "Apple TV+",
-    "plans": [
-      { "duration": 1, "price": 180, "billingCycle": "Monthly" },
-      { "duration": 3, "price": 500, "billingCycle": "3 Months" },
-      { "duration": 6, "price": 950, "billingCycle": "6 Months" },
-      { "duration": 12, "price": 1800, "billingCycle": "12 Months" }
-    ],
-    "logoUrl": "/public/logos/apple.svg",
+    "plans": [],
+    "logoUrl": "/logos/apple.svg",
     "approvalRequiredFlag": true,
     "description": "Original shows and movies"
   },
   {
+    "serviceID": "appletv+",
+    "name": "Apple TV+",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 1653,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 4690,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 8760,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 15000,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/appletv+.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Apple TV+ service easily  with local currency"
+  },
+  {
+    "serviceID": "canvapro",
+    "name": "Canva Pro",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 1653,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 4690,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 8760,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 15000,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/canvapro.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Canva Pro service easily  with local currency"
+  },
+  {
+    "serviceID": "chatgptplus",
+    "name": "ChatGPT Plus",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 3300,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 9255,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 17160,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 29250,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/chatgptplus.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get  ChatGPT Plus service easily  with local currency"
+  },
+  {
+    "serviceID": "chatgptpro",
+    "name": "ChatGPT Pro",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 33000,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 92400,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 171840,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 292500,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/chatgptpro.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get ChatGPT Pro service easily  with local currency"
+  },
+  {
+    "serviceID": "disney",
+    "name": "Disney+",
+    "plans": [],
+    "logoUrl": "/logos/disney.svg",
+    "approvalRequiredFlag": true,
+    "description": "Disney, Marvel, Star Wars content"
+  },
+  {
+    "serviceID": "disney+",
+    "name": "Disney+",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 2643,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 7515,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 13875,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 24150,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/disney+.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Disney+ service easily  with local currency"
+  },
+  {
+    "serviceID": "duolingopremium",
+    "name": "Duolingo Premium",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 1935,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 5520,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 10320,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 18100,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/duolingopremium.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Duolingo Premium service easily  with local currency"
+  },
+  {
+    "serviceID": "expressvpn",
+    "name": "ExpressVPN",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 2310,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 6495,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 11850,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 20250,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/expressvpn.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get ExpressVPN service easily  with local currency"
+  },
+  {
+    "serviceID": "facebookverification",
+    "name": "Facebook Verification",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 3634,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 10335,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 19440,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 34500,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/facebookverification.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Facebook Verification service easily  with local currency"
+  },
+  {
+    "serviceID": "googleone",
+    "name": "Google One",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 1653,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 4690,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 8760,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 15000,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/googleone.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Google One service easily  with local currency"
+  },
+  {
+    "serviceID": "grokplus",
+    "name": "Grok Plus",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 8775,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 24900,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 45960,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 79875,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/grokplus.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Grok Plus service easily  with local currency"
+  },
+  {
+    "serviceID": "grokpro",
+    "name": "Grok Pro",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 4948,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 14040,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 25920,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 44625,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/grokpro.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Grok Pro service easily  with local currency"
+  },
+  {
     "serviceID": "hbo",
     "name": "HBO Max",
-    "plans": [
-      { "duration": 1, "price": 400, "billingCycle": "Monthly" },
-      { "duration": 3, "price": 1100, "billingCycle": "3 Months" },
-      { "duration": 6, "price": 2100, "billingCycle": "6 Months" },
-      { "duration": 12, "price": 4000, "billingCycle": "12 Months" }
-    ],
-    "logoUrl": "/public/logos/hbo.svg",
+    "plans": [],
+    "logoUrl": "/logos/hbo.svg",
     "approvalRequiredFlag": true,
     "description": "Premium movies and series"
   },
   {
+    "serviceID": "hulu",
+    "name": "Hulu",
+    "plans": [],
+    "logoUrl": "/logos/hulu.svg",
+    "approvalRequiredFlag": true,
+    "description": "TV shows and movies streaming"
+  },
+  {
+    "serviceID": "instagramverification",
+    "name": "Instagram Verification",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 2474,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 6960,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 12880,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 22500,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/instagramverification.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Instagram Verification service easily  with local currency"
+  },
+  {
+    "serviceID": "linkedinpremium",
+    "name": "LinkedIn Premium",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 2310,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 6495,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 11850,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 20250,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/linkedinpremium.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get LinkedIn Premium service easily  with local currency"
+  },
+  {
+    "serviceID": "netflix",
+    "name": "Netflix",
+    "plans": [],
+    "logoUrl": "/logos/netflix.svg",
+    "approvalRequiredFlag": true,
+    "description": "Stream movies, TV shows and more"
+  },
+  {
+    "serviceID": "netflixpremium",
+    "name": "Netflix Premium",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 4113,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 12210,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 22710,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 39150,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/netflixpremium.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Netflix Premium service easily  with local currency"
+  },
+  {
+    "serviceID": "netflixstandard",
+    "name": "Netflix Standard",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 2970,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 8820,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 16380,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 28350,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/netflixstandard.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Netflix Standard service easily  with local currency"
+  },
+  {
+    "serviceID": "nordvpn",
+    "name": "NordVPN",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 2062,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 5865,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 10995,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 19250,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/nordvpn.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get NordVPN service easily  with local currency"
+  },
+  {
     "serviceID": "paramount",
     "name": "Paramount+",
-    "plans": [
-      { "duration": 1, "price": 220, "billingCycle": "Monthly" },
-      { "duration": 3, "price": 600, "billingCycle": "3 Months" },
-      { "duration": 6, "price": 1200, "billingCycle": "6 Months" },
-      { "duration": 12, "price": 2200, "billingCycle": "12 Months" }
-    ],
-    "logoUrl": "/public/logos/paramount.svg",
+    "plans": [],
+    "logoUrl": "/logos/paramount.svg",
     "approvalRequiredFlag": true,
     "description": "CBS, Paramount movies and shows"
   },
   {
     "serviceID": "peacock",
     "name": "Peacock Premium",
-    "plans": [
-      { "duration": 1, "price": 190, "billingCycle": "Monthly" },
-      { "duration": 3, "price": 520, "billingCycle": "3 Months" },
-      { "duration": 6, "price": 980, "billingCycle": "6 Months" },
-      { "duration": 12, "price": 1800, "billingCycle": "12 Months" }
-    ],
-    "logoUrl": "/public/logos/peacock.svg",
+    "plans": [],
+    "logoUrl": "/logos/peacock.svg",
     "approvalRequiredFlag": true,
     "description": "NBC content and originals"
   },
   {
-    "serviceID": "upwork",
+    "serviceID": "spotify",
+    "name": "Spotify Premium",
+    "plans": [],
+    "logoUrl": "/logos/spotify.svg",
+    "approvalRequiredFlag": true,
+    "description": "Music streaming without ads"
+  },
+  {
+    "serviceID": "spotifypremium",
+    "name": "Spotify Premium",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 1978,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 5580,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 10170,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 17550,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/spotifypremium.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get Spotify Premium service easily  with local currency"
+  },
+  {
+    "serviceID": "surfsharkvpn",
+    "name": "Surfshark VPN",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 358,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 1020,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 1920,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 3420,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/surfsharkvpn.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get  Surfshark VPN service easily  with local currency"
+  },
+  {
+    "serviceID": "telegrampremium",
+    "name": "Telegram Premium",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 1332,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 3800,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 7040,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 12500,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/telegrampremium.svg",
+    "approvalRequiredFlag": true,
+    "description": "get Telegram Premium service easily with local currency"
+  },
+  {
+    "serviceID": "upworkconnect(perconnect)",
     "name": "Upwork Connects",
     "plans": [
-      { "duration": 30, "price": 1350, "billingCycle": "30 Connects" },
-      { "duration": 50, "price": 1800, "billingCycle": "50 Connects" },
-      { "duration": 100, "price": 3250, "billingCycle": "100 Connects" }
+      {
+        "duration": 30,
+        "price": 1350,
+        "billingCycle": "30 Connects"
+      },
+      {
+        "duration": 50,
+        "price": 1800,
+        "billingCycle": "50 Connects"
+      },
+      {
+        "duration": 100,
+        "price": 3250,
+        "billingCycle": "100 Connects"
+      }
     ],
-    "logoUrl": "/public/logos/upwork.svg",
+    "logoUrl": "/public/logos/upworkconnect(perconnect).svg",
     "approvalRequiredFlag": true,
-    "description": "Upwork connects for freelancing"
+    "description": "Get Upwork Connect (per Connect) service easily  with local currency"
+  },
+  {
+    "serviceID": "xpremium",
+    "name": "X Premium",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 1980,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 5595,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 10200,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 18300,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/xpremium.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get X Premium service easily  with local currency"
+  },
+  {
+    "serviceID": "xboxgamepass",
+    "name": "Xbox Game Pass",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 3300,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 9255,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 17160,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 29250,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/xboxgamepass.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get  Xbox Game Pass service easily  with local currency"
+  },
+  {
+    "serviceID": "youtube",
+    "name": "YouTube Premium",
+    "plans": [],
+    "logoUrl": "/logos/youtube.svg",
+    "approvalRequiredFlag": true,
+    "description": "Ad-free YouTube with offline downloads"
+  },
+  {
+    "serviceID": "youtubepremium",
+    "name": "YouTube Premium",
+    "plans": [
+      {
+        "duration": 1,
+        "price": 2310,
+        "billingCycle": "Monthly"
+      },
+      {
+        "duration": 3,
+        "price": 6495,
+        "billingCycle": "3 Months"
+      },
+      {
+        "duration": 6,
+        "price": 11850,
+        "billingCycle": "6 Months"
+      },
+      {
+        "duration": 12,
+        "price": 20250,
+        "billingCycle": "12 Months"
+      }
+    ],
+    "logoUrl": "/public/logos/youtubepremium.svg",
+    "approvalRequiredFlag": true,
+    "description": "Get YouTube Premium service easily  with local currency"
   }
 ]
