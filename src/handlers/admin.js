@@ -3580,6 +3580,7 @@ Icon: 📱
           updatedAt: new Date(),
           updatedBy: ctx.from.id.toString()
         });
+        }
       }
 
       const activeCount = paymentMethods.filter(method => method.active).length;
@@ -3628,8 +3629,6 @@ ${methodsList}
           ]
         }
       });
-      
-      await ctx.answerCbQuery();
     } catch (error) {
       console.error('Error loading payment methods:', error);
       await ctx.answerCbQuery('❌ Error loading payment methods');
@@ -4727,13 +4726,11 @@ The request has been rejected and the user has been notified.`, {
       const subscriptionData = await getCachedSubscriptions().then(subs => 
         subs.find(sub => sub.id === subscriptionId)
       );
-      const subscriptionDoc = { exists: !!subscriptionData, data: () => subscriptionData };
-      if (!subscriptionDoc.exists) {
+      
+      if (!subscriptionData) {
         await ctx.answerCbQuery('❌ Subscription not found');
         return;
       }
-
-      const subscriptionData = subscriptionDoc.data();
       
       // Calculate end date based on duration
       const startDate = new Date();
@@ -4832,13 +4829,11 @@ Thank you for choosing BirrPay! 🙏`;
       const subscriptionData = await getCachedSubscriptions().then(subs => 
         subs.find(sub => sub.id === subscriptionId)
       );
-      const subscriptionDoc = { exists: !!subscriptionData, data: () => subscriptionData };
-      if (!subscriptionDoc.exists) {
+      
+      if (!subscriptionData) {
         await ctx.answerCbQuery('❌ Subscription not found');
         return;
       }
-
-      const subscriptionData = subscriptionDoc.data();
       
       // Update subscription status to rejected
       await firestore.collection('subscriptions').doc(subscriptionId).update({
@@ -4919,13 +4914,11 @@ Thank you for choosing BirrPay! 🙏`;
       const subscriptionData = await getCachedSubscriptions().then(subs => 
         subs.find(sub => sub.id === subscriptionId)
       );
-      const subscriptionDoc = { exists: !!subscriptionData, data: () => subscriptionData };
-      if (!subscriptionDoc.exists) {
+      
+      if (!subscriptionData) {
         await ctx.answerCbQuery('❌ Subscription not found');
         return;
       }
-
-      const subscriptionData = subscriptionDoc.data();
       
       const detailsMsg = `📋 **Subscription Details**
 
@@ -5666,26 +5659,21 @@ You can search by:
         try {
       const serviceId = ctx.match[1];
       console.log(`🔍 Opening edit menu for service ID: "${serviceId}"`);
-      
+
       // ULTRA-CACHE: Get service from cache (no DB read!)
       const adminData = await getCachedAdminData();
       const serviceData = adminData.services.find(s => s.id === serviceId);
-      const serviceDoc = { exists: !!serviceData, data: () => serviceData };
       
-      if (!serviceDoc.exists) {
+      if (!serviceData) {
         console.error(`❌ Service not found in Firestore: "${serviceId}"`);
         
         // Try to list all services to debug
-        // ULTRA-CACHE: Get all services from cache (no DB read!)
-        const adminData = await getCachedAdminData();
         const allServices = { docs: adminData.services.map(service => ({ id: service.id, data: () => service })) };
         console.log('Available services:', allServices.docs.map(doc => `"${doc.id}"`));
-        
+
         await ctx.answerCbQuery('❌ Service not found');
         return;
       }
-
-      const serviceData = serviceDoc.data();
       
       const editMessage = `✏️ **Edit Service: ${serviceData.name}**
 
@@ -5750,14 +5738,11 @@ ${serviceData.plans?.map((plan, index) => `${index + 1}. ${plan.billingCycle}: E
       // ULTRA-CACHE: Get service from cache (no DB read!)
       const adminData = await getCachedAdminData();
       const serviceData = adminData.services.find(s => s.id === serviceId);
-      const serviceDoc = { exists: !!serviceData, data: () => serviceData };
-      
-      if (!serviceDoc.exists) {
+
+      if (!serviceData) {
         await ctx.answerCbQuery('❌ Service not found');
         return;
       }
-
-      const serviceData = serviceDoc.data();
       
       const confirmMessage = `🗑️ **Delete Service Confirmation**
 
@@ -5866,22 +5851,17 @@ Are you sure you want to delete this service?`;
       // ULTRA-CACHE: Get service from cache (no DB read!)
       const adminData = await getCachedAdminData();
       const serviceData = adminData.services.find(s => s.id === serviceId);
-      const serviceDoc = { exists: !!serviceData, data: () => serviceData };
-      
-      if (!serviceDoc.exists) {
+
+      if (!serviceData) {
         console.error(`❌ Service not found in Firestore: "${serviceId}"`);
-        
+
         // Try to list all services to debug
-        // ULTRA-CACHE: Get all services from cache (no DB read!)
-        const adminData = await getCachedAdminData();
         const allServices = { docs: adminData.services.map(service => ({ id: service.id, data: () => service })) };
         console.log('Available services:', allServices.docs.map(doc => `"${doc.id}"`));
         
         await ctx.answerCbQuery('❌ Service not found');
         return;
       }
-
-      const serviceData = serviceDoc.data();
       
       // Set up state for editing
       if (!global.serviceEditState) global.serviceEditState = {};
@@ -5932,14 +5912,11 @@ Please send the new name for this service:`;
       // ULTRA-CACHE: Get service from cache (no DB read!)
       const adminData = await getCachedAdminData();
       const serviceData = adminData.services.find(s => s.id === serviceId);
-      const serviceDoc = { exists: !!serviceData, data: () => serviceData };
-      
-      if (!serviceDoc.exists) {
+
+      if (!serviceData) {
         await ctx.answerCbQuery('❌ Service not found');
         return;
       }
-
-      const serviceData = serviceDoc.data();
       
       // Set up state for editing
       if (!global.serviceEditState) global.serviceEditState = {};
@@ -5987,14 +5964,11 @@ Please send the new description for this service:`;
       // ULTRA-CACHE: Get service from cache (no DB read!)
       const adminData = await getCachedAdminData();
       const serviceData = adminData.services.find(s => s.id === serviceId);
-      const serviceDoc = { exists: !!serviceData, data: () => serviceData };
-      
-      if (!serviceDoc.exists) {
+
+      if (!serviceData) {
         await ctx.answerCbQuery('❌ Service not found');
         return;
       }
-
-      const serviceData = serviceDoc.data();
       
       // Set up state for editing
       if (!global.serviceEditState) global.serviceEditState = {};
@@ -6051,14 +6025,11 @@ Please send the new plans in the format:
       // ULTRA-CACHE: Get service from cache (no DB read!)
       const adminData = await getCachedAdminData();
       const serviceData = adminData.services.find(s => s.id === serviceId);
-      const serviceDoc = { exists: !!serviceData, data: () => serviceData };
-      
-      if (!serviceDoc.exists) {
+
+      if (!serviceData) {
         await ctx.answerCbQuery('❌ Service not found');
         return;
       }
-
-      const serviceData = serviceDoc.data();
       const currentStatus = serviceData.status || 'active';
       const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
       
