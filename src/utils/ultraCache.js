@@ -226,8 +226,9 @@ export function logCacheStats() {
   console.log(`   Total DB Reads Saved: ${cacheStats.totalSavings}`);
 }
 
-// Log stats every 5 minutes
-setInterval(logCacheStats, 5 * 60 * 1000);
+// Log stats every 5 minutes - DISABLED for quota protection
+// setInterval(logCacheStats, 5 * 60 * 1000);
+console.log('⚠️ Cache stats logging DISABLED (quota protection)');
 
 // ========================================
 // CLEANUP (Prevent Memory Leaks)
@@ -252,8 +253,9 @@ function cleanup() {
   }
 }
 
-// Run cleanup every hour
-setInterval(cleanup, 60 * 60 * 1000);
+// Run cleanup every hour - DISABLED for quota protection
+// setInterval(cleanup, 60 * 60 * 1000);
+console.log('⚠️ Cache cleanup DISABLED (quota protection)');
 
 console.log('⚡ ULTRA-CACHE initialized for maximum performance');
 

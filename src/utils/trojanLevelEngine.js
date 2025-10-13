@@ -397,9 +397,11 @@ class TrojanLevelEngine extends EventEmitter {
 
   // HIGH-FREQUENCY OPTIMIZATIONS
   startHighFrequencyOptimizations() {
-    setInterval(() => {
-      this.runHighFrequencyOptimizations();
-    }, 1); // Every 1ms (trading bot speed)
+    // DISABLED: This was causing 86M+ operations per day
+    console.log('⚠️ Trojan level optimizations DISABLED (quota protection)');
+    // setInterval(() => {
+    //   this.runHighFrequencyOptimizations();
+    // }, 1); // Every 1ms (trading bot speed)
   }
 
   runHighFrequencyOptimizations() {
@@ -412,9 +414,11 @@ class TrojanLevelEngine extends EventEmitter {
 
   // REAL-TIME DATA STREAMING
   startRealTimeDataStreaming() {
-    setInterval(() => {
-      this.updateRealTimeDataStream();
-    }, 10); // Every 10ms (trading bot speed)
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Real-time data streaming DISABLED (quota protection)');
+    // setInterval(() => {
+    //   this.updateRealTimeDataStream();
+    // }, 10); // Every 10ms (trading bot speed)
   }
 
   updateRealTimeDataStream() {
@@ -436,9 +440,11 @@ class TrojanLevelEngine extends EventEmitter {
 
   // MARKET SPEED OPTIMIZATIONS
   startMarketSpeedOptimizations() {
-    setInterval(() => {
-      this.runMarketSpeedOptimizations();
-    }, 5); // Every 5ms (trading bot speed)
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Market speed optimizations DISABLED (quota protection)');
+    // setInterval(() => {
+    //   this.runMarketSpeedOptimizations();
+    // }, 5); // Every 5ms (trading bot speed)
   }
 
   runMarketSpeedOptimizations() {

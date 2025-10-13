@@ -305,9 +305,11 @@ class UltraPerformanceEngine {
   }
 
   startPerformanceMonitoring() {
-    setInterval(() => {
-      this.updatePerformanceMetrics();
-    }, 1000); // Update every second
+    // DISABLED: This was causing 86K+ operations per day
+    console.log('⚠️ Performance monitoring DISABLED (quota protection)');
+    // setInterval(() => {
+    //   this.updatePerformanceMetrics();
+    // }, 1000); // Update every second
   }
 
   updatePerformanceMetrics() {
