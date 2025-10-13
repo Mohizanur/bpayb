@@ -3519,12 +3519,10 @@ Icon: 📱
       return;
     }
 
-    
-    
-    // Answer callback immediately to prevent timeout
-    await ctx.answerCbQuery();
+    try {
+      // Answer callback immediately to prevent timeout
+      await ctx.answerCbQuery();
 
-        try {
       // ULTRA-CACHE: Get payment methods from cache (no DB read!)
       let paymentMethods = global.paymentMethodsCache || [];
       
