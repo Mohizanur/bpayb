@@ -707,13 +707,11 @@ Please send the following information:
       const requestData = await getCachedCustomPlanRequests().then(requests => 
         requests.find(req => req.id === requestId)
       );
-      const requestDoc = { exists: !!requestData, data: () => requestData };
-      if (!requestDoc.exists) {
+      
+      if (!requestData) {
         await ctx.answerCbQuery('❌ Request not found');
         return;
       }
-
-      const requestData = requestDoc.data();
 
       // Create a pending payment for this custom plan
       const pendingPaymentData = {
