@@ -257,14 +257,14 @@ function cleanup() {
 // setInterval(cleanup, 60 * 60 * 1000);
 console.log('⚠️ Cache cleanup DISABLED (quota protection)');
 
-// ULTRA-CACHE: Custom Plan Requests (cached for 5 minutes)
+// ULTRA-CACHE: Custom Plan Requests (cached for 6 hours)
 const customPlanRequestsCache = new Map();
 let customPlanRequestsCacheTime = null;
 
 export async function getCachedCustomPlanRequests() {
-  // Check if cache is valid (5 minutes)
+  // Check if cache is valid (6 hours)
   const cacheExpired = !customPlanRequestsCacheTime || 
-    (Date.now() - customPlanRequestsCacheTime) > 300000; // 5 minutes
+    (Date.now() - customPlanRequestsCacheTime) > 21600000; // 6 hours
   
   if (customPlanRequestsCache.size === 0 || cacheExpired) {
     console.log('🔄 Custom plan requests cache miss - reading from database');
@@ -282,14 +282,14 @@ export async function getCachedCustomPlanRequests() {
   return Array.from(customPlanRequestsCache.values());
 }
 
-// ULTRA-CACHE: Subscriptions (cached for 5 minutes)
+// ULTRA-CACHE: Subscriptions (cached for 6 hours)
 const subscriptionsCache = new Map();
 let subscriptionsCacheTime = null;
 
 export async function getCachedSubscriptions() {
-  // Check if cache is valid (5 minutes)
+  // Check if cache is valid (6 hours)
   const cacheExpired = !subscriptionsCacheTime || 
-    (Date.now() - subscriptionsCacheTime) > 300000; // 5 minutes
+    (Date.now() - subscriptionsCacheTime) > 21600000; // 6 hours
   
   if (subscriptionsCache.size === 0 || cacheExpired) {
     console.log('🔄 Subscriptions cache miss - reading from database');

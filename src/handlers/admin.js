@@ -46,11 +46,11 @@ const getCachedPaymentMethods = async () => {
   return global.paymentMethodsCache;
 };
 
-// ULTRA-CACHE: Helper function to get admin dashboard data (cached for 5 minutes)
+// ULTRA-CACHE: Helper function to get admin dashboard data (cached for 6 hours)
 const getCachedAdminData = async () => {
-  // Check if cache is valid (5 minutes)
+  // Check if cache is valid (6 hours)
   const cacheExpired = !global.adminDataCacheTime || 
-    (Date.now() - global.adminDataCacheTime) > 300000; // 5 minutes
+    (Date.now() - global.adminDataCacheTime) > 21600000; // 6 hours
   
   if (!global.adminDataCache || cacheExpired) {
     console.log('🔄 Admin data cache miss - reading from database');
