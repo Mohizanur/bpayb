@@ -15,6 +15,13 @@ class ExpirationReminder {
       return;
     }
 
+    // Check if expiration reminders are enabled
+    if (process.env.ENABLE_EXPIRATION_REMINDERS !== 'true') {
+      console.log('✅ Expiration reminder system disabled (quota optimization)');
+      console.log('💡 Set ENABLE_EXPIRATION_REMINDERS=true to enable if needed');
+      return;
+    }
+
     console.log('⏰ Starting expiration reminder system...');
     this.isRunning = true;
 

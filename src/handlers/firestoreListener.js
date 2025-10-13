@@ -12,6 +12,7 @@ export default function firestoreListener(bot) {
     if (process.env.ENABLE_FIRESTORE_LISTENER !== 'true') {
       console.log("✅ Firestore polling listener disabled (quota optimization)");
       console.log("💡 Notifications are sent via verifyPayment() when admin approves payments");
+      console.log("💡 Set ENABLE_FIRESTORE_LISTENER=true to enable if needed");
       return;
     }
     
