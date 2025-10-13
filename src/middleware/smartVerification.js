@@ -27,14 +27,10 @@ export const isAuthorizedAdmin = async (ctx) => {
       return true;
     }
     
-    // 3. Check Firestore config (only if not cached)
-    const adminDoc = await firestore.collection('config').doc('admins').get();
-    let isAdmin = false;
-    
-    if (adminDoc.exists) {
-      const admins = adminDoc.data().userIds || [];
-      isAdmin = admins.includes(userId);
-    }
+    // 3. Check Firestore config using ULTRA-CACHE (no DB read if cached)
+    const { getCachedAdminList } = await import('../utils/ultraCache.js');
+    const admins = await getCachedAdminList();
+    const isAdmin = admins.includes(userId);
     
     // 4. Cache the result
     adminCache.set(userId, { isAdmin, timestamp: Date.now() });
@@ -62,9 +58,9 @@ const getUserDataSmart = async (userId) => {
       return userData;
     }
     
-    // 3. Fetch from Firestore (only if not cached)
-    const userDoc = await firestore.collection('users').doc(userId).get();
-    userData = userDoc.data() || {};
+    // 3. Fetch from ULTRA-CACHE (no DB read if cached)
+    const { getCachedUserData } = await import('../utils/ultraCache.js');
+    userData = await getCachedUserData(userId) || {};
     
     // 4. Cache the result
     cache.setUser(userId, userData);
@@ -218,23 +214,20 @@ export const getAllAdmins = async () => {
       });
     }
     
-    // Get additional admins from Firestore
-    const adminDoc = await firestore.collection('config').doc('admins').get();
-    if (adminDoc.exists) {
-      const adminData = adminDoc.data();
-      const userIds = adminData.userIds || [];
-      
-      userIds.forEach(userId => {
-        // Don't duplicate main admin
-        if (userId !== process.env.ADMIN_TELEGRAM_ID) {
-          admins.push({
-            id: userId,
-            telegramId: userId,
-            isMainAdmin: false
-          });
-        }
-      });
-    }
+    // Get additional admins from ULTRA-CACHE (no DB read if cached)
+    const { getCachedAdminList } = await import('../utils/ultraCache.js');
+    const userIds = await getCachedAdminList();
+    
+    userIds.forEach(userId => {
+      // Don't duplicate main admin
+      if (userId !== process.env.ADMIN_TELEGRAM_ID) {
+        admins.push({
+          id: userId,
+          telegramId: userId,
+          isMainAdmin: false
+        });
+      }
+    });
     
     return admins;
   } catch (error) {

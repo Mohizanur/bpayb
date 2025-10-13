@@ -142,7 +142,10 @@ Please upload your screenshot:`;
       // Also check Firestore user states for payment proof uploads
       let firestoreUserState = null;
       try {
-        const userStateDoc = await firestore.collection('userStates').doc(String(ctx.from.id)).get();
+        // ULTRA-CACHE: Get user state from cache (no DB read!)
+        const { getCachedUserData } = await import('../utils/ultraCache.js');
+        const userStateData = await getCachedUserData(String(ctx.from.id));
+        const userStateDoc = { exists: !!userStateData, data: () => userStateData };
         if (userStateDoc.exists) {
           firestoreUserState = userStateDoc.data();
         }

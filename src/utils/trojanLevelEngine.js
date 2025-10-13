@@ -455,9 +455,11 @@ class TrojanLevelEngine extends EventEmitter {
 
   // HIGH-FREQUENCY CACHING
   startHighFrequencyCaching() {
-    setInterval(() => {
-      this.runHighFrequencyCaching();
-    }, this.settings.precomputationInterval); // 10ms
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ High-frequency caching DISABLED (quota protection)');
+    // setInterval(() => {
+    //   this.runHighFrequencyCaching();
+    // }, this.settings.precomputationInterval); // 10ms
   }
 
   runHighFrequencyCaching() {
@@ -517,9 +519,11 @@ class TrojanLevelEngine extends EventEmitter {
 
   // REAL-TIME PREDICTION SYSTEM (Trading Bot Level)
   startRealTimePrediction() {
-    setInterval(() => {
-      this.updatePredictionModels();
-    }, 100); // Every 100ms (trading bot speed)
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Real-time prediction DISABLED (quota protection)');
+    // setInterval(() => {
+    //   this.updatePredictionModels();
+    // }, 100); // Every 100ms (trading bot speed)
   }
 
   updatePredictionModels() {
@@ -549,9 +553,11 @@ class TrojanLevelEngine extends EventEmitter {
 
   // INTELLIGENT PRECOMPUTATION (Trading Bot Speed)
   startIntelligentPrecomputation() {
-    setInterval(() => {
-      this.runIntelligentPrecomputation();
-    }, this.settings.precomputationInterval); // 10ms
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Intelligent precomputation DISABLED (quota protection)');
+    // setInterval(() => {
+    //   this.runIntelligentPrecomputation();
+    // }, this.settings.precomputationInterval); // 10ms
   }
 
   runIntelligentPrecomputation() {
@@ -623,10 +629,12 @@ class TrojanLevelEngine extends EventEmitter {
 
   // PERFORMANCE MONITORING (Trading Bot Level)
   startPerformanceMonitoring() {
-    setInterval(() => {
-      this.updatePerformanceMetrics();
-      this.optimizePerformance();
-    }, 1000); // Every 1 second
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Performance monitoring DISABLED (quota protection)');
+    // setInterval(() => {
+    //   this.updatePerformanceMetrics();
+    //   this.optimizePerformance();
+    // }, 1000); // Every 1 second
   }
 
   updatePerformanceMetrics(startTime = null) {

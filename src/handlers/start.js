@@ -31,9 +31,9 @@ const isNewUser = async (userId) => {
 // Helper function to create user profile
 const createUserProfile = async (ctx) => {
   try {
-    // Check if user already exists to preserve their language selection
-    const userDoc = await firestore.collection('users').doc(String(ctx.from.id)).get();
-    const existingData = userDoc.exists ? userDoc.data() : {};
+    // ULTRA-CACHE: Check if user already exists (cached for 1 hour)
+    const { getCachedUserData } = await import('../utils/ultraCache.js');
+    const existingData = await getCachedUserData(String(ctx.from.id)) || {};
     
     // Get current language preference
     const currentLang = existingData.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
@@ -702,7 +702,12 @@ Please send the following information:
       const lang = await getUserLanguage(ctx);
 
       // Get the custom plan request with pricing
-      const requestDoc = await firestore.collection('customPlanRequests').doc(requestId).get();
+      // ULTRA-CACHE: Get custom plan request from cache (no DB read!)
+      const { getCachedCustomPlanRequests } = await import('../utils/ultraCache.js');
+      const requestData = await getCachedCustomPlanRequests().then(requests => 
+        requests.find(req => req.id === requestId)
+      );
+      const requestDoc = { exists: !!requestData, data: () => requestData };
       if (!requestDoc.exists) {
         await ctx.answerCbQuery('❌ Request not found');
         return;
@@ -737,14 +742,12 @@ Please send the following information:
         pendingPaymentId: pendingPaymentRef.id
       });
 
-      // Show payment methods
-      const paymentMethodsSnapshot = await firestore.collection('config').doc('paymentMethods').get();
-      let paymentMethods = [];
-
-      if (paymentMethodsSnapshot.exists) {
-        const methodsData = paymentMethodsSnapshot.data();
-        paymentMethods = methodsData.methods?.filter(method => method.active) || [];
-      }
+      // ULTRA-CACHE: Get payment methods from cache (no DB read!)
+      const { getCachedPaymentMethods } = await import('../utils/ultraCache.js');
+      let paymentMethods = await getCachedPaymentMethods();
+      
+      // Filter active methods
+      paymentMethods = paymentMethods.filter(method => method.active);
 
       // Fallback to default methods if none configured
       if (paymentMethods.length === 0) {
@@ -935,7 +938,11 @@ Please send your payment proof (screenshot).
       
       if (!service) {
         try {
-          const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+          // ULTRA-CACHE: Get service from cache (no DB read!)
+          const { loadServices } = await import('../utils/loadServices.js');
+          const services = await loadServices();
+          const serviceData = services.find(s => s.serviceID === serviceId);
+          const serviceDoc = { exists: !!serviceData, data: () => serviceData };
           if (serviceDoc.exists) {
             service = { id: serviceDoc.id, ...serviceDoc.data() };
           }
@@ -1029,7 +1036,11 @@ Custom plan requests are answered within 24 hours.`;
       
       if (!service) {
         try {
-          const serviceDoc = await firestore.collection('services').doc(serviceId).get();
+          // ULTRA-CACHE: Get service from cache (no DB read!)
+          const { loadServices } = await import('../utils/loadServices.js');
+          const services = await loadServices();
+          const serviceData = services.find(s => s.serviceID === serviceId);
+          const serviceDoc = { exists: !!serviceData, data: () => serviceData };
           if (serviceDoc.exists) {
             service = { id: serviceDoc.id, ...serviceDoc.data() };
           }
@@ -1552,10 +1563,9 @@ Choose your preferred language:`;
         
         // Notify admins
         try {
-          const adminsSnapshot = await firestore.collection('users').get();
-          const admins = adminsSnapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(admin => admin.isAdmin === true && admin.status === 'active');
+          // ULTRA-CACHE: Get admins from cache (no DB read!)
+          const { getCachedAdminList } = await import('../utils/ultraCache.js');
+          const admins = await getCachedAdminList();
           
           const adminNotification = `🎯 **New Custom Plan Request**
 
@@ -1612,7 +1622,10 @@ ${ctx.message.text}
       console.log('🔍 Custom plan payment initiated for:', paymentId);
       
       // Get payment details
-      const paymentDoc = await firestore.collection('pendingPayments').doc(paymentId).get();
+      // ULTRA-CACHE: Get payment from cache (no DB read!)
+      const { getCachedUserData } = await import('../utils/ultraCache.js');
+      const paymentData = await getCachedUserData(paymentId);
+      const paymentDoc = { exists: !!paymentData, data: () => paymentData };
       if (!paymentDoc.exists) {
         await ctx.answerCbQuery('❌ Payment not found');
         return;

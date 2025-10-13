@@ -196,9 +196,11 @@ class SmartBeastMode {
     startPerformanceMonitoring() {
         if (!this.isEnabled) return;
 
-        setInterval(() => {
-            this.logPerformanceMetrics();
-        }, 60000); // Log every minute
+        // DISABLED: This was causing excessive operations
+        console.log('⚠️ Smart beast performance logging DISABLED (quota protection)');
+        // setInterval(() => {
+        //     this.logPerformanceMetrics();
+        // }, 60000); // Log every minute
 
         console.log('📊 Performance monitoring started');
     }
@@ -257,9 +259,11 @@ class SmartBeastMode {
      * Start cleanup process
      */
     startCleanupProcess() {
-        setInterval(() => {
-            this.cleanup();
-        }, this.cleanupInterval);
+        // DISABLED: This was causing excessive operations
+        console.log('⚠️ Smart beast cleanup DISABLED (quota protection)');
+        // setInterval(() => {
+        //     this.cleanup();
+        // }, this.cleanupInterval);
     }
 
     /**

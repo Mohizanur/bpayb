@@ -249,11 +249,13 @@ class RealisticDatabase {
 
   // Batch processing
   startBatchProcessing() {
-    setInterval(async () => {
-      if (this.batchQueue.length > 0) {
-        await this.processBatch();
-      }
-    }, this.batchInterval);
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Realistic database batch processing DISABLED (quota protection)');
+    // setInterval(async () => {
+    //   if (this.batchQueue.length > 0) {
+    //     await this.processBatch();
+    //   }
+    // }, this.batchInterval);
   }
 
   async processBatch() {

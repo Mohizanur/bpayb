@@ -152,8 +152,9 @@ export const handleContactSharing = async (ctx) => {
 export const handleManualPhoneInput = async (ctx) => {
   try {
     const userId = String(ctx.from.id);
-    const userDoc = await firestore.collection('users').doc(userId).get();
-    const userData = userDoc.data() || {};
+    // ULTRA-CACHE: Get user data from cache (no DB read!)
+    const { getCachedUserData } = await import('../utils/ultraCache.js');
+    const userData = await getCachedUserData(userId) || {};
     const lang = userData.language || (ctx.from.language_code === 'am' ? 'am' : 'en');
     
     // Check if user is in phone verification flow

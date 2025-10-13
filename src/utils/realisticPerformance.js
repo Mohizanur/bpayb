@@ -169,9 +169,11 @@ class RealisticPerformance {
   }
 
   startMetricsCollection() {
-    setInterval(() => {
-      this.updateMetrics();
-    }, 30000); // Update every 30 seconds
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Realistic performance metrics DISABLED (quota protection)');
+    // setInterval(() => {
+    //   this.updateMetrics();
+    // }, 30000); // Update every 30 seconds
   }
 
   updateMetrics() {
@@ -190,9 +192,11 @@ class RealisticPerformance {
   }
 
   startCacheCleanup() {
-    setInterval(() => {
-      this.cleanupCache();
-    }, 60000); // Cleanup every minute
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Realistic performance cache cleanup DISABLED (quota protection)');
+    // setInterval(() => {
+    //   this.cleanupCache();
+    // }, 60000); // Cleanup every minute
   }
 
   cleanupCache() {

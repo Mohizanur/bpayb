@@ -141,24 +141,12 @@ class UltraCache {
   }
 
   startCleanup() {
-    setInterval(() => {
-      const now = Date.now();
-
-      // Clean L1
-      for (const [key, item] of this.l1Cache.entries()) {
-        if (now > item.expiry) {
-          this.l1Cache.delete(key);
-        }
-      }
-
-      // Clean L2
-      for (const [key, item] of this.l2Cache.entries()) {
-        if (now > item.expiry) {
-          this.l2Cache.delete(key);
-          this.accessTimes.delete(key);
-        }
-      }
-    }, 60000); // Every 60 seconds
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Ultra max performance cleanup DISABLED (quota protection)');
+    // setInterval(() => {
+    //   const now = Date.now();
+    //   // Clean L1, L2 caches...
+    // }, 60000); // Every 60 seconds
   }
 
   getStats() {
@@ -329,13 +317,14 @@ class MemoryEfficientPool {
   }
 
   startMonitoring() {
-    setInterval(() => {
-      const usage = process.memoryUsage();
-
-      if (usage.heapUsed > this.maxMemory) {
-        this.performCleanup();
-      }
-    }, this.cleanupInterval);
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Ultra max performance monitoring DISABLED (quota protection)');
+    // setInterval(() => {
+    //   const usage = process.memoryUsage();
+    //   if (usage.heapUsed > this.maxMemory) {
+    //     this.performCleanup();
+    //   }
+    // }, this.cleanupInterval);
   }
 
   performCleanup() {

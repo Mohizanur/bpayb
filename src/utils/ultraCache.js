@@ -257,5 +257,86 @@ function cleanup() {
 // setInterval(cleanup, 60 * 60 * 1000);
 console.log('⚠️ Cache cleanup DISABLED (quota protection)');
 
+// ULTRA-CACHE: Custom Plan Requests (cached for 5 minutes)
+const customPlanRequestsCache = new Map();
+let customPlanRequestsCacheTime = null;
+
+export async function getCachedCustomPlanRequests() {
+  // Check if cache is valid (5 minutes)
+  const cacheExpired = !customPlanRequestsCacheTime || 
+    (Date.now() - customPlanRequestsCacheTime) > 300000; // 5 minutes
+  
+  if (customPlanRequestsCache.size === 0 || cacheExpired) {
+    console.log('🔄 Custom plan requests cache miss - reading from database');
+    const { firestore } = await import('./firestore.js');
+    const snapshot = await firestore.collection('customPlanRequests').get();
+    customPlanRequestsCache.clear();
+    snapshot.docs.forEach(doc => {
+      customPlanRequestsCache.set(doc.id, { id: doc.id, ...doc.data() });
+    });
+    customPlanRequestsCacheTime = Date.now();
+  } else {
+    console.log('⚡ Custom plan requests cache hit - no DB read!');
+  }
+  
+  return Array.from(customPlanRequestsCache.values());
+}
+
+// ULTRA-CACHE: Subscriptions (cached for 5 minutes)
+const subscriptionsCache = new Map();
+let subscriptionsCacheTime = null;
+
+export async function getCachedSubscriptions() {
+  // Check if cache is valid (5 minutes)
+  const cacheExpired = !subscriptionsCacheTime || 
+    (Date.now() - subscriptionsCacheTime) > 300000; // 5 minutes
+  
+  if (subscriptionsCache.size === 0 || cacheExpired) {
+    console.log('🔄 Subscriptions cache miss - reading from database');
+    const { firestore } = await import('./firestore.js');
+    const snapshot = await firestore.collection('subscriptions').get();
+    subscriptionsCache.clear();
+    snapshot.docs.forEach(doc => {
+      subscriptionsCache.set(doc.id, { id: doc.id, ...doc.data() });
+    });
+    subscriptionsCacheTime = Date.now();
+  } else {
+    console.log('⚡ Subscriptions cache hit - no DB read!');
+  }
+  
+  return Array.from(subscriptionsCache.values());
+}
+
+// ULTRA-CACHE: Payment Methods (cached for 1 hour)
+const paymentMethodsCache = new Map();
+let paymentMethodsCacheTime = null;
+
+export async function getCachedPaymentMethods() {
+  // Check if cache is valid (1 hour)
+  const cacheExpired = !paymentMethodsCacheTime || 
+    (Date.now() - paymentMethodsCacheTime) > 3600000; // 1 hour
+  
+  if (paymentMethodsCache.size === 0 || cacheExpired) {
+    console.log('🔄 Payment methods cache miss - reading from database');
+    const { firestore } = await import('./firestore.js');
+    const doc = await firestore.collection('config').doc('paymentMethods').get();
+    
+    if (doc.exists) {
+      const methods = doc.data().methods || [];
+      paymentMethodsCache.clear();
+      methods.forEach(method => {
+        paymentMethodsCache.set(method.id, method);
+      });
+    } else {
+      paymentMethodsCache.clear();
+    }
+    paymentMethodsCacheTime = Date.now();
+  } else {
+    console.log('⚡ Payment methods cache hit - no DB read!');
+  }
+  
+  return Array.from(paymentMethodsCache.values());
+}
+
 console.log('⚡ ULTRA-CACHE initialized for maximum performance');
 

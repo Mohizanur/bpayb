@@ -374,31 +374,17 @@ export async function notifyAdminsAboutPayment(payment, screenshotUrl, fileId) {
  */
 export async function handlePaymentProofUpload({ paymentId, screenshotUrl, fileId, userId, userInfo }) {
   try {
-    // First, try to find the payment in pendingPayments collection
+    // ULTRA-CACHE: Find payment using cached data (no DB reads!)
+    const { getCachedAdminData } = await import('./ultraCache.js');
+    const adminData = await getCachedAdminData();
+    
     let payment = null;
     let paymentCollection = 'pendingPayments';
     
-    try {
-      const pendingPaymentDoc = await firestore.collection('pendingPayments').doc(paymentId).get();
-      if (pendingPaymentDoc.exists) {
-        payment = { id: pendingPaymentDoc.id, ...pendingPaymentDoc.data() };
-        paymentCollection = 'pendingPayments';
-      }
-    } catch (error) {
-      console.log('Payment not found in pendingPayments, checking payments collection');
-    }
-    
-    // If not found in pendingPayments, try payments collection
-    if (!payment) {
-      try {
-        const paymentDoc = await firestore.collection('payments').doc(paymentId).get();
-        if (paymentDoc.exists) {
-          payment = { id: paymentDoc.id, ...paymentDoc.data() };
-          paymentCollection = 'payments';
-        }
-      } catch (error) {
-        console.log('Payment not found in payments collection either');
-      }
+    // Check in cached payments first
+    payment = adminData.payments.find(p => p.id === paymentId);
+    if (payment) {
+      paymentCollection = 'payments';
     }
     
     // If payment still not found, create a new one

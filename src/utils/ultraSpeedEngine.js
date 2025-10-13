@@ -184,12 +184,14 @@ class UltraSpeedEngine extends EventEmitter {
 
   // Start instant processing
   startInstantProcessing() {
-    setInterval(() => {
-      if (this.responseQueue.length > 0 && !this.isProcessing) {
-        this.isProcessing = true;
-        this.processQueue();
-      }
-    }, 0.001); // Check every 0.001ms for instant processing
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Ultra speed processing DISABLED (quota protection)');
+    // setInterval(() => {
+    //   if (this.responseQueue.length > 0 && !this.isProcessing) {
+    //     this.isProcessing = true;
+    //     this.processQueue();
+    //   }
+    // }, 0.001); // Check every 0.001ms for instant processing
   }
 
   // Process response queue

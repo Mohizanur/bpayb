@@ -409,28 +409,34 @@ class UltraDatabase {
 
   // Background processes
   startCacheCleanup() {
-    setInterval(() => {
-      const now = Date.now();
-      for (const [key, value] of this.cache.entries()) {
-        if (now - value.timestamp > this.settings.cacheTTL) {
-          this.cache.delete(key);
-        }
-      }
-    }, 60000); // Cleanup every minute
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Ultra database cache cleanup DISABLED (quota protection)');
+    // setInterval(() => {
+    //   const now = Date.now();
+    //   for (const [key, value] of this.cache.entries()) {
+    //     if (now - value.timestamp > this.settings.cacheTTL) {
+    //       this.cache.delete(key);
+    //     }
+    //   }
+    // }, 60000); // Cleanup every minute
   }
 
   startBatchProcessing() {
-    setInterval(() => {
-      for (const processor of this.batchProcessors.keys()) {
-        this.flushBatchProcessor(processor);
-      }
-    }, this.settings.batchInterval);
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Ultra database batch processing DISABLED (quota protection)');
+    // setInterval(() => {
+    //   for (const processor of this.batchProcessors.keys()) {
+    //     this.flushBatchProcessor(processor);
+    //   }
+    // }, this.settings.batchInterval);
   }
 
   startStatsCollection() {
-    setInterval(() => {
-      this.collectStats();
-    }, 5000); // Collect stats every 5 seconds
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Ultra database stats collection DISABLED (quota protection)');
+    // setInterval(() => {
+    //   this.collectStats();
+    // }, 5000); // Collect stats every 5 seconds
   }
 
   collectStats() {

@@ -288,12 +288,14 @@ class UltraPerformanceEngine {
   }
 
   startBatchProcessing() {
-    setInterval(() => {
-      if (this.requestQueue.length > 0) {
-        const batch = this.requestQueue.splice(0, this.settings.batchSize);
-        this.processBatch(batch);
-      }
-    }, this.settings.batchInterval);
+    // DISABLED: This was causing excessive operations
+    console.log('⚠️ Batch processing DISABLED (quota protection)');
+    // setInterval(() => {
+    //   if (this.requestQueue.length > 0) {
+    //     const batch = this.requestQueue.splice(0, this.settings.batchSize);
+    //     this.processBatch(batch);
+    //   }
+    // }, this.settings.batchInterval);
   }
 
   async processBatch(batch) {

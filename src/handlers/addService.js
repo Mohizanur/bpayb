@@ -15,7 +15,10 @@ const isAuthorizedAdmin = async (ctx) => {
     }
     
     // Check against Firestore config
-    const adminDoc = await firestore.collection('config').doc('admins').get();
+    // ULTRA-CACHE: Get admin list from cache (no DB read!)
+    const { getCachedAdminList } = await import('../utils/ultraCache.js');
+    const admins = await getCachedAdminList();
+    const adminDoc = { exists: admins.length > 0, data: () => ({ userIds: admins }) };
     if (adminDoc.exists) {
       const admins = adminDoc.data().userIds || [];
       if (admins.includes(userId)) {
