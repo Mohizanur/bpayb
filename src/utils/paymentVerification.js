@@ -84,6 +84,10 @@ export async function verifyPayment(paymentId, adminId, notes = '') {
       
       await firestore.collection('subscriptions').doc(payment.subscriptionId).update(updateData);
       console.log('✅ Subscription updated to active');
+      
+      // ULTRA-CACHE: Clear user's subscription cache
+      const { clearUserSubscriptionCache } = await import('./ultraCache.js');
+      clearUserSubscriptionCache(payment.userId);
     } else {
       // Create new subscription if it doesn't exist
       console.log('🔍 Creating new subscription for payment:', paymentId);
@@ -113,6 +117,10 @@ export async function verifyPayment(paymentId, adminId, notes = '') {
 
       await firestore.collection('subscriptions').doc(subscriptionId).set(subscriptionData);
       console.log('✅ New subscription created:', subscriptionId);
+      
+      // ULTRA-CACHE: Clear user's subscription cache
+      const { clearUserSubscriptionCache } = await import('./ultraCache.js');
+      clearUserSubscriptionCache(payment.userId);
       
       // Update payment with subscription ID (try both collections)
       try {
@@ -202,6 +210,10 @@ export async function rejectPayment(paymentId, adminId, reason) {
         rejectionReason: reason,
         updatedAt: new Date().toISOString()
       });
+      
+      // ULTRA-CACHE: Clear user's subscription cache
+      const { clearUserSubscriptionCache } = await import('./ultraCache.js');
+      clearUserSubscriptionCache(payment.userId);
     }
 
     // Notify user about rejection

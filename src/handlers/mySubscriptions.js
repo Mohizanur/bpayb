@@ -2,6 +2,7 @@ import { getUserSubscriptions, getSubscription } from "../utils/database.js";
 import { formatCurrency } from "../utils/payment.js";
 import { db } from "../../firebase-config.js";
 import { t, getUserLanguage } from "../utils/translations.js";
+import { getCachedUserSubscriptions, clearUserSubscriptionCache } from "../utils/ultraCache.js";
 
 export default function mySubscriptionsHandler(bot) {
   // Handle my subscriptions menu
@@ -10,8 +11,8 @@ export default function mySubscriptionsHandler(bot) {
       const userId = String(ctx.from.id);
       const lang = await getUserLanguage(ctx);
       
-      // Get user's subscriptions
-      const subscriptions = await getUserSubscriptions(userId);
+      // ULTRA-CACHE: Get user's subscriptions from cache (10-minute TTL)
+      const subscriptions = await getCachedUserSubscriptions(userId);
       
       if (subscriptions.length === 0) {
         const message = `📊 **${t('my_subscriptions', lang)}**
@@ -270,6 +271,9 @@ Are you sure you want to cancel this subscription?`;
         cancelledBy: String(ctx.from.id),
         updatedAt: new Date().toISOString()
       });
+      
+      // ULTRA-CACHE: Clear user's subscription cache
+      clearUserSubscriptionCache(String(ctx.from.id));
       
       // Cancellation successful
       const message = lang === 'am'

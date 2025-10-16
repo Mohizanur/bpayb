@@ -78,6 +78,42 @@ export function clearAdminCache() {
 }
 
 // ========================================
+// USER SUBSCRIPTIONS CACHE (Per-User Cache for Scale)
+// ========================================
+const userSubscriptionsCache = new Map(); // userId -> { subscriptions, timestamp }
+const USER_SUBSCRIPTIONS_TTL = 1000 * 60 * 10; // 10 minutes
+
+export async function getCachedUserSubscriptions(userId) {
+  const uid = String(userId);
+  const cached = userSubscriptionsCache.get(uid);
+  const cacheExpired = !cached || (Date.now() - cached.timestamp) > USER_SUBSCRIPTIONS_TTL;
+  
+  if (!cached || cacheExpired) {
+    console.log(`🔄 User ${uid} subscriptions cache miss - reading from database`);
+    const { getUserSubscriptions } = await import('./database.js');
+    const subscriptions = await getUserSubscriptions(uid);
+    userSubscriptionsCache.set(uid, { subscriptions, timestamp: Date.now() });
+    recordCacheMiss('userSubscriptions');
+    return subscriptions;
+  }
+  
+  console.log(`⚡ User ${uid} subscriptions cache hit - no DB read!`);
+  recordCacheHit('userSubscriptions');
+  return cached.subscriptions;
+}
+
+export function clearUserSubscriptionCache(userId) {
+  const uid = String(userId);
+  userSubscriptionsCache.delete(uid);
+  console.log(`🗑️ Cleared subscription cache for user ${uid}`);
+}
+
+export function clearAllUserSubscriptionCaches() {
+  userSubscriptionsCache.clear();
+  console.log('🗑️ Cleared ALL user subscription caches');
+}
+
+// ========================================
 // USER DATA CACHE (For Active Sessions)
 // ========================================
 const userDataCache = new Map();

@@ -1373,17 +1373,21 @@ export default function adminHandler(bot) {
     }
     const userIdDisplay = userData.telegramId || userId;
     
-    // Get user's subscriptions
-    const subsSnapshot = await firestore.collection('subscriptions')
-      .where('telegramUserID', '==', userIdDisplay)
-      .get();
+    // ULTRA-CACHE: Get user's subscriptions from cached admin data (no DB read!)
+    const adminData = await getCachedAdminData();
+    const userSubs = adminData.users.find(u => u.id === userId);
     
-    // Get user's payments
-    const paymentsSnapshot = await firestore.collection('payments')
-      .where('userId', '==', userIdDisplay)
-      .orderBy('timestamp', 'desc')
-      .limit(5)
-      .get();
+    // Get user's subscriptions from cached data
+    const allSubs = await getCachedSubscriptions();
+    const subsSnapshot = { docs: allSubs.filter(sub => sub.telegramUserID === userIdDisplay).map(sub => ({ data: () => sub })) };
+    
+    // Get user's payments from cached data
+    const allPayments = adminData.payments || [];
+    const userPayments = allPayments
+      .filter(p => p.userId === userIdDisplay)
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .slice(0, 5);
+    const paymentsSnapshot = { docs: userPayments.map(p => ({ data: () => p })) };
 
     // Process subscriptions
     const activeSubs = [];
