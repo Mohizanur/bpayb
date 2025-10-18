@@ -1,5 +1,20 @@
 /**
- * Script to add @birrpaysupportline as admin
+ * ⚠️ WARNING: EMERGENCY TOOL ONLY - USES DATABASE READS!
+ * 
+ * This script makes 2-3 database reads per run, which wastes quota.
+ * 
+ * PREFERRED METHOD (0 reads):
+ * 1. Go to Firebase Console → Firestore
+ * 2. Navigate to: config → admins
+ * 3. Add Telegram ID to userIds array
+ * 4. Save (costs only 1 write, 0 reads)
+ * 
+ * Only use this script in emergencies when:
+ * - Firebase Console is unavailable
+ * - You need to search by username (don't know ID)
+ * - Automated admin provisioning needed
+ * 
+ * Cost: 2-3 reads + 1 write per execution
  */
 
 import { firestore } from './src/utils/firestore.js';

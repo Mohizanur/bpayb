@@ -1,5 +1,16 @@
 /**
- * Verify admin access for @birrpaysupportline
+ * ⚠️ WARNING: DIAGNOSTIC TOOL - USES DATABASE READS!
+ * 
+ * This script makes 2-3 database reads to verify admin configuration.
+ * 
+ * WHEN TO USE:
+ * - Troubleshooting admin access issues
+ * - Verifying admin configuration after changes
+ * - Debugging why admin panel isn't working
+ * 
+ * AVOID using for routine checks - wastes quota!
+ * 
+ * Cost: 2-3 reads per execution
  */
 
 import { firestore } from './src/utils/firestore.js';

@@ -1,5 +1,20 @@
 /**
- * Fix admin flag for @birrpaysupportline
+ * ⚠️ WARNING: REPAIR TOOL - USES DATABASE READS!
+ * 
+ * This script makes 2 reads + 1 write to fix missing admin flags.
+ * 
+ * WHEN TO USE:
+ * - Admin is in config/admins but can't access panel
+ * - User profile missing isAdmin flag
+ * - After database restoration/migration
+ * 
+ * PREFERRED METHOD (0 reads):
+ * 1. Go to Firebase Console → Firestore
+ * 2. Navigate to: users → {userId}
+ * 3. Add field: isAdmin = true
+ * 4. Save (costs only 1 write, 0 reads)
+ * 
+ * Cost: 2 reads + 1 write per execution
  */
 
 import { firestore } from './src/utils/firestore.js';
