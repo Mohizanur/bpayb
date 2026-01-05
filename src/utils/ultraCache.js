@@ -41,11 +41,11 @@ export function clearUserLanguageCache(userId) {
 }
 
 // ========================================
-// ADMIN CACHE (Frequently Checked)
+// ADMIN CACHE (Rarely Changes - Monthly Cache)
 // ========================================
 let adminListCache = null;
 let adminListTimestamp = null;
-const ADMIN_CACHE_TTL = 1000 * 60 * 60; // 1 hour
+const ADMIN_CACHE_TTL = 1000 * 60 * 60 * 24 * 30; // 30 days (1 month) - admins rarely change
 
 export function cacheAdminList(adminIds) {
   adminListCache = new Set(adminIds.map(String));

@@ -131,6 +131,7 @@ Please upload your screenshot:`;
   // Handle photo message
   bot.on('photo', async (ctx) => {
     try {
+      console.log('📸 Photo received from user:', ctx.from.id);
       const { session } = ctx;
       const lang = ctx.userLang || 'en';
       
@@ -139,25 +140,37 @@ Please upload your screenshot:`;
       const hasSubscriptionId = session.uploadingScreenshotFor;
       const isExpectingScreenshot = session.expectingScreenshot;
       
-      // Also check Firestore user states for payment proof uploads
+      console.log('🔍 Payment proof state check:', {
+        hasPendingPayment,
+        hasSubscriptionId,
+        isExpectingScreenshot,
+        userId: ctx.from.id
+      });
+      
+      // QUOTA-OPTIMIZED: Check Firestore user states using cached smartGet (ZERO quota if cached!)
       let firestoreUserState = null;
       try {
-        // ULTRA-CACHE: Get user state from cache (no DB read!)
-        const { getCachedUserData } = await import('../utils/ultraCache.js');
-        const userStateData = await getCachedUserData(String(ctx.from.id));
-        const userStateDoc = { exists: !!userStateData, data: () => userStateData };
-        if (userStateDoc.exists) {
-          firestoreUserState = userStateDoc.data();
+        const { smartGet } = await import('../utils/optimizedDatabase.js');
+        const userStateData = await smartGet('userStates', String(ctx.from.id), false);
+        if (userStateData) {
+          firestoreUserState = userStateData;
+          console.log('✅ Found user state in cache (ZERO quota used!)');
+        } else {
+          console.log('⚠️ No user state found in cache');
         }
       } catch (error) {
-        console.error('Error fetching user state from Firestore:', error);
+        console.error('❌ Error fetching user state from cache:', error);
       }
       
       const isAwaitingPaymentProof = firestoreUserState?.state === 'awaiting_payment_proof';
+      console.log('🔍 isAwaitingPaymentProof:', isAwaitingPaymentProof);
       
       if (!hasPendingPayment && !hasSubscriptionId && !isExpectingScreenshot && !isAwaitingPaymentProof) {
+        console.log('⚠️ Photo received but user is not in payment proof state, ignoring...');
         return; // Not in payment proof state
       }
+      
+      console.log('✅ Processing payment proof upload...');
       
       // Get the highest resolution photo
       const photo = ctx.message.photo.pop();
@@ -169,6 +182,19 @@ Please upload your screenshot:`;
       // Handle payment proof from session or Firestore user state
       if (session.pendingPayment?.paymentId || session.expectingScreenshot || isAwaitingPaymentProof) {
         paymentId = session.pendingPayment?.paymentId || firestoreUserState?.paymentId;
+        
+        console.log('🔍 Payment ID resolved:', paymentId);
+        
+        if (!paymentId) {
+          console.error('❌ Payment ID is missing! Cannot process payment proof.');
+          await ctx.reply(
+            lang === 'am'
+              ? '❌ ስህተት: የክፍያ መለያ አልተገኘም። እባክዎ እንደገና ይሞክሩ።'
+              : '❌ Error: Payment ID not found. Please try again.',
+            { parse_mode: 'Markdown' }
+          );
+          return;
+        }
         
         // Get payment reference from session or generate a new one
         const paymentReference = session.pendingPayment?.paymentReference || 
@@ -183,14 +209,16 @@ Please upload your screenshot:`;
         if (isAwaitingPaymentProof) {
           try {
             await firestore.collection('userStates').doc(String(ctx.from.id)).delete();
+            console.log('✅ Cleared user state from Firestore');
           } catch (error) {
-            console.error('Error clearing user state:', error);
+            console.error('❌ Error clearing user state:', error);
           }
         }
         
         // Handle the payment proof with our verification system
+        console.log('📤 Calling handlePaymentProofUpload with paymentId:', paymentId);
         const result = await handlePaymentProofUpload({
-          paymentId: paymentId || `pending-${Date.now()}`,
+          paymentId: paymentId,
           screenshotUrl: fileLink.href, // Keep URL for storage
           fileId: fileId, // Add file_id for forwarding
           userId: ctx.from.id,
@@ -203,24 +231,39 @@ Please upload your screenshot:`;
           }
         });
         
+        console.log('📥 handlePaymentProofUpload result:', result);
+        
         if (result.success) {
           // Clear the waiting state
           session.waitingForPaymentProof = false;
           delete session.pendingPayment;
           
+          console.log('✅ Payment proof processed successfully, sending reply to user...');
           // Notify user
-          await ctx.reply(
-            lang === 'am'
-              ? '✅ የክፍያ ማስረጃው በተሳካ ሁኔታ ተልኳል። የእርስዎ ክፍያ እንዲረጋገጥ በማስተናገድ ላይ ነው። አመሰግናለሁ!' 
-              : '✅ Payment proof uploaded successfully! Your payment is being processed. Thank you for your patience!',
-            { parse_mode: 'Markdown' }
-          );
+          try {
+            await ctx.reply(
+              lang === 'am'
+                ? '✅ የክፍያ ማስረጃው በተሳካ ሁኔታ ተልኳል። የእርስዎ ክፍያ እንዲረጋገጥ በማስተናገድ ላይ ነው። አመሰግናለሁ!' 
+                : '✅ Payment proof uploaded successfully! Your payment is being processed. Thank you for your patience!',
+              { parse_mode: 'Markdown' }
+            );
+            console.log('✅ User reply sent successfully');
+          } catch (replyError) {
+            console.error('❌ Error sending reply to user:', replyError);
+            // Try to send a simple text message as fallback
+            try {
+              await ctx.reply('✅ Payment proof received! Thank you.');
+            } catch (fallbackError) {
+              console.error('❌ Error sending fallback reply:', fallbackError);
+            }
+          }
           
           // Admin notification is already handled in handlePaymentProofUpload
           // No need to call it again here
           
           return;
         } else {
+          console.error('❌ handlePaymentProofUpload returned success: false, error:', result.error);
           throw new Error(result.error || 'Failed to process payment proof');
         }
       }

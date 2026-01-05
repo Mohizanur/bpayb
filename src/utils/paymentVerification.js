@@ -1,4 +1,5 @@
 import { getPaymentById, updatePaymentStatus, createSupportTicket, getAdmins, updatePayment } from './database.js';
+import { getAllAdmins } from '../middleware/smartVerification.js';
 import { bot } from '../bot.js';
 import { formatCurrency } from './payment.js';
 import { firestore } from './firestore.js';
@@ -259,11 +260,15 @@ export async function rejectPayment(paymentId, adminId, reason) {
  */
 export async function notifyAdminsAboutPayment(payment, screenshotUrl, fileId) {
   try {
-    const admins = await getAdmins();
-    if (!admins.length) {
+    // QUOTA-OPTIMIZED: Use getAllAdmins which uses ULTRA-CACHE (ZERO quota if cached! Admins rarely change for days/months)
+    const admins = await getAllAdmins();
+    
+    if (!admins || !admins.length) {
       console.warn('No admins found to notify');
       return false;
     }
+    
+    console.log(`📤 Notifying ${admins.length} admin(s) about payment proof (ZERO quota - using cached admins!)`);
 
     // Format amount properly
     const amount = payment.amount || payment.price || 'N/A';
@@ -386,22 +391,81 @@ export async function notifyAdminsAboutPayment(payment, screenshotUrl, fileId) {
  */
 export async function handlePaymentProofUpload({ paymentId, screenshotUrl, fileId, userId, userInfo }) {
   try {
-    // ULTRA-CACHE: Find payment using cached data (no DB reads!)
-    const { getCachedAdminData } = await import('./ultraCache.js');
-    const adminData = await getCachedAdminData();
+    console.log('🔍 Handling payment proof upload for paymentId:', paymentId);
     
     let payment = null;
     let paymentCollection = 'pendingPayments';
     
-    // Check in cached payments first
-    payment = adminData.payments.find(p => p.id === paymentId);
-    if (payment) {
-      paymentCollection = 'payments';
+    // QUOTA-OPTIMIZED: Use cached methods first (no DB reads if cached!)
+    const { smartGet } = await import('./optimizedDatabase.js');
+    
+    // First, try to get from pendingPayments using cached smartGet (ZERO quota if cached!)
+    try {
+      const cachedPendingPayment = await smartGet('pendingPayments', paymentId, false);
+      if (cachedPendingPayment) {
+        payment = { id: paymentId, ...cachedPendingPayment };
+        paymentCollection = 'pendingPayments';
+        console.log('✅ Found payment in pendingPayments cache (ZERO quota used!)');
+      }
+    } catch (error) {
+      console.error('Error checking pendingPayments cache:', error);
     }
     
-    // If payment still not found, create a new one
+    // If not found, try payments collection using cached smartGet (ZERO quota if cached!)
     if (!payment) {
-      console.log('Creating new payment document for paymentId:', paymentId);
+      try {
+        const cachedPayment = await smartGet('payments', paymentId, false);
+        if (cachedPayment) {
+          payment = { id: paymentId, ...cachedPayment };
+          paymentCollection = 'payments';
+          console.log('✅ Found payment in payments cache (ZERO quota used!)');
+        }
+      } catch (error) {
+        console.error('Error checking payments cache:', error);
+      }
+    }
+    
+    // If payment still not found, check global admin cache (ZERO quota - already loaded!)
+    if (!payment && global.adminDataCache) {
+      try {
+        payment = global.adminDataCache.payments?.find(p => p.id === paymentId);
+        if (payment) {
+          paymentCollection = 'payments';
+          console.log('✅ Found payment in global admin cache (ZERO quota used!)');
+        }
+      } catch (error) {
+        console.error('Error checking global cache:', error);
+      }
+    }
+    
+    // LAST RESORT: Only query Firestore if not in any cache (1 quota read)
+    // This should rarely happen since payments are just created
+    if (!payment) {
+      console.log('⚠️ Payment not in cache, performing single Firestore read (1 quota)...');
+      try {
+        // Try pendingPayments first (where payments are created)
+        const pendingPaymentDoc = await firestore.collection('pendingPayments').doc(paymentId).get();
+        if (pendingPaymentDoc.exists) {
+          payment = { id: pendingPaymentDoc.id, ...pendingPaymentDoc.data() };
+          paymentCollection = 'pendingPayments';
+          console.log('✅ Found payment in pendingPayments (1 quota read)');
+        } else {
+          // Try payments collection as fallback
+          const paymentDoc = await firestore.collection('payments').doc(paymentId).get();
+          if (paymentDoc.exists) {
+            payment = { id: paymentDoc.id, ...paymentDoc.data() };
+            paymentCollection = 'payments';
+            console.log('✅ Found payment in payments (1 quota read)');
+          }
+        }
+      } catch (error) {
+        console.error('Error in last-resort Firestore query:', error);
+      }
+    }
+    
+    // If payment still not found, create a new one (fallback)
+    if (!payment) {
+      console.log('⚠️ Payment not found, creating new payment document for paymentId:', paymentId);
       const newPaymentData = {
         userId,
         screenshotUrl,
@@ -411,11 +475,12 @@ export async function handlePaymentProofUpload({ paymentId, screenshotUrl, fileI
         ...userInfo
       };
       
-      await firestore.collection('payments').doc(paymentId).set(newPaymentData);
+      await firestore.collection('pendingPayments').doc(paymentId).set(newPaymentData);
       payment = { id: paymentId, ...newPaymentData };
-      paymentCollection = 'payments';
+      paymentCollection = 'pendingPayments';
     } else {
       // Update existing payment with screenshot URL
+      console.log('📝 Updating existing payment with screenshot URL');
       const paymentUpdate = {
         screenshotUrl,
         status: 'pending_verification',
@@ -426,9 +491,15 @@ export async function handlePaymentProofUpload({ paymentId, screenshotUrl, fileI
       payment = { ...payment, ...paymentUpdate };
     }
     
+    console.log('📤 Notifying admins about payment proof...');
     // Notify admins about the new payment proof
-    await notifyAdminsAboutPayment(payment, screenshotUrl, fileId);
+    const notifyResult = await notifyAdminsAboutPayment(payment, screenshotUrl, fileId);
+    
+    if (!notifyResult) {
+      console.warn('⚠️ Admin notification returned false, but continuing...');
+    }
 
+    console.log('✅ Payment proof upload handled successfully');
     return {
       success: true,
       paymentId,
@@ -436,7 +507,8 @@ export async function handlePaymentProofUpload({ paymentId, screenshotUrl, fileI
       message: 'Payment proof uploaded successfully. Waiting for admin verification.'
     };
   } catch (error) {
-    console.error('Error handling payment proof upload:', error);
+    console.error('❌ Error handling payment proof upload:', error);
+    console.error('Error stack:', error.stack);
     return {
       success: false,
       error: error.message || 'Failed to process payment proof',
