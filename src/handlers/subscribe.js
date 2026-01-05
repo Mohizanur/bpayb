@@ -281,7 +281,7 @@ function setupSubscribeHandler(bot) {
         const paymentMessage = `💳 *${t('payment_instructions_title', lang)}*
 
 ${t('service', lang)}: ${service.name}
-${t('duration', lang)}: ${plan?.billingCycle || `${months} ${months === 1 ? t('month', lang) : t('months', lang)}`}
+${t('duration', lang)}: ${plan?.billingCycle || durationText}
 ${t('total_amount', lang)}: *${price.toLocaleString()} ${lang === 'am' ? t('birr', lang) : 'ETB'}*
 
 ${t('payment_accounts_instruction', lang)}:
