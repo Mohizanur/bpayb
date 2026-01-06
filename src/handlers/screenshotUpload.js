@@ -147,25 +147,38 @@ Please upload your screenshot:`;
         userId: ctx.from.id
       });
       
-      // QUOTA-OPTIMIZED: Check Firestore user states using cached smartGet (ZERO quota if cached!)
+      // ZERO QUOTA: Check in-memory state first (no DB read!)
+      const userId = String(ctx.from.id);
+      const inMemoryState = global.userDetailsState && global.userDetailsState[userId];
+      const isAwaitingPaymentProof = inMemoryState?.awaitingProof || inMemoryState?.step === 'awaiting_payment_proof';
+      
+      // Also check Firestore state for legacy support (but prefer in-memory)
       let firestoreUserState = null;
-      try {
-        const { smartGet } = await import('../utils/optimizedDatabase.js');
-        const userStateData = await smartGet('userStates', String(ctx.from.id), false);
-        if (userStateData) {
-          firestoreUserState = userStateData;
-          console.log('✅ Found user state in cache (ZERO quota used!)');
-        } else {
-          console.log('⚠️ No user state found in cache');
+      if (!inMemoryState) {
+        try {
+          const { smartGet } = await import('../utils/optimizedDatabase.js');
+          const userStateData = await smartGet('userStates', userId, false);
+          if (userStateData) {
+            firestoreUserState = userStateData;
+            console.log('✅ Found user state in cache (ZERO quota used!)');
+          }
+        } catch (error) {
+          console.error('❌ Error fetching user state from cache:', error);
         }
-      } catch (error) {
-        console.error('❌ Error fetching user state from cache:', error);
       }
       
-      const isAwaitingPaymentProof = firestoreUserState?.state === 'awaiting_payment_proof';
-      console.log('🔍 isAwaitingPaymentProof:', isAwaitingPaymentProof);
+      const isAwaitingFromFirestore = firestoreUserState?.state === 'awaiting_payment_proof';
       
-      if (!hasPendingPayment && !hasSubscriptionId && !isExpectingScreenshot && !isAwaitingPaymentProof) {
+      console.log('🔍 Payment proof state check:', {
+        hasPendingPayment,
+        hasSubscriptionId,
+        isExpectingScreenshot,
+        isAwaitingPaymentProof,
+        isAwaitingFromFirestore,
+        userId: ctx.from.id
+      });
+      
+      if (!hasPendingPayment && !hasSubscriptionId && !isExpectingScreenshot && !isAwaitingPaymentProof && !isAwaitingFromFirestore) {
         console.log('⚠️ Photo received but user is not in payment proof state, ignoring...');
         return; // Not in payment proof state
       }
@@ -177,13 +190,77 @@ Please upload your screenshot:`;
       const fileId = photo.file_id;
       const fileLink = await ctx.telegram.getFileLink(fileId);
       
-      let paymentId, payment;
+      let paymentId, paymentReference, userDetailsFromMemory = null;
       
-      // Handle payment proof from session or Firestore user state
-      if (session.pendingPayment?.paymentId || session.expectingScreenshot || isAwaitingPaymentProof) {
-        paymentId = session.pendingPayment?.paymentId || firestoreUserState?.paymentId;
+      // Handle payment proof - check in-memory state FIRST (ZERO quota!)
+      if (inMemoryState && inMemoryState.awaitingProof) {
+        // User provided details and is uploading proof - NOW write to DB!
+        paymentId = inMemoryState.paymentId;
+        paymentReference = inMemoryState.paymentReference;
+        userDetailsFromMemory = {
+          userName: inMemoryState.userName,
+          userEmail: inMemoryState.userEmail,
+          userPhone: inMemoryState.userPhone
+        };
         
-        console.log('🔍 Payment ID resolved:', paymentId);
+        console.log('✅ Found payment details in memory - will write to DB now!');
+        
+        // NOW write to DB with all details - FIRST AND ONLY DB WRITE!
+        const paymentData = {
+          id: paymentId,
+          userId: userId,
+          serviceId: inMemoryState.serviceId,
+          serviceName: inMemoryState.serviceName,
+          duration: inMemoryState.duration,
+          durationName: inMemoryState.durationName,
+          price: inMemoryState.price,
+          amount: `ETB ${inMemoryState.price}`,
+          status: 'pending_verification',
+          paymentReference: paymentReference,
+          createdAt: new Date().toISOString(),
+          paymentMethod: 'manual',
+          paymentDetails: {},
+          screenshotUrl: fileLink.href,
+          // User details - all at once!
+          userName: inMemoryState.userName,
+          userEmail: inMemoryState.userEmail,
+          userPhone: inMemoryState.userPhone,
+          userDetailsCollected: true
+        };
+
+        // Create subscription
+        const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const subscriptionData = {
+          id: subscriptionId,
+          userId: userId,
+          serviceId: inMemoryState.serviceId,
+          serviceName: inMemoryState.serviceName,
+          status: 'pending',
+          duration: inMemoryState.duration,
+          durationName: inMemoryState.durationName,
+          amount: `ETB ${inMemoryState.price}`,
+          price: inMemoryState.price,
+          paymentId: paymentId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        // Write both to DB
+        await firestore.collection('pendingPayments').doc(paymentId).set(paymentData);
+        await firestore.collection('subscriptions').doc(subscriptionId).set(subscriptionData);
+        
+        console.log('✅ Written payment and subscription to DB with all user details!');
+        
+        // Clear in-memory state
+        delete global.userDetailsState[userId];
+        
+      } else if (session.pendingPayment?.paymentId || session.expectingScreenshot || isAwaitingFromFirestore) {
+        // Legacy flow - payment already exists in DB
+        paymentId = session.pendingPayment?.paymentId || firestoreUserState?.paymentId;
+        paymentReference = session.pendingPayment?.paymentReference || 
+          `TEMP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+        
+        console.log('🔍 Payment ID resolved from legacy flow:', paymentId);
         
         if (!paymentId) {
           console.error('❌ Payment ID is missing! Cannot process payment proof.');
@@ -196,40 +273,47 @@ Please upload your screenshot:`;
           return;
         }
         
-        // Get payment reference from session or generate a new one
-        const paymentReference = session.pendingPayment?.paymentReference || 
-          `TEMP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-        
         // Store the file link in the pending payment if it exists
         if (session.pendingPayment) {
           session.pendingPayment.proofUrl = fileLink.href;
         }
         
         // Clear the Firestore user state since we're processing the payment proof
-        if (isAwaitingPaymentProof) {
+        if (isAwaitingFromFirestore) {
           try {
-            await firestore.collection('userStates').doc(String(ctx.from.id)).delete();
+            await firestore.collection('userStates').doc(userId).delete();
             console.log('✅ Cleared user state from Firestore');
           } catch (error) {
             console.error('❌ Error clearing user state:', error);
           }
         }
-        
-        // Handle the payment proof with our verification system
-        console.log('📤 Calling handlePaymentProofUpload with paymentId:', paymentId);
-        const result = await handlePaymentProofUpload({
-          paymentId: paymentId,
-          screenshotUrl: fileLink.href, // Keep URL for storage
-          fileId: fileId, // Add file_id for forwarding
-          userId: ctx.from.id,
-          paymentReference,
-          userInfo: {
-            id: ctx.from.id,
-            username: ctx.from.username,
-            firstName: ctx.from.first_name,
-            lastName: ctx.from.last_name
-          }
-        });
+      } else {
+        console.error('❌ No valid payment state found');
+        await ctx.reply(
+          lang === 'am'
+            ? '❌ ስህተት: የክፍያ መለያ አልተገኘም። እባክዎ እንደገና ይሞክሩ።'
+            : '❌ Error: Payment ID not found. Please try again.',
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+      
+      // Handle the payment proof with our verification system
+      console.log('📤 Calling handlePaymentProofUpload with paymentId:', paymentId);
+      const result = await handlePaymentProofUpload({
+        paymentId: paymentId,
+        screenshotUrl: fileLink.href, // Keep URL for storage
+        fileId: fileId, // Add file_id for forwarding
+        userId: ctx.from.id,
+        paymentReference,
+        userInfo: {
+          id: ctx.from.id,
+          username: ctx.from.username,
+          firstName: ctx.from.first_name,
+          lastName: ctx.from.last_name,
+          ...(userDetailsFromMemory || {}) // Include user details if from memory
+        }
+      });
         
         console.log('📥 handlePaymentProofUpload result:', result);
         

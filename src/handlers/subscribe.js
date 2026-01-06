@@ -240,38 +240,24 @@ function setupSubscribeHandler(bot) {
         durationText = `${durationValue} ${durationValue === 1 ? t('month', lang) : t('months', lang)}`;
       }
 
-      // Create payment ID and save initial payment data (without user details yet)
+      // Create payment ID (don't save to DB yet - ZERO quota!)
       const paymentId = `pay_${Date.now()}_${userId}`;
       const paymentReference = `REF-${Date.now()}-${userId}`;
-      const paymentData = {
-        id: paymentId,
-        userId,
-        serviceId: service.id,
-        serviceName: service.name,
-        duration,
-        durationName: durationText,
-        price,
-        amount: `ETB ${price}`,
-        status: 'pending',
-        paymentReference: paymentReference,
-        createdAt: new Date().toISOString(),
-        paymentMethod: 'manual',
-        paymentDetails: {}
-      };
-
-      // Save initial payment data to Firestore (will be updated with user details later)
-      await firestore.collection('pendingPayments').doc(paymentId).set(paymentData);
-
-      // Set user state to collect user details (name, email, phone)
-      await firestore.collection('userStates').doc(userId).set({
+      
+      // Store state in memory ONLY - ZERO DB reads/writes during flow!
+      if (!global.userDetailsState) global.userDetailsState = {};
+      global.userDetailsState[userId] = {
         state: 'awaiting_user_details',
         paymentId: paymentId,
+        paymentReference: paymentReference,
         serviceId: serviceId,
+        serviceName: service.name,
         duration: duration,
+        durationName: durationText,
         price: price,
         step: 'name', // Track which detail we're collecting
-        timestamp: new Date().toISOString()
-      });
+        timestamp: Date.now()
+      };
 
       // Ask for user name first
       const namePrompt = lang === 'am'
@@ -297,39 +283,42 @@ function setupSubscribeHandler(bot) {
   });
 
   // Handle text messages for collecting user details
-  bot.on('text', async (ctx) => {
+  // Use middleware to run BEFORE other text handlers
+  // ZERO QUOTA: Uses in-memory state only, no DB reads/writes during flow!
+  bot.use(async (ctx, next) => {
+    // Only process text messages
+    if (!ctx.message || !ctx.message.text) {
+      return next();
+    }
+
+    // Skip if it's a command
+    if (ctx.message.text.startsWith('/')) {
+      return next(); // Let other handlers process commands
+    }
+
     try {
-      // Skip if it's a command
-      if (ctx.message.text.startsWith('/')) {
-        return; // Let other handlers process commands
+      const userId = String(ctx.from.id);
+      
+      // Check in-memory state ONLY - ZERO DB read!
+      if (!global.userDetailsState || !global.userDetailsState[userId]) {
+        return next(); // Not in user details flow, continue to next handler
       }
 
-      const userId = String(ctx.from.id);
-      const lang = await getUserLanguage(ctx);
+      const userState = global.userDetailsState[userId];
       
-      // Check if user is in user details collection flow
-      const { smartGet } = await import('../utils/optimizedDatabase.js');
-      const userState = await smartGet('userStates', userId, false);
-      
-      if (!userState || userState.state !== 'awaiting_user_details') {
-        return; // Not in user details flow, let other handlers process
+      if (userState.state !== 'awaiting_user_details') {
+        return next(); // Not in user details flow, continue to next handler
       }
+
+      // User is in user details flow - process it and DON'T call next() to stop other handlers
+      console.log('✅ Subscribe handler processing user details input:', { userId, step: userState.step, input: ctx.message.text });
+      
+      // Mark that we're handling this message to prevent other handlers from processing it
+      ctx.userDetailsHandled = true;
+      
+      const lang = await getUserLanguage(ctx);
 
       const step = userState.step || 'name';
-      const paymentId = userState.paymentId;
-      const serviceId = userState.serviceId;
-      const duration = userState.duration;
-      const price = userState.price;
-
-      // Get payment data
-      const paymentDoc = await firestore.collection('pendingPayments').doc(paymentId).get();
-      if (!paymentDoc.exists) {
-        await ctx.reply(lang === 'am' ? '❌ ክፍያ አልተገኘም' : '❌ Payment not found');
-        await firestore.collection('userStates').doc(userId).delete();
-        return;
-      }
-
-      const paymentData = paymentDoc.data();
       const userInput = ctx.message.text.trim();
 
       if (step === 'name') {
@@ -341,15 +330,12 @@ function setupSubscribeHandler(bot) {
           return;
         }
 
-        // Save name and ask for email
-        paymentData.userName = userInput;
-        await firestore.collection('pendingPayments').doc(paymentId).update({ userName: userInput });
-
-        // Update state to ask for email
-        await firestore.collection('userStates').doc(userId).update({
-          step: 'email',
-          userName: userInput
-        });
+        // Save name in memory - ZERO DB write!
+        userState.userName = userInput;
+        userState.step = 'email';
+        userState.timestamp = Date.now();
+        
+        console.log('✅ Updated state to email step for user:', userId);
 
         const emailPrompt = lang === 'am'
           ? `📧 *የኢሜይል አድራሻዎን ያስገቡ*\n\nእባክዎ የኢሜይል አድራሻዎን ይጻፉ:`
@@ -376,15 +362,12 @@ function setupSubscribeHandler(bot) {
           return;
         }
 
-        // Save email and ask for phone
-        paymentData.userEmail = userInput;
-        await firestore.collection('pendingPayments').doc(paymentId).update({ userEmail: userInput });
-
-        // Update state to ask for phone
-        await firestore.collection('userStates').doc(userId).update({
-          step: 'phone',
-          userEmail: userInput
-        });
+        // Save email in memory - ZERO DB write!
+        userState.userEmail = userInput;
+        userState.step = 'phone';
+        userState.timestamp = Date.now();
+        
+        console.log('✅ Updated state to phone step for user:', userId);
 
         const phonePrompt = lang === 'am'
           ? `📱 *የስልክ ቁጥርዎን ያስገቡ*\n\nእባክዎ የስልክ ቁጥርዎን ይጻፉ (ለምሳሌ: +251912345678):`
@@ -413,32 +396,30 @@ function setupSubscribeHandler(bot) {
           return;
         }
 
-        // Save phone - all details collected!
-        paymentData.userPhone = formattedPhone;
-        await firestore.collection('pendingPayments').doc(paymentId).update({ 
-          userPhone: formattedPhone,
-          userDetailsCollected: true
-        });
-
-        // Clear user state
-        await firestore.collection('userStates').doc(userId).delete();
-
-        // Now show payment instructions
+        // All details collected! Save phone in memory
+        userState.userPhone = formattedPhone;
+        userState.step = 'awaiting_payment_proof'; // Mark as ready for payment proof
+        
+        // DON'T write to DB yet - wait for payment proof upload!
+        // This saves quota for users who just explore without paying
+        
+        // Now show payment instructions (state stays in memory)
         await showPaymentInstructions(ctx, {
-          paymentId,
-          serviceId,
-          duration,
-          price,
-          userName: paymentData.userName,
-          userEmail: paymentData.userEmail,
+          paymentId: userState.paymentId,
+          serviceId: userState.serviceId,
+          duration: userState.duration,
+          price: userState.price,
+          userName: userState.userName,
+          userEmail: userState.userEmail,
           userPhone: formattedPhone
         });
       }
 
     } catch (error) {
-      console.error('Error in user details collection:', error);
-      // On error, let other handlers process the message
-      return;
+      console.error('❌ Error in user details collection:', error);
+      console.error('Error stack:', error.stack);
+      // On error, continue to next handler
+      return next();
     }
   });
 
@@ -448,17 +429,11 @@ function setupSubscribeHandler(bot) {
       const userId = String(ctx.from.id);
       const lang = await getUserLanguage(ctx);
       
-      // Get user state to find payment ID
-      const { smartGet } = await import('../utils/optimizedDatabase.js');
-      const userState = await smartGet('userStates', userId, false);
-      
-      if (userState && userState.paymentId) {
-        // Delete the pending payment
-        await firestore.collection('pendingPayments').doc(userState.paymentId).delete();
+      // Clear in-memory state - ZERO DB read/write!
+      if (global.userDetailsState && global.userDetailsState[userId]) {
+        // No payment was created yet (only created at end), so just clear memory
+        delete global.userDetailsState[userId];
       }
-      
-      // Clear user state
-      await firestore.collection('userStates').doc(userId).delete();
       
       await ctx.answerCbQuery();
       await ctx.editMessageText(
@@ -558,25 +533,8 @@ ${lang === 'am' ? paymentMethodsListAm : paymentMethodsListEn}
 ${paymentMethods.length > 0 ? (lang === 'am' ? (paymentMethods[0].instructionsAm || t('payment_proof_instruction', lang)) : (paymentMethods[0].instructions || t('payment_proof_instruction', lang))) : t('payment_proof_instruction', lang)}
 ${t('service_start_after_approval', lang)}`;
 
-      // Create pending subscription
-      const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const subscriptionData = {
-        id: subscriptionId,
-        userId: String(ctx.from.id),
-        serviceId: service.id,
-        serviceName: service.name,
-        status: 'pending',
-        duration: duration,
-        durationName: durationText,
-        amount: `ETB ${price}`,
-        price: price,
-        paymentId: paymentId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      await firestore.collection('subscriptions').doc(subscriptionId).set(subscriptionData);
-      await firestore.collection('pendingPayments').doc(paymentId).update({ subscriptionId });
+      // DON'T create subscription/payment in DB yet - wait for payment proof!
+      // This saves quota for users who just explore without paying
 
       // Send payment instructions
       await ctx.reply(paymentMessage, {
@@ -595,34 +553,8 @@ ${t('service_start_after_approval', lang)}`;
         }
       });
       
-      // Notify admin about new pending payment with user details
-      const adminMessage = `🆕 *New Pending Payment*\n\n` +
-        `👤 *User Details:*\n` +
-        `├─ Name: ${userName}\n` +
-        `├─ Email: ${userEmail}\n` +
-        `├─ Phone: ${userPhone}\n` +
-        `└─ Telegram: ${ctx.from.first_name} ${ctx.from.last_name || ''} (@${ctx.from.username || 'no_username'})\n\n` +
-        `🆔 User ID: ${String(ctx.from.id)}\n` +
-        `📱 Service: ${service.name}\n` +
-        `⏳ Duration: ${durationText}\n` +
-        `💰 Amount: ${price.toLocaleString()} ETB\n\n` +
-        `Payment ID: ${paymentId}`;
-
-      // Notify all admins
-      const allAdmins = await getAllAdmins();
-      for (const admin of allAdmins) {
-        if (admin.telegramId || admin.id) {
-          try {
-            await ctx.telegram.sendMessage(
-              admin.telegramId || admin.id,
-              adminMessage,
-              { parse_mode: 'Markdown' }
-            );
-          } catch (error) {
-            console.log(`Could not notify admin ${admin.id}:`, error.message);
-          }
-        }
-      }
+      // DON'T notify admin yet - wait for payment proof upload!
+      // Admin will be notified when proof is uploaded (in handlePaymentProofUpload)
 
     } catch (error) {
       console.error('Error showing payment instructions:', error);
@@ -635,14 +567,14 @@ ${t('service_start_after_approval', lang)}`;
   bot.action(/^upload_proof_(.+)$/i, async (ctx) => {
     try {
       const paymentId = ctx.match[1];
+      const userId = String(ctx.from.id);
       const lang = await getUserLanguage(ctx);
       
-      // Set user state to expect photo
-      await firestore.collection('userStates').doc(String(ctx.from.id)).set({
-        state: 'awaiting_payment_proof',
-        paymentId,
-        timestamp: new Date().toISOString()
-      });
+      // Update in-memory state to expect photo - ZERO DB write!
+      if (global.userDetailsState && global.userDetailsState[userId]) {
+        global.userDetailsState[userId].awaitingProof = true;
+        global.userDetailsState[userId].timestamp = Date.now();
+      }
       
       const message = `📤 *${t('upload_payment_proof_title', lang)}*\n\n` +
         `${t('upload_payment_proof_instruction', lang)}\n` +

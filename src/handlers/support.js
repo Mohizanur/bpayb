@@ -31,6 +31,12 @@ export default function supportHandler(bot) {
   // NOTE: This handler runs AFTER admin handler to avoid conflicts
   bot.on("text", async (ctx) => {
     try {
+      // Skip if message was already handled by subscribe handler
+      if (ctx.userDetailsHandled) {
+        console.log('🔍 Message already handled by subscribe handler, skipping support');
+        return;
+      }
+
       console.log('🔍 Support handler called for user:', ctx.from?.id);
       console.log('🔍 Message text:', ctx.message.text);
       
@@ -48,10 +54,8 @@ export default function supportHandler(bot) {
       console.log('🔍 userStates:', global.userStates?.[userId]);
       console.log('🔍 session awaitingUserSearch:', ctx.session?.awaitingUserSearch);
       
-      // Check if user is in user details collection flow (subscribe handler)
-      const { smartGet } = await import('../utils/optimizedDatabase.js');
-      const userState = await smartGet('userStates', userId, false);
-      const isInUserDetailsFlow = userState?.state === 'awaiting_user_details';
+      // Check if user is in user details collection flow (subscribe handler) - ZERO DB read!
+      const isInUserDetailsFlow = global.userDetailsState && global.userDetailsState[userId]?.state === 'awaiting_user_details';
 
       if (userId && (
         (global.serviceCreationState && global.serviceCreationState[userId]) ||
