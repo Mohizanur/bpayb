@@ -410,12 +410,6 @@ async function startApp() {
         console.error("❌ Failed to register start handler:", e.message);
       }
 
-      try {
-        setupSubscribeHandler(bot);
-        console.log("✅ Subscribe handler registered");
-      } catch (e) {
-        console.error("❌ Failed to register subscribe handler:", e.message);
-      }
 
       try {
         supportHandler(bot);

@@ -293,14 +293,27 @@ function setupSubscribeHandler(bot) {
   // Handle text messages for collecting user details
   // Use middleware to run BEFORE other text handlers
   // ZERO QUOTA: Uses in-memory state only, no DB reads/writes during flow!
+  process.stderr.write('🔧 REGISTERING SUBSCRIBE MIDDLEWARE FOR USER DETAILS COLLECTION\n');
+  console.log('🔧 REGISTERING SUBSCRIBE MIDDLEWARE FOR USER DETAILS COLLECTION');
+  
   bot.use(async (ctx, next) => {
+    // Log EVERY update to see if middleware is running at all
+    process.stderr.write(`🔍 [SUBSCRIBE MIDDLEWARE] Update type: ${ctx.updateType || 'unknown'}, Has message: ${!!ctx.message}, Has text: ${!!ctx.message?.text}, Text: ${ctx.message?.text || 'N/A'}\n`);
+    
     // Only process text messages
     if (!ctx.message || !ctx.message.text) {
+      return next();
+    }
+    
+    // Only process text messages
+    if (!ctx.message || !ctx.message.text) {
+      process.stderr.write(`🔍 Not a text message, passing to next\n`);
       return next();
     }
 
     // Skip if it's a command
     if (ctx.message.text.startsWith('/')) {
+      process.stderr.write(`🔍 Is a command, passing to next\n`);
       return next(); // Let other handlers process commands
     }
 
