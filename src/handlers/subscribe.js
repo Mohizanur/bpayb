@@ -10,6 +10,141 @@ import { t, getUserLanguage } from '../utils/translations.js';
 import optimizedDatabase from '../utils/optimizedDatabase.js';
 
 function setupSubscribeHandler(bot) {
+  // CRITICAL: Register text handler FIRST before any other handlers
+  // This ensures it runs before admin/support handlers
+  process.stderr.write('🔧 REGISTERING SUBSCRIBE TEXT HANDLER FIRST\n');
+  console.log('🔧 REGISTERING SUBSCRIBE TEXT HANDLER FIRST');
+  
+  // Use bot.use() middleware instead of bot.on('text') to ensure it runs FIRST
+  bot.use(async (ctx, next) => {
+    // Only process text messages
+    if (!ctx.message || !ctx.message.text) {
+      return next();
+    }
+    
+    try {
+      // Log IMMEDIATELY - first thing, no checks
+      process.stderr.write(`\n🔍🔍🔍 [SUBSCRIBE HANDLER] User: ${ctx.from?.id}, Text: ${ctx.message?.text || 'NO TEXT'}\n`);
+      console.log('🔍🔍🔍 [SUBSCRIBE HANDLER] User:', ctx.from?.id, 'Text:', ctx.message?.text);
+      
+      // Skip if it's a command
+      if (ctx.message?.text?.startsWith('/')) {
+        return next();
+      }
+      
+      // Check if user is in details collection flow
+      const userId = String(ctx.from?.id);
+      if (!global.userDetailsState || !global.userDetailsState[userId] || global.userDetailsState[userId].state !== 'awaiting_user_details') {
+        return next(); // Not in flow, let other handlers process
+      }
+      
+      // User is in flow - process it
+      process.stderr.write(`✅ Processing user details for: ${userId}, step: ${global.userDetailsState[userId].step}\n`);
+      
+      const userState = global.userDetailsState[userId];
+      const lang = await getUserLanguage(ctx);
+      const step = userState.step || 'name';
+      const userInput = ctx.message.text.trim();
+      
+      if (step === 'name') {
+        if (userInput.length < 2) {
+          await ctx.reply(lang === 'am' 
+            ? '⚠️ እባክዎ ትክክለኛ ስም ያስገቡ (ቢያንስ 2 ቁምፊዎች)'
+            : '⚠️ Please enter a valid name (at least 2 characters)');
+          return;
+        }
+        
+        userState.userName = userInput;
+        userState.step = 'email';
+        userState.timestamp = Date.now();
+        
+        const emailPrompt = lang === 'am'
+          ? `📧 *የኢሜይል አድራሻዎን ያስገቡ*\n\nእባክዎ የኢሜይል አድራሻዎን ይጻፉ:`
+          : `📧 *Please Enter Your Email*\n\nPlease type your email address:`;
+        
+        await ctx.reply(emailPrompt, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[{ text: t('cancel', lang), callback_data: 'cancel_user_details' }]]
+          }
+        });
+        
+      } else if (step === 'email') {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(userInput)) {
+          await ctx.reply(lang === 'am'
+            ? '⚠️ እባክዎ ትክክለኛ የኢሜይል አድራሻ ያስገቡ (ለምሳሌ: example@email.com)'
+            : '⚠️ Please enter a valid email address (e.g., example@email.com)');
+          return;
+        }
+        
+        userState.userEmail = userInput;
+        userState.step = 'phone';
+        userState.timestamp = Date.now();
+        
+        const phonePrompt = lang === 'am'
+          ? `📱 *የስልክ ቁጥርዎን ያስገቡ*\n\nእባክዎ የስልክ ቁጥርዎን ይጻፉ (ቢያንስ 10 አሃዞች):`
+          : `📱 *Please Enter Your Phone Number*\n\nPlease type your phone number (at least 10 digits):`;
+        
+        await ctx.reply(phonePrompt, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[{ text: t('cancel', lang), callback_data: 'cancel_user_details' }]]
+          }
+        });
+        
+      } else if (step === 'phone') {
+        // Accept any phone number - just needs 10+ digits, no other restrictions!
+        // Remove any spaces, dashes, parentheses, dots, or other formatting
+        const digitsOnly = userInput.replace(/\D/g, ''); // Remove all non-digits
+        
+        // Just check if it has at least 10 digits - that's it!
+        if (digitsOnly.length < 10) {
+          await ctx.reply(lang === 'am'
+            ? '⚠️ እባክዎ ቢያንስ 10 አሃዞች ያለው የስልክ ቁጥር ያስገቡ'
+            : '⚠️ Please enter a phone number with at least 10 digits');
+          return;
+        }
+        
+        // Format: add + if user didn't include it, otherwise keep their format
+        const formattedPhone = userInput.trim().startsWith('+') 
+          ? userInput.trim() 
+          : '+' + digitsOnly;
+        
+        userState.userPhone = formattedPhone;
+        // DON'T delete state yet! Mark as awaiting payment proof
+        // Screenshot handler needs this state to write to DB
+        userState.step = 'awaiting_payment_proof';
+        userState.awaitingProof = true;
+        userState.timestamp = Date.now();
+        
+        console.log('✅ All user details collected, marking as awaiting payment proof');
+        console.log('🔍 State after phone:', JSON.stringify(global.userDetailsState[userId], null, 2));
+        
+        await showPaymentInstructions(ctx, {
+          paymentId: userState.paymentId,
+          serviceId: userState.serviceId,
+          duration: userState.duration,
+          price: userState.price,
+          userName: userState.userName,
+          userEmail: userState.userEmail,
+          userPhone: formattedPhone
+        });
+        
+        // Mark as handled - don't call next() to prevent other handlers from processing
+        return;
+      }
+    } catch (error) {
+      process.stderr.write(`❌ ERROR in subscribe text handler: ${error.message}\n`);
+      process.stderr.write(`❌ Stack: ${error.stack}\n`);
+      console.error('❌ Error in subscribe text handler:', error);
+      // On error, still call next() to let other handlers try
+      return next();
+    }
+  });
+  
+  process.stderr.write('✅ SUBSCRIBE TEXT HANDLER REGISTERED\n');
+  
   // Handle service selection with more flexible ID matching and caching
   bot.action(/^select_service_([a-z0-9_()+.-]+)$/i, async (ctx) => {
     try {
@@ -239,7 +374,7 @@ function setupSubscribeHandler(bot) {
       } else {
         durationText = `${durationValue} ${durationValue === 1 ? t('month', lang) : t('months', lang)}`;
       }
-
+      
       // Create payment ID (don't save to DB yet - ZERO quota!)
       const paymentId = `pay_${Date.now()}_${userId}`;
       const paymentReference = `REF-${Date.now()}-${userId}`;
@@ -290,182 +425,8 @@ function setupSubscribeHandler(bot) {
     }
   });
 
-  // Handle text messages for collecting user details
-  // Register as text handler FIRST to run before other text handlers
-  // ZERO QUOTA: Uses in-memory state only, no DB reads/writes during flow!
-  process.stderr.write('🔧 REGISTERING SUBSCRIBE TEXT HANDLER FOR USER DETAILS COLLECTION\n');
-  console.log('🔧 REGISTERING SUBSCRIBE TEXT HANDLER FOR USER DETAILS COLLECTION');
-  
-  // Use bot.on('text') but register it early to run first
-  bot.on('text', async (ctx) => {
-    try {
-      // Log EVERY text message to see if handler is running
-      process.stderr.write(`🔍 [SUBSCRIBE TEXT HANDLER] User: ${ctx.from.id}, Text: ${ctx.message.text}\n`);
-      
-      // Skip if it's a command
-      if (ctx.message.text.startsWith('/')) {
-        return; // Let other handlers process commands
-      }
-      
-      const userId = String(ctx.from.id);
-      
-      // Force log to stderr to bypass any console overrides
-      process.stderr.write(`🔍 Subscribe handler checking for user: ${userId}, Text: ${ctx.message.text}\n`);
-      process.stderr.write(`🔍 Global userDetailsState exists: ${!!global.userDetailsState}\n`);
-      process.stderr.write(`🔍 User state in memory: ${JSON.stringify(global.userDetailsState?.[userId])}\n`);
-      console.log('🔍 Subscribe handler checking for user:', userId, 'Text:', ctx.message.text);
-      console.log('🔍 Global userDetailsState exists:', !!global.userDetailsState);
-      console.log('🔍 User state in memory:', global.userDetailsState?.[userId]);
-      
-      // Check in-memory state ONLY - ZERO DB read!
-      if (!global.userDetailsState || !global.userDetailsState[userId]) {
-        console.log('🔍 User not in userDetailsState, letting other handlers process');
-        return; // Not in user details flow, let other handlers process
-      }
-
-      const userState = global.userDetailsState[userId];
-      console.log('🔍 Found user state:', { state: userState.state, step: userState.step });
-      
-      if (userState.state !== 'awaiting_user_details') {
-        console.log('🔍 User state is not awaiting_user_details, letting other handlers process');
-        return; // Not in user details flow, let other handlers process
-      }
-
-      // User is in user details flow - process it and DON'T call next() to stop other handlers
-      // Force log to stderr to bypass any console overrides
-      process.stderr.write(`✅ Subscribe handler processing user details input: ${userId}, step: ${userState.step}, input: ${ctx.message.text}\n`);
-      console.log('✅ Subscribe handler processing user details input:', { userId, step: userState.step, input: ctx.message.text });
-      
-      // Mark that we're handling this message to prevent other handlers from processing it
-      ctx.userDetailsHandled = true;
-      
-      const lang = await getUserLanguage(ctx);
-      process.stderr.write(`🔍 Got user language: ${lang}\n`);
-      console.log('🔍 Got user language:', lang);
-
-      const step = userState.step || 'name';
-      const userInput = ctx.message.text.trim();
-
-      if (step === 'name') {
-        console.log('🔍 Processing name step, input:', userInput);
-        // Validate name (at least 2 characters)
-        if (userInput.length < 2) {
-          console.log('⚠️ Name too short, sending validation error');
-          await ctx.reply(lang === 'am' 
-            ? '⚠️ እባክዎ ትክክለኛ ስም ያስገቡ (ቢያንስ 2 ቁምፊዎች)'
-            : '⚠️ Please enter a valid name (at least 2 characters)');
-          return;
-        }
-
-        // Save name in memory - ZERO DB write!
-        userState.userName = userInput;
-        userState.step = 'email';
-        userState.timestamp = Date.now();
-        
-        console.log('✅ Updated state to email step for user:', userId);
-        console.log('🔍 Updated userState:', global.userDetailsState[userId]);
-
-        const emailPrompt = lang === 'am'
-          ? `📧 *የኢሜይል አድራሻዎን ያስገቡ*\n\nእባክዎ የኢሜይል አድራሻዎን ይጻፉ:`
-          : `📧 *Please Enter Your Email*\n\nPlease type your email address:`;
-
-        console.log('🔍 Sending email prompt to user');
-        await ctx.reply(emailPrompt, {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: t('cancel', lang), callback_data: 'cancel_user_details' }
-              ]
-            ]
-          }
-        });
-        console.log('✅ Email prompt sent successfully');
-
-      } else if (step === 'email') {
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(userInput)) {
-          await ctx.reply(lang === 'am'
-            ? '⚠️ እባክዎ ትክክለኛ የኢሜይል አድራሻ ያስገቡ (ለምሳሌ: example@email.com)'
-            : '⚠️ Please enter a valid email address (e.g., example@email.com)');
-          return;
-        }
-
-        // Save email in memory - ZERO DB write!
-        userState.userEmail = userInput;
-        userState.step = 'phone';
-        userState.timestamp = Date.now();
-        
-        console.log('✅ Updated state to phone step for user:', userId);
-
-        const phonePrompt = lang === 'am'
-          ? `📱 *የስልክ ቁጥርዎን ያስገቡ*\n\nእባክዎ የስልክ ቁጥርዎን ይጻፉ (ለምሳሌ: +251912345678):`
-          : `📱 *Please Enter Your Phone Number*\n\nPlease type your phone number (e.g., +251912345678):`;
-
-        await ctx.reply(phonePrompt, {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: t('cancel', lang), callback_data: 'cancel_user_details' }
-              ]
-            ]
-          }
-        });
-
-      } else if (step === 'phone') {
-        // Validate phone format (Ethiopian format: +251XXXXXXXXX)
-        const phoneRegex = /^\+251[79]\d{8}$/;
-        const formattedPhone = userInput.startsWith('+') ? userInput : '+' + userInput;
-        
-        if (!phoneRegex.test(formattedPhone)) {
-          await ctx.reply(lang === 'am'
-            ? '⚠️ እባክዎ ትክክለኛ የስልክ ቁጥር ያስገቡ (ለምሳሌ: +251912345678)'
-            : '⚠️ Please enter a valid phone number (e.g., +251912345678)');
-          return;
-        }
-
-        // All details collected! Save phone in memory
-        userState.userPhone = formattedPhone;
-        userState.step = 'awaiting_payment_proof'; // Mark as ready for payment proof
-        
-        // DON'T write to DB yet - wait for payment proof upload!
-        // This saves quota for users who just explore without paying
-        
-        // Now show payment instructions (state stays in memory)
-        await showPaymentInstructions(ctx, {
-          paymentId: userState.paymentId,
-          serviceId: userState.serviceId,
-          duration: userState.duration,
-          price: userState.price,
-          userName: userState.userName,
-          userEmail: userState.userEmail,
-          userPhone: formattedPhone
-        });
-      }
-
-    } catch (error) {
-      // Log error to stderr to ensure it's visible
-      process.stderr.write(`❌ ERROR in subscribe middleware: ${error.message}\n`);
-      process.stderr.write(`❌ Stack: ${error.stack}\n`);
-      console.error('❌ Error in user details collection:', error);
-      console.error('Error stack:', error.stack);
-      console.error('Error details:', {
-        message: error.message,
-        name: error.name,
-        userId: ctx.from?.id
-      });
-      // On error, try to send error message to user
-      try {
-        await ctx.reply('❌ An error occurred. Please try again or use /start to restart.');
-      } catch (replyError) {
-        console.error('❌ Could not send error message to user:', replyError);
-      }
-      // Don't return - let other handlers process if we had an error
-      return;
-    }
-  });
+  // NOTE: Text handler for user details collection is already registered at the START of this function (line 18)
+  // This ensures it runs before all other text handlers. No need to register it again here.
 
   // Handle cancel user details collection
   bot.action('cancel_user_details', async (ctx) => {
@@ -532,41 +493,41 @@ function setupSubscribeHandler(bot) {
       }
 
       const plan = service.plans?.find(p => p.duration === durationValue);
-
-      // Get payment methods
-      let paymentMethods = [];
-      try {
-        paymentMethods = await optimizedDatabase.getPaymentMethods();
-        paymentMethods = paymentMethods.filter(method => method.active);
-      } catch (error) {
-        console.error('Error fetching payment methods:', error);
-      }
-
-      if (paymentMethods.length === 0) {
-        paymentMethods = [
-          {
-            id: 'telebirr',
-            name: 'TeleBirr',
-            nameAm: 'ቴሌብር',
-            account: '0912345678',
-            instructions: 'Send payment to TeleBirr account and upload screenshot',
-            instructionsAm: 'ወደ ቴሌብር መለያ ክፍያ በመላክ ስክሪንሾት ይላኩ',
-            icon: '📱'
-          }
-        ];
-      }
-
-      // Build payment methods list
-      let paymentMethodsListEn = '';
-      let paymentMethodsListAm = '';
       
-      paymentMethods.forEach(method => {
-        const icon = method.icon || '💳';
-        paymentMethodsListEn += `${icon} *${method.name}*: ${method.account}\n`;
-        paymentMethodsListAm += `${icon} *${method.nameAm || method.name}*: ${method.account}\n`;
-      });
+      // Get payment methods
+        let paymentMethods = [];
+        try {
+          paymentMethods = await optimizedDatabase.getPaymentMethods();
+          paymentMethods = paymentMethods.filter(method => method.active);
+        } catch (error) {
+          console.error('Error fetching payment methods:', error);
+        }
 
-      const paymentMessage = `💳 *${t('payment_instructions_title', lang)}*
+        if (paymentMethods.length === 0) {
+          paymentMethods = [
+            {
+              id: 'telebirr',
+              name: 'TeleBirr',
+              nameAm: 'ቴሌብር',
+              account: '0912345678',
+              instructions: 'Send payment to TeleBirr account and upload screenshot',
+              instructionsAm: 'ወደ ቴሌብር መለያ ክፍያ በመላክ ስክሪንሾት ይላኩ',
+              icon: '📱'
+            }
+          ];
+        }
+
+        // Build payment methods list
+        let paymentMethodsListEn = '';
+        let paymentMethodsListAm = '';
+        
+        paymentMethods.forEach(method => {
+          const icon = method.icon || '💳';
+          paymentMethodsListEn += `${icon} *${method.name}*: ${method.account}\n`;
+          paymentMethodsListAm += `${icon} *${method.nameAm || method.name}*: ${method.account}\n`;
+        });
+
+        const paymentMessage = `💳 *${t('payment_instructions_title', lang)}*
 
 ${t('service', lang)}: ${service.name}
 ${t('duration', lang)}: ${plan?.billingCycle || durationText}
@@ -599,7 +560,7 @@ ${t('service_start_after_approval', lang)}`;
       
       // DON'T notify admin yet - wait for payment proof upload!
       // Admin will be notified when proof is uploaded (in handlePaymentProofUpload)
-
+      
     } catch (error) {
       console.error('Error showing payment instructions:', error);
       const lang = await getUserLanguage(ctx);

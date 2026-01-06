@@ -2204,6 +2204,19 @@ Send a message to all active users of the bot.
 
   // UNIFIED TEXT HANDLER - handles all admin text messages
   const handleAdminTextMessage = async (ctx) => {
+    // Skip if message was already handled by subscribe handler
+    if (ctx.userDetailsHandled) {
+      console.log('🔍 ADMIN TEXT HANDLER - Message already handled by subscribe, skipping');
+      return;
+    }
+    
+    // Skip if user is in user details collection flow
+    const userId = String(ctx.from?.id);
+    if (global.userDetailsState && global.userDetailsState[userId]?.state === 'awaiting_user_details') {
+      console.log('🔍 ADMIN TEXT HANDLER - User in details collection flow, skipping');
+      return;
+    }
+    
     console.log('🔍 ADMIN TEXT HANDLER CALLED - User:', ctx.from.id);
     console.log('🔍 ADMIN TEXT HANDLER - Message:', ctx.message.text);
     console.log('🔍 ADMIN TEXT HANDLER - Session:', ctx.session);
@@ -3301,7 +3314,7 @@ Icon: 📱
       // Import the verification function
       const { verifyPayment } = await import('../utils/paymentVerification.js');
       
-      const result = await verifyPayment(paymentId, ctx.from.id, 'Payment approved by admin');
+      const result = await verifyPayment(paymentId, ctx.from.id, 'Payment approved by admin', bot);
       
       if (result.success) {
         await ctx.answerCbQuery('✅ Payment approved successfully!');
@@ -3374,7 +3387,7 @@ Icon: 📱
       // Import the verification function
       const { verifyPayment } = await import('../utils/paymentVerification.js');
       
-      const result = await verifyPayment(paymentId, ctx.from.id, 'Payment approved by admin');
+      const result = await verifyPayment(paymentId, ctx.from.id, 'Payment approved by admin', bot);
       
       if (result.success) {
         await ctx.answerCbQuery('✅ Payment approved successfully!');

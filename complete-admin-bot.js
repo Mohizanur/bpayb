@@ -1,12 +1,15 @@
 // Complete BirrPay Bot with EVERY SINGLE admin feature from original admin.js
 import "./src/utils/consoleOverride.js"; // Must be first to override console
 
+// Load environment variables FIRST before anything else
+import dotenv from "dotenv";
+dotenv.config();
+
 // Set global start time for uptime tracking
 global.startTime = Date.now();
 import { Telegraf } from "telegraf";
 import { message } from "telegraf/filters";
 import { createServer } from "http";
-import dotenv from "dotenv";
 // Web server removed - admin panel now accessible via Telegram only
 import { readFileSync, existsSync } from "fs";
 import { extname, join } from "path";
@@ -570,8 +573,6 @@ const setupPhoneVerification = (bot) => {
   });
 };
 
-dotenv.config();
-
 logger.info(
   "🚀 BirrPay Bot - COMPLETE Enhanced Version with Phone Verification"
 );
@@ -916,6 +917,10 @@ process.on("unhandledRejection", (reason, promise) => {
         return next();
       });
     }
+
+    // CRITICAL: Register subscribe handler middleware FIRST - before phone verification
+    // This ensures user details collection works even if phone verification blocks
+    setupSubscribeHandler(bot);
 
     // Phone verification middleware - MUST BE BEFORE OTHER MIDDLEWARE
     bot.use(phoneVerificationMiddleware);
@@ -1304,7 +1309,7 @@ You don't have any subscriptions yet. To start a new subscription, please select
     // Note: Cannot modify ES module exports, using enhanced function directly
 
     setupStartHandler(bot);
-    setupSubscribeHandler(bot);
+    // Note: setupSubscribeHandler is already called above (before phone verification middleware)
 
     // Setup global error handler
     bot.catch((err, ctx) => {
@@ -2063,20 +2068,35 @@ All pending operations have been cancelled. You can start fresh with /start`, {
       }
     });
 
-    // Start the bot with webhooks for Render
-    console.log("🚀 Starting bot with webhooks for Render deployment...");
-
     // Check if we're running locally for testing
-    if (process.env.LOCAL_TEST === "true") {
-      console.log(
-        "🔧 LOCAL_TEST mode detected - using polling instead of webhooks"
-      );
+    // Force polling mode if LOCAL_TEST is set OR if we're not in production
+    const isLocal = process.env.LOCAL_TEST === "true" || 
+                    process.env.NODE_ENV !== 'production' ||
+                    !process.env.RENDER_EXTERNAL_URL;
+    
+    if (isLocal) {
+      console.log("🔧 LOCAL MODE DETECTED - Using polling instead of webhooks");
+      console.log("🔧 LOCAL_TEST:", process.env.LOCAL_TEST);
+      console.log("🔧 NODE_ENV:", process.env.NODE_ENV);
+      console.log("🔧 RENDER_EXTERNAL_URL:", process.env.RENDER_EXTERNAL_URL);
+      
+      // Delete any existing webhook first
+      try {
+        await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+        console.log("🗑️ Deleted existing webhook for local testing");
+      } catch (e) {
+        console.log("⚠️ Could not delete webhook (might not exist):", e.message);
+      }
+      
+      // Use polling for local development
       await bot.launch();
-      console.log(
-        "✅ Bot started with polling for local testing - Phone verification ENABLED"
-      );
+      console.log("✅ Bot started with POLLING for local testing - Phone verification ENABLED");
+      console.log("🔧 REGISTERING SUBSCRIBE TEXT HANDLER FIRST");
       return;
     }
+
+    // Production: Use webhooks for Render
+    console.log("🚀 Starting bot with webhooks for Render deployment...");
 
     // Use webhooks instead of polling to avoid conflicts
     const webhookUrl =

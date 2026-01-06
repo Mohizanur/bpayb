@@ -191,6 +191,7 @@ Please upload your screenshot:`;
       const fileLink = await ctx.telegram.getFileLink(fileId);
       
       let paymentId, paymentReference, userDetailsFromMemory = null;
+      let paymentData = null; // Declare paymentData as let, not const
       
       // Handle payment proof - check in-memory state FIRST (ZERO quota!)
       if (inMemoryState && inMemoryState.awaitingProof) {
@@ -206,7 +207,7 @@ Please upload your screenshot:`;
         console.log('✅ Found payment details in memory - will write to DB now!');
         
         // NOW write to DB with all details - FIRST AND ONLY DB WRITE!
-        const paymentData = {
+        paymentData = {
           id: paymentId,
           userId: userId,
           serviceId: inMemoryState.serviceId,
@@ -250,8 +251,12 @@ Please upload your screenshot:`;
         await firestore.collection('subscriptions').doc(subscriptionId).set(subscriptionData);
         
         console.log('✅ Written payment and subscription to DB with all user details!');
+        console.log('📋 Payment data written:', JSON.stringify(paymentData, null, 2));
         
-        // Clear in-memory state
+        // Store payment data to pass to handlePaymentProofUpload (includes user details)
+        paymentData = { id: paymentId, ...paymentData };
+        
+        // Clear in-memory state AFTER storing payment data
         delete global.userDetailsState[userId];
         
       } else if (session.pendingPayment?.paymentId || session.expectingScreenshot || isAwaitingFromFirestore) {
@@ -300,6 +305,8 @@ Please upload your screenshot:`;
       
       // Handle the payment proof with our verification system
       console.log('📤 Calling handlePaymentProofUpload with paymentId:', paymentId);
+      console.log('📤 User details from memory:', userDetailsFromMemory);
+      
       const result = await handlePaymentProofUpload({
         paymentId: paymentId,
         screenshotUrl: fileLink.href, // Keep URL for storage
@@ -312,7 +319,11 @@ Please upload your screenshot:`;
           firstName: ctx.from.first_name,
           lastName: ctx.from.last_name,
           ...(userDetailsFromMemory || {}) // Include user details if from memory
-        }
+        },
+        // Pass the payment data if we just wrote it (includes all user details)
+        payment: paymentData || null,
+        // Pass the bot instance from context
+        botInstance: bot
       });
       
       console.log('📥 handlePaymentProofUpload result:', result);

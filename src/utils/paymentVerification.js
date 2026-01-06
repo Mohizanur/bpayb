@@ -29,7 +29,7 @@ function calculateEndDate(startDate, duration) {
  * @param {string} [notes=''] - Optional notes about the verification
  * @returns {Promise<Object>} Result of the operation
  */
-export async function verifyPayment(paymentId, adminId, notes = '') {
+export async function verifyPayment(paymentId, adminId, notes = '', botInstance = null) {
   try {
     const payment = await getPaymentById(paymentId);
     if (!payment) {
@@ -78,10 +78,11 @@ export async function verifyPayment(paymentId, adminId, notes = '') {
       // Add custom plan details if this is a custom plan
       if (isCustomPlan) {
         updateData.isCustomPlan = true;
-        updateData.customPlanDetails = payment.customPlanDetails;
-        updateData.customPlanRequestId = payment.customPlanRequestId;
+        if (payment.customPlanDetails) updateData.customPlanDetails = payment.customPlanDetails;
+        if (payment.customPlanRequestId) updateData.customPlanRequestId = payment.customPlanRequestId;
         updateData.serviceName = `Custom Plan: ${payment.customPlanDetails || 'Custom Service'}`;
       }
+      // Don't set isCustomPlan if it's false/undefined - Firestore doesn't allow undefined
       
       await firestore.collection('subscriptions').doc(payment.subscriptionId).update(updateData);
       console.log('✅ Subscription updated to active');
@@ -110,10 +111,12 @@ export async function verifyPayment(paymentId, adminId, notes = '') {
         paymentId: paymentId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        // Custom plan specific fields
-        isCustomPlan: isCustomPlan,
-        customPlanDetails: payment.customPlanDetails,
-        customPlanRequestId: payment.customPlanRequestId
+        // Custom plan specific fields - only include if it's a custom plan
+        ...(isCustomPlan ? {
+          isCustomPlan: true,
+          ...(payment.customPlanDetails && { customPlanDetails: payment.customPlanDetails }),
+          ...(payment.customPlanRequestId && { customPlanRequestId: payment.customPlanRequestId })
+        } : {})
       };
 
       await firestore.collection('subscriptions').doc(subscriptionId).set(subscriptionData);
@@ -142,27 +145,35 @@ export async function verifyPayment(paymentId, adminId, notes = '') {
 
     // Notify user about successful verification
     try {
-      // Handle different amount formats
-      let amountText = payment.amount || payment.price || 'N/A';
-      if (typeof amountText === 'string' && amountText.includes('ETB')) {
-        // Already formatted
-        amountText = amountText;
-      } else if (typeof amountText === 'number') {
-        amountText = `ETB ${amountText.toLocaleString()}`;
+      // Use provided bot instance or fallback to imported bot
+      const telegramBot = botInstance || bot;
+      
+      if (!telegramBot || !telegramBot.telegram) {
+        console.error('❌ Bot instance not available for notifying user about payment verification');
+        // Continue even if notification fails
+      } else {
+        // Handle different amount formats
+        let amountText = payment.amount || payment.price || 'N/A';
+        if (typeof amountText === 'string' && amountText.includes('ETB')) {
+          // Already formatted
+          amountText = amountText;
+        } else if (typeof amountText === 'number') {
+          amountText = `ETB ${amountText.toLocaleString()}`;
+        }
+        
+        // Handle payment reference
+        const reference = payment.paymentReference || payment.id || 'N/A';
+        
+        await telegramBot.telegram.sendMessage(
+          payment.userId,
+          `✅ *Payment Verified!*\n\n` +
+          `Your payment of *${amountText}* has been verified.\n` +
+          `Reference: \`${reference}\`\n` +
+          `Service: ${payment.serviceName || 'N/A'}\n` +
+          `Thank you for your purchase!`,
+          { parse_mode: 'Markdown' }
+        );
       }
-      
-      // Handle payment reference
-      const reference = payment.paymentReference || payment.id || 'N/A';
-      
-      await bot.telegram.sendMessage(
-        payment.userId,
-        `✅ *Payment Verified!*\n\n` +
-        `Your payment of *${amountText}* has been verified.\n` +
-        `Reference: \`${reference}\`\n` +
-        `Service: ${payment.serviceName || 'N/A'}\n` +
-        `Thank you for your purchase!`,
-        { parse_mode: 'Markdown' }
-      );
     } catch (error) {
       console.error('Error notifying user about payment verification:', error);
       // Continue even if notification fails
@@ -258,7 +269,7 @@ export async function rejectPayment(paymentId, adminId, reason) {
  * @param {string} [screenshotUrl] - Optional URL to the payment proof screenshot
  * @returns {Promise<boolean>} Whether the notification was sent successfully
  */
-export async function notifyAdminsAboutPayment(payment, screenshotUrl, fileId) {
+export async function notifyAdminsAboutPayment(payment, screenshotUrl, fileId, botInstance = null) {
   try {
     // QUOTA-OPTIMIZED: Use getAllAdmins which uses ULTRA-CACHE (ZERO quota if cached! Admins rarely change for days/months)
     const admins = await getAllAdmins();
@@ -313,71 +324,111 @@ export async function notifyAdminsAboutPayment(payment, screenshotUrl, fileId) {
       `*Payment ID:* \`${payment.id}\``;
 
     // Send to all admins (filter out admins without valid chat IDs)
-    const validAdmins = admins.filter(admin => admin.id && admin.id !== 'undefined');
+    // Filter out placeholder IDs and ensure ID is a valid number
+    const validAdmins = admins.filter(admin => {
+      const adminId = admin.id || admin.telegramId || admin.userId;
+      return adminId && 
+             adminId !== 'undefined' && 
+             adminId !== 'your_admin_id_here' &&
+             typeof adminId === 'number' || (typeof adminId === 'string' && /^\d+$/.test(adminId));
+    }).map(admin => ({
+      ...admin,
+      id: admin.id || admin.telegramId || admin.userId
+    }));
     
     if (validAdmins.length === 0) {
       console.warn('No admins with valid chat IDs found');
+      console.warn('Admin list:', admins.map(a => ({ id: a.id || a.telegramId || a.userId, name: a.name || a.username })));
       return false;
     }
     
-    const sendPromises = validAdmins.map(admin => {
-      // If we have a fileId, forward the image with payment details
-      if (fileId) {
-        return bot.telegram.sendPhoto(
-          admin.id,
-          fileId, // Use file_id instead of URL
-          {
-            caption: message,
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { 
-                    text: '✅ Approve Payment', 
-                    callback_data: `verify_payment:${payment.id}` 
-                  },
-                  { 
-                    text: '❌ Reject Payment', 
-                    callback_data: `reject_payment:${payment.id}` 
+    console.log(`📤 Sending notifications to ${validAdmins.length} valid admin(s)`);
+    
+    // Use provided bot instance or fallback to imported bot
+    const telegramBot = botInstance || bot;
+    
+    if (!telegramBot || !telegramBot.telegram) {
+      console.error('❌ Bot instance not available for sending admin notifications');
+      return false;
+    }
+    
+    const sendPromises = validAdmins.map(async (admin) => {
+      try {
+        // If we have a fileId, forward the image with payment details
+        if (fileId) {
+          // Add timeout and retry logic for photo sending
+          const maxRetries = 2;
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+              await telegramBot.telegram.sendPhoto(
+                admin.id,
+                fileId, // Use file_id instead of URL
+                {
+                  caption: message,
+                  parse_mode: 'Markdown',
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        { 
+                          text: '✅ Approve Payment', 
+                          callback_data: `verify_payment:${payment.id}` 
+                        },
+                        { 
+                          text: '❌ Reject Payment', 
+                          callback_data: `reject_payment:${payment.id}` 
+                        }
+                      ],
+                      [
+                        { 
+                          text: '👤 View User Profile', 
+                          callback_data: `view_user:${payment.userId}` 
+                        }
+                      ]
+                    ]
                   }
-                ],
-                [
-                  { 
-                    text: '👤 View User Profile', 
-                    callback_data: `view_user:${payment.userId}` 
-                  }
-                ]
-              ]
+                }
+              );
+              console.log(`✅ Admin notification sent to ${admin.id}`);
+              return; // Success, exit retry loop
+            } catch (error) {
+              if (attempt === maxRetries) throw error;
+              console.log(`⚠️ Retry ${attempt}/${maxRetries} for admin ${admin.id}:`, error.message);
+              await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Wait before retry
             }
           }
-        );
-      } else {
-        // Fallback to text message if no fileId
-        return bot.telegram.sendMessage(
-          admin.id,
-          message,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { 
-                    text: '✅ Approve Payment', 
-                    callback_data: `verify_payment:${payment.id}` 
-                  },
-                  { 
-                    text: '❌ Reject Payment', 
-                    callback_data: `reject_payment:${payment.id}` 
-                  }
+        } else {
+          // Fallback to text message if no fileId
+          await telegramBot.telegram.sendMessage(
+            admin.id,
+            message,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { 
+                      text: '✅ Approve Payment', 
+                      callback_data: `verify_payment:${payment.id}` 
+                    },
+                    { 
+                      text: '❌ Reject Payment', 
+                      callback_data: `reject_payment:${payment.id}` 
+                    }
+                  ]
                 ]
-              ]
+              }
             }
-          }
-        );
+          );
+          console.log(`✅ Admin notification sent to ${admin.id}`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to notify admin ${admin.id}:`, error.message);
+        // Continue with other admins even if one fails
       }
     });
 
-    await Promise.all(sendPromises);
+    await Promise.allSettled(sendPromises); // Use allSettled instead of all to continue even if some fail
+    console.log('✅ Admin notification process completed');
     return true;
   } catch (error) {
     console.error('Error notifying admins about payment:', error);
@@ -401,11 +452,11 @@ export async function notifyAdminsAboutPayment(payment, screenshotUrl, fileId) {
  * @param {Object} params.userInfo - User information
  * @returns {Promise<Object>} Result of the operation
  */
-export async function handlePaymentProofUpload({ paymentId, screenshotUrl, fileId, userId, userInfo }) {
+export async function handlePaymentProofUpload({ paymentId, screenshotUrl, fileId, userId, userInfo, payment: providedPayment, botInstance = null }) {
   try {
     console.log('🔍 Handling payment proof upload for paymentId:', paymentId);
     
-    let payment = null;
+    let payment = providedPayment || null; // Use provided payment if available (includes user details)
     let paymentCollection = 'pendingPayments';
     
     // QUOTA-OPTIMIZED: Use cached methods first (no DB reads if cached!)
@@ -505,7 +556,7 @@ export async function handlePaymentProofUpload({ paymentId, screenshotUrl, fileI
     
     console.log('📤 Notifying admins about payment proof...');
     // Notify admins about the new payment proof
-    const notifyResult = await notifyAdminsAboutPayment(payment, screenshotUrl, fileId);
+    const notifyResult = await notifyAdminsAboutPayment(payment, screenshotUrl, fileId, botInstance);
     
     if (!notifyResult) {
       console.warn('⚠️ Admin notification returned false, but continuing...');
