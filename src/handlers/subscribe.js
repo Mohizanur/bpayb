@@ -259,11 +259,15 @@ function setupSubscribeHandler(bot) {
         timestamp: Date.now()
       };
 
+      console.log('✅ User details state set in memory for user:', userId);
+      console.log('🔍 State details:', global.userDetailsState[userId]);
+
       // Ask for user name first
       const namePrompt = lang === 'am'
         ? `👤 *የእርስዎን ስም ያስገቡ*\n\nእባክዎ ሙሉ ስምዎን ይጻፉ:`
         : `👤 *Please Enter Your Name*\n\nPlease type your full name:`;
 
+      console.log('🔍 Sending name prompt to user:', userId);
       await ctx.editMessageText(namePrompt, {
         parse_mode: 'Markdown',
         reply_markup: {
@@ -274,6 +278,7 @@ function setupSubscribeHandler(bot) {
           ]
         }
       });
+      console.log('✅ Name prompt sent successfully');
       
     } catch (error) {
       console.error('Error in subscription confirmation:', error);
@@ -299,14 +304,21 @@ function setupSubscribeHandler(bot) {
     try {
       const userId = String(ctx.from.id);
       
+      console.log('🔍 Subscribe middleware checking for user:', userId, 'Text:', ctx.message.text);
+      console.log('🔍 Global userDetailsState exists:', !!global.userDetailsState);
+      console.log('🔍 User state in memory:', global.userDetailsState?.[userId]);
+      
       // Check in-memory state ONLY - ZERO DB read!
       if (!global.userDetailsState || !global.userDetailsState[userId]) {
+        console.log('🔍 User not in userDetailsState, passing to next handler');
         return next(); // Not in user details flow, continue to next handler
       }
 
       const userState = global.userDetailsState[userId];
+      console.log('🔍 Found user state:', { state: userState.state, step: userState.step });
       
       if (userState.state !== 'awaiting_user_details') {
+        console.log('🔍 User state is not awaiting_user_details, passing to next handler');
         return next(); // Not in user details flow, continue to next handler
       }
 
@@ -317,13 +329,16 @@ function setupSubscribeHandler(bot) {
       ctx.userDetailsHandled = true;
       
       const lang = await getUserLanguage(ctx);
+      console.log('🔍 Got user language:', lang);
 
       const step = userState.step || 'name';
       const userInput = ctx.message.text.trim();
 
       if (step === 'name') {
+        console.log('🔍 Processing name step, input:', userInput);
         // Validate name (at least 2 characters)
         if (userInput.length < 2) {
+          console.log('⚠️ Name too short, sending validation error');
           await ctx.reply(lang === 'am' 
             ? '⚠️ እባክዎ ትክክለኛ ስም ያስገቡ (ቢያንስ 2 ቁምፊዎች)'
             : '⚠️ Please enter a valid name (at least 2 characters)');
@@ -336,11 +351,13 @@ function setupSubscribeHandler(bot) {
         userState.timestamp = Date.now();
         
         console.log('✅ Updated state to email step for user:', userId);
+        console.log('🔍 Updated userState:', global.userDetailsState[userId]);
 
         const emailPrompt = lang === 'am'
           ? `📧 *የኢሜይል አድራሻዎን ያስገቡ*\n\nእባክዎ የኢሜይል አድራሻዎን ይጻፉ:`
           : `📧 *Please Enter Your Email*\n\nPlease type your email address:`;
 
+        console.log('🔍 Sending email prompt to user');
         await ctx.reply(emailPrompt, {
           parse_mode: 'Markdown',
           reply_markup: {
@@ -351,6 +368,7 @@ function setupSubscribeHandler(bot) {
             ]
           }
         });
+        console.log('✅ Email prompt sent successfully');
 
       } else if (step === 'email') {
         // Validate email format
@@ -418,7 +436,18 @@ function setupSubscribeHandler(bot) {
     } catch (error) {
       console.error('❌ Error in user details collection:', error);
       console.error('Error stack:', error.stack);
-      // On error, continue to next handler
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        userId: ctx.from?.id
+      });
+      // On error, try to send error message to user
+      try {
+        await ctx.reply('❌ An error occurred. Please try again or use /start to restart.');
+      } catch (replyError) {
+        console.error('❌ Could not send error message to user:', replyError);
+      }
+      // Continue to next handler
       return next();
     }
   });
