@@ -314,42 +314,41 @@ Please upload your screenshot:`;
           ...(userDetailsFromMemory || {}) // Include user details if from memory
         }
       });
+      
+      console.log('📥 handlePaymentProofUpload result:', result);
+      
+      if (result.success) {
+        // Clear the waiting state
+        session.waitingForPaymentProof = false;
+        delete session.pendingPayment;
         
-        console.log('📥 handlePaymentProofUpload result:', result);
-        
-        if (result.success) {
-          // Clear the waiting state
-          session.waitingForPaymentProof = false;
-          delete session.pendingPayment;
-          
-          console.log('✅ Payment proof processed successfully, sending reply to user...');
-          // Notify user
+        console.log('✅ Payment proof processed successfully, sending reply to user...');
+        // Notify user
+        try {
+          await ctx.reply(
+            lang === 'am'
+              ? '✅ የክፍያ ማስረጃው በተሳካ ሁኔታ ተልኳል። የእርስዎ ክፍያ እንዲረጋገጥ በማስተናገድ ላይ ነው። አመሰግናለሁ!' 
+              : '✅ Payment proof uploaded successfully! Your payment is being processed. Thank you for your patience!',
+            { parse_mode: 'Markdown' }
+          );
+          console.log('✅ User reply sent successfully');
+        } catch (replyError) {
+          console.error('❌ Error sending reply to user:', replyError);
+          // Try to send a simple text message as fallback
           try {
-            await ctx.reply(
-              lang === 'am'
-                ? '✅ የክፍያ ማስረጃው በተሳካ ሁኔታ ተልኳል። የእርስዎ ክፍያ እንዲረጋገጥ በማስተናገድ ላይ ነው። አመሰግናለሁ!' 
-                : '✅ Payment proof uploaded successfully! Your payment is being processed. Thank you for your patience!',
-              { parse_mode: 'Markdown' }
-            );
-            console.log('✅ User reply sent successfully');
-          } catch (replyError) {
-            console.error('❌ Error sending reply to user:', replyError);
-            // Try to send a simple text message as fallback
-            try {
-              await ctx.reply('✅ Payment proof received! Thank you.');
-            } catch (fallbackError) {
-              console.error('❌ Error sending fallback reply:', fallbackError);
-            }
+            await ctx.reply('✅ Payment proof received! Thank you.');
+          } catch (fallbackError) {
+            console.error('❌ Error sending fallback reply:', fallbackError);
           }
-          
-          // Admin notification is already handled in handlePaymentProofUpload
-          // No need to call it again here
-          
-          return;
-        } else {
-          console.error('❌ handlePaymentProofUpload returned success: false, error:', result.error);
-          throw new Error(result.error || 'Failed to process payment proof');
         }
+        
+        // Admin notification is already handled in handlePaymentProofUpload
+        // No need to call it again here
+        
+        return;
+      } else {
+        console.error('❌ handlePaymentProofUpload returned success: false, error:', result.error);
+        throw new Error(result.error || 'Failed to process payment proof');
       }
       
       // Handle screenshot upload for existing subscription (legacy flow)
