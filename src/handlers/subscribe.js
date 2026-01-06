@@ -291,55 +291,44 @@ function setupSubscribeHandler(bot) {
   });
 
   // Handle text messages for collecting user details
-  // Use middleware to run BEFORE other text handlers
+  // Register as text handler FIRST to run before other text handlers
   // ZERO QUOTA: Uses in-memory state only, no DB reads/writes during flow!
-  process.stderr.write('🔧 REGISTERING SUBSCRIBE MIDDLEWARE FOR USER DETAILS COLLECTION\n');
-  console.log('🔧 REGISTERING SUBSCRIBE MIDDLEWARE FOR USER DETAILS COLLECTION');
+  process.stderr.write('🔧 REGISTERING SUBSCRIBE TEXT HANDLER FOR USER DETAILS COLLECTION\n');
+  console.log('🔧 REGISTERING SUBSCRIBE TEXT HANDLER FOR USER DETAILS COLLECTION');
   
-  bot.use(async (ctx, next) => {
-    // Log EVERY update to see if middleware is running at all
-    process.stderr.write(`🔍 [SUBSCRIBE MIDDLEWARE] Update type: ${ctx.updateType || 'unknown'}, Has message: ${!!ctx.message}, Has text: ${!!ctx.message?.text}, Text: ${ctx.message?.text || 'N/A'}\n`);
-    
-    // Only process text messages
-    if (!ctx.message || !ctx.message.text) {
-      return next();
-    }
-    
-    // Only process text messages
-    if (!ctx.message || !ctx.message.text) {
-      process.stderr.write(`🔍 Not a text message, passing to next\n`);
-      return next();
-    }
-
-    // Skip if it's a command
-    if (ctx.message.text.startsWith('/')) {
-      process.stderr.write(`🔍 Is a command, passing to next\n`);
-      return next(); // Let other handlers process commands
-    }
-
+  // Use bot.on('text') but register it early to run first
+  bot.on('text', async (ctx) => {
     try {
+      // Log EVERY text message to see if handler is running
+      process.stderr.write(`🔍 [SUBSCRIBE TEXT HANDLER] User: ${ctx.from.id}, Text: ${ctx.message.text}\n`);
+      
+      // Skip if it's a command
+      if (ctx.message.text.startsWith('/')) {
+        return; // Let other handlers process commands
+      }
+      
       const userId = String(ctx.from.id);
       
       // Force log to stderr to bypass any console overrides
-      process.stderr.write(`🔍 Subscribe middleware checking for user: ${userId}, Text: ${ctx.message.text}\n`);
+      process.stderr.write(`🔍 Subscribe handler checking for user: ${userId}, Text: ${ctx.message.text}\n`);
       process.stderr.write(`🔍 Global userDetailsState exists: ${!!global.userDetailsState}\n`);
       process.stderr.write(`🔍 User state in memory: ${JSON.stringify(global.userDetailsState?.[userId])}\n`);
-      console.log('🔍 Subscribe middleware checking for user:', userId, 'Text:', ctx.message.text);
+      console.log('🔍 Subscribe handler checking for user:', userId, 'Text:', ctx.message.text);
       console.log('🔍 Global userDetailsState exists:', !!global.userDetailsState);
       console.log('🔍 User state in memory:', global.userDetailsState?.[userId]);
       
       // Check in-memory state ONLY - ZERO DB read!
       if (!global.userDetailsState || !global.userDetailsState[userId]) {
-        console.log('🔍 User not in userDetailsState, passing to next handler');
-        return next(); // Not in user details flow, continue to next handler
+        console.log('🔍 User not in userDetailsState, letting other handlers process');
+        return; // Not in user details flow, let other handlers process
       }
 
       const userState = global.userDetailsState[userId];
       console.log('🔍 Found user state:', { state: userState.state, step: userState.step });
       
       if (userState.state !== 'awaiting_user_details') {
-        console.log('🔍 User state is not awaiting_user_details, passing to next handler');
-        return next(); // Not in user details flow, continue to next handler
+        console.log('🔍 User state is not awaiting_user_details, letting other handlers process');
+        return; // Not in user details flow, let other handlers process
       }
 
       // User is in user details flow - process it and DON'T call next() to stop other handlers
@@ -457,6 +446,9 @@ function setupSubscribeHandler(bot) {
       }
 
     } catch (error) {
+      // Log error to stderr to ensure it's visible
+      process.stderr.write(`❌ ERROR in subscribe middleware: ${error.message}\n`);
+      process.stderr.write(`❌ Stack: ${error.stack}\n`);
       console.error('❌ Error in user details collection:', error);
       console.error('Error stack:', error.stack);
       console.error('Error details:', {
@@ -470,8 +462,8 @@ function setupSubscribeHandler(bot) {
       } catch (replyError) {
         console.error('❌ Could not send error message to user:', replyError);
       }
-      // Continue to next handler
-      return next();
+      // Don't return - let other handlers process if we had an error
+      return;
     }
   });
 
