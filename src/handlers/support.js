@@ -48,14 +48,20 @@ export default function supportHandler(bot) {
       console.log('🔍 userStates:', global.userStates?.[userId]);
       console.log('🔍 session awaitingUserSearch:', ctx.session?.awaitingUserSearch);
       
+      // Check if user is in user details collection flow (subscribe handler)
+      const { smartGet } = await import('../utils/optimizedDatabase.js');
+      const userState = await smartGet('userStates', userId, false);
+      const isInUserDetailsFlow = userState?.state === 'awaiting_user_details';
+
       if (userId && (
         (global.serviceCreationState && global.serviceCreationState[userId]) ||
         (global.serviceEditState && global.serviceEditState[userId]) ||
         (global.userStates && global.userStates[userId]?.state === 'awaiting_custom_plan_details') ||
-        (ctx.session?.awaitingUserSearch === true) // Skip if admin is searching users
+        (ctx.session?.awaitingUserSearch === true) || // Skip if admin is searching users
+        isInUserDetailsFlow // Skip if user is providing subscription details
       )) {
-        console.log('🔍 User is in service/custom plan/admin search flow, skipping support handler');
-        return; // Let service creation/editing/custom plan/admin handler process this
+        console.log('🔍 User is in service/custom plan/admin search/user details flow, skipping support handler');
+        return; // Let service creation/editing/custom plan/admin/subscribe handler process this
       }
       
       console.log('🔍 Processing as support message');

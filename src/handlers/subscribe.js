@@ -239,57 +239,8 @@ function setupSubscribeHandler(bot) {
       } else {
         durationText = `${durationValue} ${durationValue === 1 ? t('month', lang) : t('months', lang)}`;
       }
-      
-      // Find the matching plan
-      const plan = service.plans?.find(p => p.duration === durationValue);
-      
-      // Payment instructions
-        // Get payment methods from Firestore - OPTIMIZED with smart caching
-        let paymentMethods = [];
-        try {
-          paymentMethods = await optimizedDatabase.getPaymentMethods();
-          paymentMethods = paymentMethods.filter(method => method.active);
-        } catch (error) {
-          console.error('Error fetching payment methods:', error);
-        }
 
-        // Fallback to default payment methods if none configured
-        if (paymentMethods.length === 0) {
-          paymentMethods = [
-            {
-              id: 'telebirr',
-              name: 'TeleBirr',
-              nameAm: 'ቴሌብር',
-              account: '0912345678',
-              instructions: 'Send payment to TeleBirr account and upload screenshot',
-              instructionsAm: 'ወደ ቴሌብር መለያ ክፍያ በመላክ ስክሪንሾት ይላኩ',
-              icon: '📱'
-            }
-          ];
-        }
-
-        // Build payment methods list
-        let paymentMethodsListEn = '';
-        let paymentMethodsListAm = '';
-        
-        paymentMethods.forEach(method => {
-          const icon = method.icon || '💳';
-          paymentMethodsListEn += `${icon} *${method.name}*: ${method.account}\n`;
-          paymentMethodsListAm += `${icon} *${method.nameAm || method.name}*: ${method.account}\n`;
-        });
-
-        const paymentMessage = `💳 *${t('payment_instructions_title', lang)}*
-
-${t('service', lang)}: ${service.name}
-${t('duration', lang)}: ${plan?.billingCycle || durationText}
-${t('total_amount', lang)}: *${price.toLocaleString()} ${lang === 'am' ? t('birr', lang) : 'ETB'}*
-
-${t('payment_accounts_instruction', lang)}:
-${lang === 'am' ? paymentMethodsListAm : paymentMethodsListEn}
-${paymentMethods.length > 0 ? (lang === 'am' ? (paymentMethods[0].instructionsAm || t('payment_proof_instruction', lang)) : (paymentMethods[0].instructions || t('payment_proof_instruction', lang))) : t('payment_proof_instruction', lang)}
-${t('service_start_after_approval', lang)}`;
-
-      // Save pending payment to database (without starting subscription yet)
+      // Create payment ID and save initial payment data (without user details yet)
       const paymentId = `pay_${Date.now()}_${userId}`;
       const paymentReference = `REF-${Date.now()}-${userId}`;
       const paymentData = {
@@ -300,7 +251,7 @@ ${t('service_start_after_approval', lang)}`;
         duration,
         durationName: durationText,
         price,
-        amount: `ETB ${price}`, // Formatted amount for display
+        amount: `ETB ${price}`,
         status: 'pending',
         paymentReference: paymentReference,
         createdAt: new Date().toISOString(),
@@ -308,11 +259,310 @@ ${t('service_start_after_approval', lang)}`;
         paymentDetails: {}
       };
 
-      // Create pending subscription first
+      // Save initial payment data to Firestore (will be updated with user details later)
+      await firestore.collection('pendingPayments').doc(paymentId).set(paymentData);
+
+      // Set user state to collect user details (name, email, phone)
+      await firestore.collection('userStates').doc(userId).set({
+        state: 'awaiting_user_details',
+        paymentId: paymentId,
+        serviceId: serviceId,
+        duration: duration,
+        price: price,
+        step: 'name', // Track which detail we're collecting
+        timestamp: new Date().toISOString()
+      });
+
+      // Ask for user name first
+      const namePrompt = lang === 'am'
+        ? `👤 *የእርስዎን ስም ያስገቡ*\n\nእባክዎ ሙሉ ስምዎን ይጻፉ:`
+        : `👤 *Please Enter Your Name*\n\nPlease type your full name:`;
+
+      await ctx.editMessageText(namePrompt, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: t('cancel', lang), callback_data: 'cancel_user_details' }
+            ]
+          ]
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error in subscription confirmation:', error);
+      const lang = await getUserLanguage(ctx);
+      await ctx.answerCbQuery(t('error_occurred', lang));
+    }
+  });
+
+  // Handle text messages for collecting user details
+  bot.on('text', async (ctx) => {
+    try {
+      // Skip if it's a command
+      if (ctx.message.text.startsWith('/')) {
+        return; // Let other handlers process commands
+      }
+
+      const userId = String(ctx.from.id);
+      const lang = await getUserLanguage(ctx);
+      
+      // Check if user is in user details collection flow
+      const { smartGet } = await import('../utils/optimizedDatabase.js');
+      const userState = await smartGet('userStates', userId, false);
+      
+      if (!userState || userState.state !== 'awaiting_user_details') {
+        return; // Not in user details flow, let other handlers process
+      }
+
+      const step = userState.step || 'name';
+      const paymentId = userState.paymentId;
+      const serviceId = userState.serviceId;
+      const duration = userState.duration;
+      const price = userState.price;
+
+      // Get payment data
+      const paymentDoc = await firestore.collection('pendingPayments').doc(paymentId).get();
+      if (!paymentDoc.exists) {
+        await ctx.reply(lang === 'am' ? '❌ ክፍያ አልተገኘም' : '❌ Payment not found');
+        await firestore.collection('userStates').doc(userId).delete();
+        return;
+      }
+
+      const paymentData = paymentDoc.data();
+      const userInput = ctx.message.text.trim();
+
+      if (step === 'name') {
+        // Validate name (at least 2 characters)
+        if (userInput.length < 2) {
+          await ctx.reply(lang === 'am' 
+            ? '⚠️ እባክዎ ትክክለኛ ስም ያስገቡ (ቢያንስ 2 ቁምፊዎች)'
+            : '⚠️ Please enter a valid name (at least 2 characters)');
+          return;
+        }
+
+        // Save name and ask for email
+        paymentData.userName = userInput;
+        await firestore.collection('pendingPayments').doc(paymentId).update({ userName: userInput });
+
+        // Update state to ask for email
+        await firestore.collection('userStates').doc(userId).update({
+          step: 'email',
+          userName: userInput
+        });
+
+        const emailPrompt = lang === 'am'
+          ? `📧 *የኢሜይል አድራሻዎን ያስገቡ*\n\nእባክዎ የኢሜይል አድራሻዎን ይጻፉ:`
+          : `📧 *Please Enter Your Email*\n\nPlease type your email address:`;
+
+        await ctx.reply(emailPrompt, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: t('cancel', lang), callback_data: 'cancel_user_details' }
+              ]
+            ]
+          }
+        });
+
+      } else if (step === 'email') {
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(userInput)) {
+          await ctx.reply(lang === 'am'
+            ? '⚠️ እባክዎ ትክክለኛ የኢሜይል አድራሻ ያስገቡ (ለምሳሌ: example@email.com)'
+            : '⚠️ Please enter a valid email address (e.g., example@email.com)');
+          return;
+        }
+
+        // Save email and ask for phone
+        paymentData.userEmail = userInput;
+        await firestore.collection('pendingPayments').doc(paymentId).update({ userEmail: userInput });
+
+        // Update state to ask for phone
+        await firestore.collection('userStates').doc(userId).update({
+          step: 'phone',
+          userEmail: userInput
+        });
+
+        const phonePrompt = lang === 'am'
+          ? `📱 *የስልክ ቁጥርዎን ያስገቡ*\n\nእባክዎ የስልክ ቁጥርዎን ይጻፉ (ለምሳሌ: +251912345678):`
+          : `📱 *Please Enter Your Phone Number*\n\nPlease type your phone number (e.g., +251912345678):`;
+
+        await ctx.reply(phonePrompt, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: t('cancel', lang), callback_data: 'cancel_user_details' }
+              ]
+            ]
+          }
+        });
+
+      } else if (step === 'phone') {
+        // Validate phone format (Ethiopian format: +251XXXXXXXXX)
+        const phoneRegex = /^\+251[79]\d{8}$/;
+        const formattedPhone = userInput.startsWith('+') ? userInput : '+' + userInput;
+        
+        if (!phoneRegex.test(formattedPhone)) {
+          await ctx.reply(lang === 'am'
+            ? '⚠️ እባክዎ ትክክለኛ የስልክ ቁጥር ያስገቡ (ለምሳሌ: +251912345678)'
+            : '⚠️ Please enter a valid phone number (e.g., +251912345678)');
+          return;
+        }
+
+        // Save phone - all details collected!
+        paymentData.userPhone = formattedPhone;
+        await firestore.collection('pendingPayments').doc(paymentId).update({ 
+          userPhone: formattedPhone,
+          userDetailsCollected: true
+        });
+
+        // Clear user state
+        await firestore.collection('userStates').doc(userId).delete();
+
+        // Now show payment instructions
+        await showPaymentInstructions(ctx, {
+          paymentId,
+          serviceId,
+          duration,
+          price,
+          userName: paymentData.userName,
+          userEmail: paymentData.userEmail,
+          userPhone: formattedPhone
+        });
+      }
+
+    } catch (error) {
+      console.error('Error in user details collection:', error);
+      // On error, let other handlers process the message
+      return;
+    }
+  });
+
+  // Handle cancel user details collection
+  bot.action('cancel_user_details', async (ctx) => {
+    try {
+      const userId = String(ctx.from.id);
+      const lang = await getUserLanguage(ctx);
+      
+      // Get user state to find payment ID
+      const { smartGet } = await import('../utils/optimizedDatabase.js');
+      const userState = await smartGet('userStates', userId, false);
+      
+      if (userState && userState.paymentId) {
+        // Delete the pending payment
+        await firestore.collection('pendingPayments').doc(userState.paymentId).delete();
+      }
+      
+      // Clear user state
+      await firestore.collection('userStates').doc(userId).delete();
+      
+      await ctx.answerCbQuery();
+      await ctx.editMessageText(
+        lang === 'am' 
+          ? '❌ የደንበኝነት ምዝገባ ተሰርዟል' 
+          : '❌ Subscription cancelled',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: t('main_page', lang), callback_data: 'main_menu' }
+              ]
+            ]
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error cancelling user details:', error);
+    }
+  });
+
+  // Function to show payment instructions after collecting user details
+  async function showPaymentInstructions(ctx, { paymentId, serviceId, duration, price, userName, userEmail, userPhone }) {
+    try {
+      const lang = await getUserLanguage(ctx);
+      
+      // Get the service details
+      let service = ctx.services?.find(s => s.id === serviceId || s.serviceID === serviceId);
+      if (!service) {
+        service = await optimizedDatabase.getService(serviceId);
+        if (service) {
+          service = { id: serviceId, ...service };
+        }
+      }
+
+      if (!service) {
+        await ctx.reply(t('service_not_found', lang));
+        return;
+      }
+
+      // Parse duration
+      const durationType = duration.slice(-1);
+      const durationValue = parseInt(duration, 10);
+      const isConnectBased = durationType === 'c';
+      
+      let durationText;
+      if (isConnectBased) {
+        durationText = `${durationValue} Connects`;
+      } else {
+        durationText = `${durationValue} ${durationValue === 1 ? t('month', lang) : t('months', lang)}`;
+      }
+
+      const plan = service.plans?.find(p => p.duration === durationValue);
+
+      // Get payment methods
+      let paymentMethods = [];
+      try {
+        paymentMethods = await optimizedDatabase.getPaymentMethods();
+        paymentMethods = paymentMethods.filter(method => method.active);
+      } catch (error) {
+        console.error('Error fetching payment methods:', error);
+      }
+
+      if (paymentMethods.length === 0) {
+        paymentMethods = [
+          {
+            id: 'telebirr',
+            name: 'TeleBirr',
+            nameAm: 'ቴሌብር',
+            account: '0912345678',
+            instructions: 'Send payment to TeleBirr account and upload screenshot',
+            instructionsAm: 'ወደ ቴሌብር መለያ ክፍያ በመላክ ስክሪንሾት ይላኩ',
+            icon: '📱'
+          }
+        ];
+      }
+
+      // Build payment methods list
+      let paymentMethodsListEn = '';
+      let paymentMethodsListAm = '';
+      
+      paymentMethods.forEach(method => {
+        const icon = method.icon || '💳';
+        paymentMethodsListEn += `${icon} *${method.name}*: ${method.account}\n`;
+        paymentMethodsListAm += `${icon} *${method.nameAm || method.name}*: ${method.account}\n`;
+      });
+
+      const paymentMessage = `💳 *${t('payment_instructions_title', lang)}*
+
+${t('service', lang)}: ${service.name}
+${t('duration', lang)}: ${plan?.billingCycle || durationText}
+${t('total_amount', lang)}: *${price.toLocaleString()} ${lang === 'am' ? t('birr', lang) : 'ETB'}*
+
+${t('payment_accounts_instruction', lang)}:
+${lang === 'am' ? paymentMethodsListAm : paymentMethodsListEn}
+${paymentMethods.length > 0 ? (lang === 'am' ? (paymentMethods[0].instructionsAm || t('payment_proof_instruction', lang)) : (paymentMethods[0].instructions || t('payment_proof_instruction', lang))) : t('payment_proof_instruction', lang)}
+${t('service_start_after_approval', lang)}`;
+
+      // Create pending subscription
       const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const subscriptionData = {
         id: subscriptionId,
-        userId,
+        userId: String(ctx.from.id),
         serviceId: service.id,
         serviceName: service.name,
         status: 'pending',
@@ -326,15 +576,10 @@ ${t('service_start_after_approval', lang)}`;
       };
 
       await firestore.collection('subscriptions').doc(subscriptionId).set(subscriptionData);
-
-      // Add subscription ID to payment data
-      paymentData.subscriptionId = subscriptionId;
-
-      // Save to Firestore
-      await firestore.collection('pendingPayments').doc(paymentId).set(paymentData);
+      await firestore.collection('pendingPayments').doc(paymentId).update({ subscriptionId });
 
       // Send payment instructions
-      await ctx.editMessageText(paymentMessage, {
+      await ctx.reply(paymentMessage, {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
@@ -350,10 +595,14 @@ ${t('service_start_after_approval', lang)}`;
         }
       });
       
-      // Notify admin about new pending payment
+      // Notify admin about new pending payment with user details
       const adminMessage = `🆕 *New Pending Payment*\n\n` +
-        `👤 User: ${ctx.from.first_name} ${ctx.from.last_name || ''} (@${ctx.from.username || 'no_username'})\n` +
-        `🆔 User ID: ${userId}\n` +
+        `👤 *User Details:*\n` +
+        `├─ Name: ${userName}\n` +
+        `├─ Email: ${userEmail}\n` +
+        `├─ Phone: ${userPhone}\n` +
+        `└─ Telegram: ${ctx.from.first_name} ${ctx.from.last_name || ''} (@${ctx.from.username || 'no_username'})\n\n` +
+        `🆔 User ID: ${String(ctx.from.id)}\n` +
         `📱 Service: ${service.name}\n` +
         `⏳ Duration: ${durationText}\n` +
         `💰 Amount: ${price.toLocaleString()} ETB\n\n` +
@@ -374,13 +623,13 @@ ${t('service_start_after_approval', lang)}`;
           }
         }
       }
-      
+
     } catch (error) {
-      console.error('Error in payment instructions:', error);
+      console.error('Error showing payment instructions:', error);
       const lang = await getUserLanguage(ctx);
-      await ctx.answerCbQuery(t('error_occurred', lang));
+      await ctx.reply(t('error_occurred', lang));
     }
-  });
+  }
 
   // Handle payment proof upload
   bot.action(/^upload_proof_(.+)$/i, async (ctx) => {

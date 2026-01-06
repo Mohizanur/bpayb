@@ -293,9 +293,21 @@ export async function notifyAdminsAboutPayment(payment, screenshotUrl, fileId) {
       priority: 'high'
     });
     
+    // Build user details section
+    let userDetailsSection = '';
+    if (payment.userName || payment.userEmail || payment.userPhone) {
+      userDetailsSection = `👤 *User Details:*\n`;
+      if (payment.userName) userDetailsSection += `├─ Name: ${payment.userName}\n`;
+      if (payment.userEmail) userDetailsSection += `├─ Email: ${payment.userEmail}\n`;
+      if (payment.userPhone) userDetailsSection += `├─ Phone: ${payment.userPhone}\n`;
+      userDetailsSection += `└─ Telegram ID: ${payment.userId}\n\n`;
+    } else {
+      userDetailsSection = `👤 *User:* ${payment.userName || `ID: ${payment.userId}`}\n`;
+    }
+
     const message = `🆕 *Payment Verification Required*\n\n` +
+      userDetailsSection +
       `💰 *Amount:* ${formattedAmount}\n` +
-      `👤 *User:* ${payment.userName || `ID: ${payment.userId}`}\n` +
       `🛒 *Service:* ${payment.serviceName || 'N/A'}\n` +
       `📅 *Date:* ${new Date(payment.createdAt || Date.now()).toLocaleString()}\n\n` +
       `*Payment ID:* \`${payment.id}\``;
