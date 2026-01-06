@@ -259,6 +259,9 @@ function setupSubscribeHandler(bot) {
         timestamp: Date.now()
       };
 
+      // Force log to stderr to bypass any console overrides
+      process.stderr.write(`✅ User details state set in memory for user: ${userId}\n`);
+      process.stderr.write(`🔍 State details: ${JSON.stringify(global.userDetailsState[userId])}\n`);
       console.log('✅ User details state set in memory for user:', userId);
       console.log('🔍 State details:', global.userDetailsState[userId]);
 
@@ -304,6 +307,10 @@ function setupSubscribeHandler(bot) {
     try {
       const userId = String(ctx.from.id);
       
+      // Force log to stderr to bypass any console overrides
+      process.stderr.write(`🔍 Subscribe middleware checking for user: ${userId}, Text: ${ctx.message.text}\n`);
+      process.stderr.write(`🔍 Global userDetailsState exists: ${!!global.userDetailsState}\n`);
+      process.stderr.write(`🔍 User state in memory: ${JSON.stringify(global.userDetailsState?.[userId])}\n`);
       console.log('🔍 Subscribe middleware checking for user:', userId, 'Text:', ctx.message.text);
       console.log('🔍 Global userDetailsState exists:', !!global.userDetailsState);
       console.log('🔍 User state in memory:', global.userDetailsState?.[userId]);
@@ -323,12 +330,15 @@ function setupSubscribeHandler(bot) {
       }
 
       // User is in user details flow - process it and DON'T call next() to stop other handlers
+      // Force log to stderr to bypass any console overrides
+      process.stderr.write(`✅ Subscribe handler processing user details input: ${userId}, step: ${userState.step}, input: ${ctx.message.text}\n`);
       console.log('✅ Subscribe handler processing user details input:', { userId, step: userState.step, input: ctx.message.text });
       
       // Mark that we're handling this message to prevent other handlers from processing it
       ctx.userDetailsHandled = true;
       
       const lang = await getUserLanguage(ctx);
+      process.stderr.write(`🔍 Got user language: ${lang}\n`);
       console.log('🔍 Got user language:', lang);
 
       const step = userState.step || 'name';
