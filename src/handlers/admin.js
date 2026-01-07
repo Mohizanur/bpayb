@@ -2261,61 +2261,109 @@ Send a message to all active users of the bot.
       // Clear admin state
       delete global.adminStates[ctx.from.id];
       
-      // Notify admin with formatted price
-      await ctx.reply(`✅ Price set: ETB ${formatPrice(price)}\n\n📤 Notifying user with pricing...`);
-      
-      // Get user language
-      const lang = request.language || 'en';
-      
-      // Notify user with price and "Pay Now" button (formatPrice already imported above)
-      const userMessage = lang === 'am'
-        ? `💰 **የብጁ እቅድ ዋጋ ተዘጋጅቷል!**
-
-📋 **ጥያቄዎ:** ${request.customPlanDetails}
-
-💵 **ዋጋ:** ETB ${formatPrice(price)}
-
-💳 **አሁን ክፍያ ለመጀመር "አሁን ይክፈሉ" የሚለውን ቁልፍ ይጫኑ።`
-        : `💰 **Custom Plan Price Set!**
-
-📋 **Your Request:** ${request.customPlanDetails}
-
-💵 **Price:** ETB ${formatPrice(price)}
-
-💳 **Click "Pay Now" below to start the payment process.**`;
-      
-      try {
-        console.log('🔍 Sending message to user:', userId);
-        await bot.telegram.sendMessage(userId, userMessage, {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { 
-                  text: lang === 'am' ? '💳 አሁን ይክፈሉ' : '💳 Pay Now', 
-                  callback_data: `pay_custom_plan_${paymentId}` 
-                }
-              ],
-              [
-                { 
-                  text: lang === 'am' ? '❌ ይቅር' : '❌ Cancel', 
-                  callback_data: 'cancel_custom_plan' 
-                }
-              ]
-            ]
-          }
-        });
-      } catch (sendError) {
-        if (sendError.response?.error_code === 403) {
-          await ctx.reply(`⚠️ User has blocked the bot. Price set but notification not sent.\n\n💡 Contact them through another channel.`);
-        } else {
-          throw sendError;
-        }
-      }
+      // Notify admin with formatted price (no user notification; admin will contact user directly)
+      await ctx.reply(`✅ Price set: ETB ${formatPrice(price)}\n\n📞 Please contact the user directly to settle.\n\nAfter settlement, click ✅ Complete and enter the settled amount.`);
       
     } catch (error) {
       console.error('Error handling custom pricing input:', error);
       await ctx.reply('❌ Error processing price. Please try again.');
+      delete global.adminStates[ctx.from.id];
+    }
+  };
+
+  // Handle custom settlement input (admin marks custom plan as completed manually)
+  const handleCustomSettlementInput = async (ctx, adminState) => {
+    try {
+      const amountText = ctx.message.text.trim();
+      const { parsePrice, formatPrice } = await import('../utils/priceFormat.js');
+      const amount = parsePrice(amountText);
+
+      if (amount === null || amount <= 0) {
+        await ctx.reply('❌ Invalid amount. Please send a valid settled amount (e.g., "1500" or "ETB 1,500")');
+        return;
+      }
+
+      const requestId = adminState.requestId;
+      const userId = adminState.userId;
+      console.log('🔍 Processing custom settlement:', { requestId, userId, amount });
+
+      // Get request details
+      const request = await optimizedDatabase.getCustomPlanRequest(requestId);
+      if (!request) {
+        await ctx.reply('❌ Request not found. Please try again.');
+        delete global.adminStates[ctx.from.id];
+        return;
+      }
+
+      const serviceId = request.serviceId || 'custom_plan';
+      const serviceName = request.serviceName || 'Custom Plan';
+      const customPlanDetails = request.customPlanDetails || '';
+
+      // Create payment & subscription IDs
+      const paymentId = `custom_settled_${Date.now()}_${userId}`;
+      const paymentReference = `CUSTOM-SETTLED-${Date.now()}-${userId}`;
+      const subscriptionId = `sub_custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Write payment (completed)
+      await firestore.collection('payments').doc(paymentId).set({
+        id: paymentId,
+        userId,
+        serviceId,
+        serviceName,
+        amount: `ETB ${formatPrice(amount)}`,
+        price: amount,
+        status: 'completed',
+        paymentReference,
+        customPlanRequestId: requestId,
+        customPlanDetails,
+        manualSettlement: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+      // Write subscription (active)
+      await firestore.collection('subscriptions').doc(subscriptionId).set({
+        id: subscriptionId,
+        userId,
+        serviceId,
+        serviceName,
+        status: 'active',
+        startDate: new Date().toISOString(),
+        endDate: null,
+        amount: `ETB ${formatPrice(amount)}`,
+        price: amount,
+        duration: 'custom',
+        durationName: 'Custom Plan',
+        paymentId,
+        isCustomPlan: true,
+        customPlanRequestId: requestId,
+        customPlanDetails,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+      // Update request status
+      await optimizedDatabase.updateCustomPlanRequest(requestId, {
+        status: 'completed',
+        price: amount,
+        settledAt: new Date(),
+        settledBy: ctx.from.id,
+        paymentId,
+        subscriptionId
+      });
+
+      delete global.adminStates[ctx.from.id];
+
+      await ctx.reply(
+        `✅ Custom plan settled and recorded.\n\n` +
+        `💰 Amount: ETB ${formatPrice(amount)}\n` +
+        `🧾 Payment ID: ${paymentId}\n` +
+        `🪪 Subscription ID: ${subscriptionId}`
+      );
+
+    } catch (error) {
+      console.error('Error handling custom settlement input:', error);
+      await ctx.reply('❌ Error processing settlement. Please try again.');
       delete global.adminStates[ctx.from.id];
     }
   };
@@ -2388,6 +2436,13 @@ Send a message to all active users of the bot.
       if (adminState?.state === 'awaiting_custom_pricing') {
         console.log('✅ Admin state found, calling handleCustomPricingInput');
         await handleCustomPricingInput(ctx, adminState);
+        return;
+      }
+
+      // 3b. Check if admin is settling a custom plan manually
+      if (adminState?.state === 'awaiting_custom_settlement') {
+        console.log('✅ Admin state found, calling handleCustomSettlementInput');
+        await handleCustomSettlementInput(ctx, adminState);
         return;
       }
 
@@ -2885,7 +2940,8 @@ Users can request custom plans by selecting a service and clicking "🎯 Custom 
         const shortName = `${request.userFirstName || 'User'} - ${request.customPlanDetails?.substring(0, 20)}...`;
         keyboard.push([
           { text: `💰 Set Price #${index + 1}`, callback_data: `set_custom_price_${doc.id}` },
-          { text: `❌ Reject #${index + 1}`, callback_data: `reject_custom_${doc.id}` }
+          { text: `✅ Complete #${index + 1}`, callback_data: `complete_custom_${doc.id}` },
+          { text: `🚫 Cancel #${index + 1}`, callback_data: `cancel_custom_${doc.id}` }
         ]);
       });
 
@@ -3113,6 +3169,76 @@ The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
         requestId: ctx.match?.[1]
       });
       await ctx.answerCbQuery('❌ Error setting price. Check logs for details.');
+    }
+  });
+
+  // Handle marking custom plan as completed (manual settlement)
+  bot.action(/^complete_custom_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const requestId = ctx.match[1];
+      console.log('🔍 Completing custom plan request:', requestId);
+
+      // Get the custom plan request
+      const request = await optimizedDatabase.getCustomPlanRequest(requestId);
+      if (!request) {
+        await ctx.answerCbQuery('❌ Request not found');
+        return;
+      }
+
+      if (!request.userId) {
+        await ctx.answerCbQuery('❌ Invalid request data (missing userId)');
+        return;
+      }
+
+      // Set admin state to expect settlement amount
+      if (!global.adminStates) global.adminStates = {};
+      global.adminStates[ctx.from.id] = {
+        state: 'awaiting_custom_settlement',
+        requestId,
+        userId: request.userId,
+        timestamp: Date.now()
+      };
+
+      await ctx.answerCbQuery('✅ Now send the settled amount (e.g., "1500")');
+      await ctx.reply(
+        `✅ Marking request as completed.\n\n` +
+        `Request: ${request.customPlanDetails}\n` +
+        `User: ${request.userFirstName || 'User'}\n\n` +
+        `Please send the settled amount (e.g., "1500" or "ETB 1,500").`
+      );
+    } catch (error) {
+      console.error('Error completing custom plan:', error);
+      await ctx.answerCbQuery('❌ Error completing request');
+    }
+  });
+
+  // Handle cancelling custom plan request
+  bot.action(/^cancel_custom_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      const requestId = ctx.match[1];
+      console.log('🔍 Cancelling custom plan request:', requestId);
+
+      await optimizedDatabase.updateCustomPlanRequest(requestId, {
+        status: 'cancelled',
+        cancelledAt: new Date(),
+        cancelledBy: ctx.from.id
+      });
+
+      await ctx.answerCbQuery('✅ Request cancelled');
+      await ctx.reply('✅ Custom plan request cancelled.');
+    } catch (error) {
+      console.error('Error cancelling custom plan request:', error);
+      await ctx.answerCbQuery('❌ Error cancelling request');
     }
   });
 
