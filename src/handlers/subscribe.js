@@ -128,7 +128,9 @@ function setupSubscribeHandler(bot) {
           price: userState.price,
           userName: userState.userName,
           userEmail: userState.userEmail,
-          userPhone: formattedPhone
+          userPhone: formattedPhone,
+          isCustomPlan: userState.isCustomPlan || false,
+          customPlanDetails: userState.customPlanDetails
         });
         
         // Mark as handled - don't call next() to prevent other handlers from processing
@@ -428,6 +430,104 @@ function setupSubscribeHandler(bot) {
   // NOTE: Text handler for user details collection is already registered at the START of this function (line 18)
   // This ensures it runs before all other text handlers. No need to register it again here.
 
+  // Handle "Pay Now" button for custom plans
+  bot.action(/^pay_custom_plan_(.+)$/, async (ctx) => {
+    try {
+      const paymentId = ctx.match[1];
+      const userId = String(ctx.from.id);
+      const lang = await getUserLanguage(ctx);
+      
+      console.log('🔍 Pay Now clicked for custom plan payment:', paymentId);
+      
+      // Get payment details from database
+      const payment = await optimizedDatabase.getPendingPayment(paymentId);
+      
+      if (!payment) {
+        await ctx.answerCbQuery(t('error_occurred', lang));
+        await ctx.reply('❌ Payment not found. Please contact support.');
+        return;
+      }
+      
+      // Verify this payment belongs to this user
+      if (String(payment.userId) !== userId) {
+        await ctx.answerCbQuery(t('error_occurred', lang));
+        await ctx.reply('❌ Unauthorized access.');
+        return;
+      }
+      
+      // Get custom plan request details (only if not already in payment data)
+      // OPTIMIZATION: Skip DB read if customPlanDetails already in payment
+      const request = (!payment.customPlanDetails && payment.customPlanRequestId) 
+        ? await optimizedDatabase.getCustomPlanRequest(payment.customPlanRequestId)
+        : null;
+      
+      // Set up user details collection state (same as normal plans!)
+      if (!global.userDetailsState) global.userDetailsState = {};
+      global.userDetailsState[userId] = {
+        state: 'awaiting_user_details',
+        paymentId: paymentId,
+        paymentReference: payment.paymentReference || `REF-${Date.now()}-${userId}`,
+        serviceId: payment.serviceId || request?.serviceId || 'custom_plan',
+        serviceName: payment.serviceName || request?.serviceName || 'Custom Plan',
+        duration: 'custom',
+        durationName: 'Custom Plan',
+        price: payment.price,
+        isCustomPlan: true,
+        customPlanRequestId: payment.customPlanRequestId,
+        customPlanDetails: payment.customPlanDetails || request?.customPlanDetails,
+        step: 'name',
+        timestamp: Date.now()
+      };
+      
+      // Ask for name first
+      const namePrompt = lang === 'am'
+        ? `👤 *የእርስዎን ስም ያስገቡ*\n\nእባክዎ ሙሉ ስምዎን ይጻፉ:`
+        : `👤 *Please Enter Your Name*\n\nPlease type your full name:`;
+      
+      await ctx.answerCbQuery();
+      await ctx.editMessageText(namePrompt, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: lang === 'am' ? '❌ ይቅር' : '❌ Cancel', callback_data: 'cancel_user_details' }
+            ]
+          ]
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error in pay_custom_plan handler:', error);
+      const lang = await getUserLanguage(ctx);
+      await ctx.answerCbQuery(t('error_occurred', lang));
+    }
+  });
+
+  // Handle cancel custom plan
+  bot.action('cancel_custom_plan', async (ctx) => {
+    try {
+      const lang = await getUserLanguage(ctx);
+      await ctx.answerCbQuery();
+      await ctx.editMessageText(
+        lang === 'am' 
+          ? '❌ የብጁ እቅድ ጥያቄ ተሰርዟል' 
+          : '❌ Custom plan request cancelled',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: t('main_page', lang), callback_data: 'main_menu' }
+              ]
+            ]
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error cancelling custom plan:', error);
+    }
+  });
+
   // Handle cancel user details collection
   bot.action('cancel_user_details', async (ctx) => {
     try {
@@ -462,37 +562,43 @@ function setupSubscribeHandler(bot) {
   });
 
   // Function to show payment instructions after collecting user details
-  async function showPaymentInstructions(ctx, { paymentId, serviceId, duration, price, userName, userEmail, userPhone }) {
+  async function showPaymentInstructions(ctx, { paymentId, serviceId, duration, price, userName, userEmail, userPhone, isCustomPlan, customPlanDetails }) {
     try {
       const lang = await getUserLanguage(ctx);
       
-      // Get the service details
-      let service = ctx.services?.find(s => s.id === serviceId || s.serviceID === serviceId);
-      if (!service) {
-        service = await optimizedDatabase.getService(serviceId);
-        if (service) {
-          service = { id: serviceId, ...service };
+      // For custom plans, skip service lookup
+      let service = null;
+      let durationText = 'Custom Plan';
+      let isCustom = isCustomPlan || false;
+      
+      if (!isCustom) {
+        // Get the service details
+        service = ctx.services?.find(s => s.id === serviceId || s.serviceID === serviceId);
+        if (!service) {
+          service = await optimizedDatabase.getService(serviceId);
+          if (service) {
+            service = { id: serviceId, ...service };
+          }
+        }
+
+        if (!service) {
+          await ctx.reply(t('service_not_found', lang));
+          return;
+        }
+
+        // Parse duration
+        const durationType = duration.slice(-1);
+        const durationValue = parseInt(duration, 10);
+        const isConnectBased = durationType === 'c';
+        
+        if (isConnectBased) {
+          durationText = `${durationValue} Connects`;
+        } else {
+          durationText = `${durationValue} ${durationValue === 1 ? t('month', lang) : t('months', lang)}`;
         }
       }
 
-      if (!service) {
-        await ctx.reply(t('service_not_found', lang));
-        return;
-      }
-
-      // Parse duration
-      const durationType = duration.slice(-1);
-      const durationValue = parseInt(duration, 10);
-      const isConnectBased = durationType === 'c';
-      
-      let durationText;
-      if (isConnectBased) {
-        durationText = `${durationValue} Connects`;
-      } else {
-        durationText = `${durationValue} ${durationValue === 1 ? t('month', lang) : t('months', lang)}`;
-      }
-
-      const plan = service.plans?.find(p => p.duration === durationValue);
+      const plan = !isCustom ? service.plans?.find(p => p.duration === durationValue) : null;
       
       // Get payment methods
         let paymentMethods = [];
@@ -527,7 +633,36 @@ function setupSubscribeHandler(bot) {
           paymentMethodsListAm += `${icon} *${method.nameAm || method.name}*: ${method.account}\n`;
         });
 
-        const paymentMessage = `💳 *${t('payment_instructions_title', lang)}*
+        // Build payment message - handle custom plans differently
+        let paymentMessage;
+        if (isCustom) {
+          // Custom plan message
+          paymentMessage = lang === 'am'
+            ? `💳 *የክፍያ መመሪያዎች*
+
+📋 **ብጁ እቅድ:** ${customPlanDetails || 'Custom Plan'}
+💵 **ዋጋ:** *${price.toLocaleString()} ${lang === 'am' ? t('birr', lang) : 'ETB'}*
+
+${t('payment_accounts_instruction', lang)}:
+${lang === 'am' ? paymentMethodsListAm : paymentMethodsListEn}
+${paymentMethods.length > 0 ? (lang === 'am' ? (paymentMethods[0].instructionsAm || t('payment_proof_instruction', lang)) : (paymentMethods[0].instructions || t('payment_proof_instruction', lang))) : t('payment_proof_instruction', lang)}
+${t('service_start_after_approval', lang)}`
+            : `💳 *${t('payment_instructions_title', lang)}*
+
+📋 **Custom Plan:** ${customPlanDetails || 'Custom Plan'}
+💵 **${t('total_amount', lang)}:** *${price.toLocaleString()} ${lang === 'am' ? t('birr', lang) : 'ETB'}*
+
+${t('payment_accounts_instruction', lang)}:
+${lang === 'am' ? paymentMethodsListAm : paymentMethodsListEn}
+${paymentMethods.length > 0 ? (lang === 'am' ? (paymentMethods[0].instructionsAm || t('payment_proof_instruction', lang)) : (paymentMethods[0].instructions || t('payment_proof_instruction', lang))) : t('payment_proof_instruction', lang)}
+${t('service_start_after_approval', lang)}`;
+        } else {
+          // Regular plan message
+          if (!service) {
+            await ctx.reply(t('service_not_found', lang));
+            return;
+          }
+          paymentMessage = `💳 *${t('payment_instructions_title', lang)}*
 
 ${t('service', lang)}: ${service.name}
 ${t('duration', lang)}: ${plan?.billingCycle || durationText}
@@ -537,6 +672,7 @@ ${t('payment_accounts_instruction', lang)}:
 ${lang === 'am' ? paymentMethodsListAm : paymentMethodsListEn}
 ${paymentMethods.length > 0 ? (lang === 'am' ? (paymentMethods[0].instructionsAm || t('payment_proof_instruction', lang)) : (paymentMethods[0].instructions || t('payment_proof_instruction', lang))) : t('payment_proof_instruction', lang)}
 ${t('service_start_after_approval', lang)}`;
+        }
 
       // DON'T create subscription/payment in DB yet - wait for payment proof!
       // This saves quota for users who just explore without paying

@@ -2232,11 +2232,11 @@ Send a message to all active users of the bot.
         return;
       }
       
-      // Update payment with price
+      // Update payment with price (status: 'pending' - waiting for user to click Pay Now)
       await optimizedDatabase.updatePendingPayment(paymentId, {
         price: price,
         amount: `ETB ${formatPrice(price)}`,
-        status: 'pending_verification'
+        status: 'pending'
       });
       
       // Update custom plan request
@@ -2249,30 +2249,12 @@ Send a message to all active users of the bot.
       delete global.adminStates[ctx.from.id];
       
       // Notify admin with formatted price
-      await ctx.reply(`✅ Price set: ETB ${formatPrice(price)}\n\n📤 Notifying user and starting payment flow...`);
+      await ctx.reply(`✅ Price set: ETB ${formatPrice(price)}\n\n📤 Notifying user with pricing...`);
       
       // Get user language
       const lang = request.language || 'en';
       
-      // Set up user details collection state (same as normal plans!)
-      if (!global.userDetailsState) global.userDetailsState = {};
-      global.userDetailsState[userId] = {
-        state: 'awaiting_user_details',
-        paymentId: paymentId,
-        paymentReference: payment.paymentReference,
-        serviceId: request.serviceId || 'custom_plan',
-        serviceName: request.serviceName || 'Custom Plan',
-        duration: 'custom',
-        durationName: 'Custom Plan',
-        price: price,
-        isCustomPlan: true,
-        customPlanRequestId: requestId,
-        customPlanDetails: request.customPlanDetails,
-        step: 'name',
-        timestamp: Date.now()
-      };
-      
-      // Notify user with price and start details collection (formatPrice already imported above)
+      // Notify user with price and "Pay Now" button (formatPrice already imported above)
       const userMessage = lang === 'am'
         ? `💰 **የብጁ እቅድ ዋጋ ተዘጋጅቷል!**
 
@@ -2280,30 +2262,31 @@ Send a message to all active users of the bot.
 
 💵 **ዋጋ:** ETB ${formatPrice(price)}
 
-👤 **አሁን የእርስዎን ዝርዝሮች እንጠይቃለን:**
-እባክዎ ስም፣ ኢሜይል እና ስልክ ቁጥርዎን እንጠይቃለን።`
+💳 **አሁን ክፍያ ለመጀመር "አሁን ይክፈሉ" የሚለውን ቁልፍ ይጫኑ።`
         : `💰 **Custom Plan Price Set!**
 
 📋 **Your Request:** ${request.customPlanDetails}
 
 💵 **Price:** ETB ${formatPrice(price)}
 
-👤 **Now we need your details:**
-Please provide your name, email, and phone number.`;
-      
-      // Ask for name first
-      const namePrompt = lang === 'am'
-        ? `👤 *የእርስዎን ስም ያስገቡ*\n\nእባክዎ ሙሉ ስምዎን ይጻፉ:`
-        : `👤 *Please Enter Your Name*\n\nPlease type your full name:`;
+💳 **Click "Pay Now" below to start the payment process.**`;
       
       try {
-        await bot.telegram.sendMessage(userId, userMessage, { parse_mode: 'Markdown' });
-        await bot.telegram.sendMessage(userId, namePrompt, {
+        await bot.telegram.sendMessage(userId, userMessage, {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
               [
-                { text: lang === 'am' ? '❌ ይቅር' : '❌ Cancel', callback_data: 'cancel_user_details' }
+                { 
+                  text: lang === 'am' ? '💳 አሁን ይክፈሉ' : '💳 Pay Now', 
+                  callback_data: `pay_custom_plan_${paymentId}` 
+                }
+              ],
+              [
+                { 
+                  text: lang === 'am' ? '❌ ይቅር' : '❌ Cancel', 
+                  callback_data: 'cancel_custom_plan' 
+                }
               ]
             ]
           }
