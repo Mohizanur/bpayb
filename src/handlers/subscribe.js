@@ -32,8 +32,14 @@ function setupSubscribeHandler(bot) {
         return next();
       }
       
-      // Check if user is in details collection flow
+      // Skip if admin is in custom settlement flow (let admin handler process it)
       const userId = String(ctx.from?.id);
+      if (global.adminStates && global.adminStates[userId]?.state === 'awaiting_custom_settlement') {
+        process.stderr.write(`⏭️ [SUBSCRIBE HANDLER] Admin in settlement flow, skipping\n`);
+        return next(); // Let admin handler process
+      }
+      
+      // Check if user is in details collection flow
       if (!global.userDetailsState || !global.userDetailsState[userId] || global.userDetailsState[userId].state !== 'awaiting_user_details') {
         return next(); // Not in flow, let other handlers process
       }

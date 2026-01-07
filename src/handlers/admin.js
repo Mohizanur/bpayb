@@ -2425,24 +2425,26 @@ Send a message to all active users of the bot.
         return;
       }
 
-      // 3. Check if admin is setting custom plan price
+      // 3. Check if admin is in any custom plan state
       const adminState = global.adminStates?.[userId];
-      console.log('🔍 Checking admin state for custom pricing:', {
+      console.log('🔍 Checking admin state:', {
         userId,
         adminState,
         state: adminState?.state,
         hasAdminStates: !!global.adminStates
       });
-      if (adminState?.state === 'awaiting_custom_pricing') {
-        console.log('✅ Admin state found, calling handleCustomPricingInput');
-        await handleCustomPricingInput(ctx, adminState);
+      
+      // 3a. Check if admin is settling a custom plan manually (check this FIRST)
+      if (adminState?.state === 'awaiting_custom_settlement') {
+        console.log('✅ Admin state found (settlement), calling handleCustomSettlementInput');
+        await handleCustomSettlementInput(ctx, adminState);
         return;
       }
-
-      // 3b. Check if admin is settling a custom plan manually
-      if (adminState?.state === 'awaiting_custom_settlement') {
-        console.log('✅ Admin state found, calling handleCustomSettlementInput');
-        await handleCustomSettlementInput(ctx, adminState);
+      
+      // 3b. Check if admin is setting custom plan price
+      if (adminState?.state === 'awaiting_custom_pricing') {
+        console.log('✅ Admin state found (pricing), calling handleCustomPricingInput');
+        await handleCustomPricingInput(ctx, adminState);
         return;
       }
 
