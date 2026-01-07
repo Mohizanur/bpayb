@@ -1588,8 +1588,8 @@ ${ctx.message.text}
                   reply_markup: {
                     inline_keyboard: [
                       [
-                        { text: '💰 Set Pricing', callback_data: `set_custom_pricing_${requestRef.id}` },
-                        { text: '❌ Reject', callback_data: `reject_custom_${requestRef.id}` }
+                        { text: '✅ Complete', callback_data: `complete_custom_${requestRef.id}` },
+                        { text: '🚫 Cancel', callback_data: `cancel_custom_${requestRef.id}` }
                       ],
                       [
                         { text: '👤 View User', callback_data: `view_user_${userId}` }

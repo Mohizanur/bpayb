@@ -3104,62 +3104,23 @@ The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
         return;
       }
       
-      // Create a pending payment for the custom plan
-      const paymentId = `custom_${Date.now()}_${request.userId}`;
-      const paymentReference = `CUSTOM-${Date.now()}-${request.userId}`;
-      
-      const paymentData = {
-        id: paymentId,
-        userId: request.userId,
-        serviceId: request.serviceId || 'custom_plan',
-        serviceName: request.serviceName || 'Custom Plan',
-        duration: 'custom',
-        durationName: 'Custom Plan',
-        price: 0, // Will be set by admin
-        amount: 'ETB 0', // Will be updated by admin
-        status: 'pending_pricing',
-        paymentReference: paymentReference,
-        customPlanDetails: request.customPlanDetails,
-        customPlanRequestId: requestId,
-        createdAt: new Date().toISOString(),
-        paymentMethod: 'manual',
-        paymentDetails: {},
-        language: request.language
-      };
-
-      // Save payment to pendingPayments collection - OPTIMIZED
-      await optimizedDatabase.createPendingPayment(paymentData);
-      
-      // Update custom plan request status - OPTIMIZED with cache invalidation
-      await optimizedDatabase.updateCustomPlanRequest(requestId, {
-        status: 'pricing_set',
-        pricingSetAt: new Date(),
-        pricingSetBy: ctx.from.id,
-        paymentId: paymentId
-      });
-
-      // Set admin state to expect pricing input
+      // Set admin state to expect settlement amount (manual flow)
       if (!global.adminStates) global.adminStates = {};
       global.adminStates[ctx.from.id] = {
-        state: 'awaiting_custom_pricing',
-        paymentId: paymentId,
+        state: 'awaiting_custom_settlement',
         requestId: requestId,
         userId: request.userId, // Add userId for the user who requested the plan
         timestamp: Date.now()
       };
-      console.log('✅ Admin state set for custom pricing:', global.adminStates[ctx.from.id]);
+      console.log('✅ Admin state set for custom settlement:', global.adminStates[ctx.from.id]);
 
-      await ctx.answerCbQuery('✅ Now send the price (e.g., "ETB 1500")');
-      
-      // Update the admin notification
-      try {
-        await ctx.editMessageText(
-          ctx.callbackQuery.message.text + `\n\n✅ **PRICING SETUP** by ${ctx.from.first_name}\n\n💳 **Payment ID:** \`${paymentId}\`\n\n📝 **Next:** Send price (e.g., "ETB 1500")`,
-          { parse_mode: 'Markdown' }
-        );
-      } catch (editError) {
-        console.log('Could not edit message:', editError.message);
-      }
+      await ctx.answerCbQuery('✅ Now send the settled amount (e.g., "1500")');
+      await ctx.reply(
+        `✅ Marking request as completed.\n\n` +
+        `Request: ${request.customPlanDetails}\n` +
+        `User: ${request.userFirstName || 'User'}\n\n` +
+        `Please send the settled amount (e.g., "1500" or "ETB 1,500").`
+      );
 
     } catch (error) {
       console.error('Error setting custom price:', error);
@@ -3268,61 +3229,22 @@ The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
         return;
       }
       
-      // Create a pending payment for the custom plan
-      const paymentId = `custom_${Date.now()}_${request.userId}`;
-      const paymentReference = `CUSTOM-${Date.now()}-${request.userId}`;
-      
-      const paymentData = {
-        id: paymentId,
-        userId: request.userId,
-        serviceId: request.serviceId || 'custom_plan',
-        serviceName: request.serviceName || 'Custom Plan',
-        duration: 'custom',
-        durationName: 'Custom Plan',
-        price: 0, // Will be set by admin
-        amount: 'ETB 0', // Will be updated by admin
-        status: 'pending_pricing',
-        paymentReference: paymentReference,
-        customPlanDetails: request.customPlanDetails,
-        customPlanRequestId: requestId,
-        createdAt: new Date().toISOString(),
-        paymentMethod: 'manual',
-        paymentDetails: {},
-        language: request.language
-      };
-
-      // Save payment to pendingPayments collection - OPTIMIZED
-      await optimizedDatabase.createPendingPayment(paymentData);
-      
-      // Update custom plan request status - OPTIMIZED with cache invalidation
-      await optimizedDatabase.updateCustomPlanRequest(requestId, {
-        status: 'pricing_set',
-        pricingSetAt: new Date(),
-        pricingSetBy: ctx.from.id,
-        paymentId: paymentId
-      });
-
-      // Set admin state to expect pricing input
+      // Set admin state to expect settlement amount (manual flow)
       if (!global.adminStates) global.adminStates = {};
       global.adminStates[ctx.from.id] = {
-        state: 'awaiting_custom_pricing',
-        paymentId: paymentId,
+        state: 'awaiting_custom_settlement',
         requestId: requestId,
         userId: request.userId,
         timestamp: Date.now()
       };
 
-      await ctx.answerCbQuery('✅ Now send the price (e.g., "ETB 1500" or just "1500")');
-      
-      // Update the admin notification
-      try {
-        await ctx.editMessageText(
-          ctx.callbackQuery.message.text + `\n\n✅ **PRICING SETUP** by ${ctx.from.first_name}\n\n💳 **Payment ID:** \`${paymentId}\`\n\n📝 **Next:** Send price (e.g., "ETB 1500" or just "1500")`,
-          { parse_mode: 'Markdown' }
-        );
-      } catch (editError) {
-        console.log('Could not edit message:', editError.message);
-      }
+      await ctx.answerCbQuery('✅ Now send the settled amount (e.g., "1500" or "ETB 1,500")');
+      await ctx.reply(
+        `✅ Marking request as completed.\n\n` +
+        `Request: ${request.customPlanDetails}\n` +
+        `User: ${request.userFirstName || 'User'}\n\n` +
+        `Please send the settled amount (e.g., "1500" or "ETB 1,500").`
+      );
 
     } catch (error) {
       console.error('Error setting custom pricing:', error);
@@ -4996,12 +4918,13 @@ New requests will appear here when users submit them.`, {
 📝 **Request Details:**
 ${data.details}
 
-💰 **Set Pricing:**
-Enter the price and duration for this custom plan.`;
+💰 **Settle & Record:**
+Contact the user directly, then click ✅ Complete and enter the settled amount.`;
 
       const keyboard = [
         [
-          { text: '💰 Set Price & Approve', callback_data: `set_custom_price_${requestId}` }
+          { text: '✅ Complete', callback_data: `complete_custom_${requestId}` },
+          { text: '🚫 Cancel', callback_data: `cancel_custom_${requestId}` }
         ],
         [
           { text: '❌ Reject Request', callback_data: `reject_custom_${requestId}` }
