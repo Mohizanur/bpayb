@@ -2202,6 +2202,127 @@ Send a message to all active users of the bot.
     await ctx.answerCbQuery();
   });
 
+  // Handle custom pricing input from admin
+  const handleCustomPricingInput = async (ctx, adminState) => {
+    try {
+      const priceText = ctx.message.text.trim();
+      
+      // Import price parsing and formatting utilities
+      const { parsePrice, formatPrice } = await import('../utils/priceFormat.js');
+      
+      // Parse price - accepts formatted prices with commas
+      const price = parsePrice(priceText);
+      
+      if (price === null || price <= 0) {
+        await ctx.reply('❌ Invalid price. Please send a valid amount (e.g., "ETB 1,500", "1,500", or just "1500")');
+        return;
+      }
+      
+      const paymentId = adminState.paymentId;
+      const requestId = adminState.requestId;
+      const userId = adminState.userId;
+      
+      // Get the payment and request
+      const payment = await optimizedDatabase.getPendingPayment(paymentId);
+      const request = await optimizedDatabase.getCustomPlanRequest(requestId);
+      
+      if (!payment || !request) {
+        await ctx.reply('❌ Payment or request not found. Please try again.');
+        delete global.adminStates[ctx.from.id];
+        return;
+      }
+      
+      // Update payment with price
+      await optimizedDatabase.updatePendingPayment(paymentId, {
+        price: price,
+        amount: `ETB ${formatPrice(price)}`,
+        status: 'pending_verification'
+      });
+      
+      // Update custom plan request
+      await optimizedDatabase.updateCustomPlanRequest(requestId, {
+        price: price,
+        priceSetAt: new Date()
+      });
+      
+      // Clear admin state
+      delete global.adminStates[ctx.from.id];
+      
+      // Notify admin with formatted price
+      await ctx.reply(`✅ Price set: ETB ${formatPrice(price)}\n\n📤 Notifying user and starting payment flow...`);
+      
+      // Get user language
+      const lang = request.language || 'en';
+      
+      // Set up user details collection state (same as normal plans!)
+      if (!global.userDetailsState) global.userDetailsState = {};
+      global.userDetailsState[userId] = {
+        state: 'awaiting_user_details',
+        paymentId: paymentId,
+        paymentReference: payment.paymentReference,
+        serviceId: request.serviceId || 'custom_plan',
+        serviceName: request.serviceName || 'Custom Plan',
+        duration: 'custom',
+        durationName: 'Custom Plan',
+        price: price,
+        isCustomPlan: true,
+        customPlanRequestId: requestId,
+        customPlanDetails: request.customPlanDetails,
+        step: 'name',
+        timestamp: Date.now()
+      };
+      
+      // Notify user with price and start details collection (formatPrice already imported above)
+      const userMessage = lang === 'am'
+        ? `💰 **የብጁ እቅድ ዋጋ ተዘጋጅቷል!**
+
+📋 **ጥያቄዎ:** ${request.customPlanDetails}
+
+💵 **ዋጋ:** ETB ${formatPrice(price)}
+
+👤 **አሁን የእርስዎን ዝርዝሮች እንጠይቃለን:**
+እባክዎ ስም፣ ኢሜይል እና ስልክ ቁጥርዎን እንጠይቃለን።`
+        : `💰 **Custom Plan Price Set!**
+
+📋 **Your Request:** ${request.customPlanDetails}
+
+💵 **Price:** ETB ${formatPrice(price)}
+
+👤 **Now we need your details:**
+Please provide your name, email, and phone number.`;
+      
+      // Ask for name first
+      const namePrompt = lang === 'am'
+        ? `👤 *የእርስዎን ስም ያስገቡ*\n\nእባክዎ ሙሉ ስምዎን ይጻፉ:`
+        : `👤 *Please Enter Your Name*\n\nPlease type your full name:`;
+      
+      try {
+        await bot.telegram.sendMessage(userId, userMessage, { parse_mode: 'Markdown' });
+        await bot.telegram.sendMessage(userId, namePrompt, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: lang === 'am' ? '❌ ይቅር' : '❌ Cancel', callback_data: 'cancel_user_details' }
+              ]
+            ]
+          }
+        });
+      } catch (sendError) {
+        if (sendError.response?.error_code === 403) {
+          await ctx.reply(`⚠️ User has blocked the bot. Price set but notification not sent.\n\n💡 Contact them through another channel.`);
+        } else {
+          throw sendError;
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error handling custom pricing input:', error);
+      await ctx.reply('❌ Error processing price. Please try again.');
+      delete global.adminStates[ctx.from.id];
+    }
+  };
+
   // UNIFIED TEXT HANDLER - handles all admin text messages
   const handleAdminTextMessage = async (ctx) => {
     // Skip if message was already handled by subscribe handler
@@ -2259,11 +2380,159 @@ Send a message to all active users of the bot.
         return;
       }
 
-      // 3. Check if admin is in service creation state
+      // 3. Check if admin is setting custom plan price
       const adminState = global.adminStates?.[userId];
       if (adminState?.state === 'awaiting_custom_pricing') {
-        await handleServiceCreationMessage(ctx);
+        await handleCustomPricingInput(ctx, adminState);
         return;
+      }
+
+      // 4. Check if admin is editing a service (name, description, logo, or plans)
+      const editState = global.serviceEditState?.[userId];
+      if (editState) {
+        const { serviceId, field } = editState;
+        const messageText = ctx.message.text.trim();
+
+        if (field === 'plans') {
+          // Import price parsing utility
+          const { parsePrice, formatPrice } = await import('../utils/priceFormat.js');
+          
+          // Parse plans from message - accept formatted prices with commas
+          const planLines = messageText.split('\n').filter(line => line.trim());
+          const plans = [];
+          
+          for (const line of planLines) {
+            // Updated regex to capture price with or without commas, and handle "ETB" prefix
+            // Matches: "1 Month: 350", "1 Month: 1,000", "1 Month: ETB 1,000", etc.
+            const match = line.match(/(\d+)\s*(?:month|months?|m):\s*(?:etb\s+)?([\d,]+)/i);
+            if (match) {
+              const duration = parseInt(match[1]);
+              const priceText = match[2];
+              const price = parsePrice(priceText);
+              
+              if (price !== null && price > 0) {
+                const billingCycle = duration === 1 ? 'Monthly' : `${duration} Months`;
+                plans.push({
+                  duration,
+                  price,
+                  billingCycle
+                });
+              }
+            }
+          }
+
+          if (plans.length === 0) {
+            await ctx.reply(
+              "❌ **Invalid Plan Format**\n\nPlease use the format:\n1 Month: 350\n3 Months: 1,000\n6 Months: 1,900\n\n💡 You can use commas in prices (e.g., 1,000) or without (e.g., 1000)\n\nTry again:",
+              {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '❌ Cancel', callback_data: `editservice_${serviceId}` }]
+                  ]
+                }
+              }
+            );
+            return;
+          }
+
+          // Update service with new plans
+          const serviceRef = firestore.collection('services').doc(serviceId);
+          await serviceRef.update({
+            plans: plans,
+            updatedAt: new Date()
+          });
+
+          // Clear admin data cache since services were updated
+          clearAdminDataCache();
+
+          // Format plans for display
+          const formattedPlans = plans.map(plan => 
+            `${plan.duration} ${plan.duration === 1 ? 'Month' : 'Months'}: ETB ${formatPrice(plan.price)}`
+          ).join('\n');
+
+          await ctx.reply(
+            `✅ **Plans Updated Successfully**\n\n${formattedPlans}\n\n🔙 Back to service management.`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔙 Back to Service', callback_data: `editservice_${serviceId}` }]
+                ]
+              }
+            }
+          );
+
+          // Clear edit state
+          delete global.serviceEditState[userId];
+          return;
+        } else if (field === 'name') {
+          // Update service name
+          const serviceRef = firestore.collection('services').doc(serviceId);
+          await serviceRef.update({
+            name: messageText,
+            updatedAt: new Date()
+          });
+          clearAdminDataCache();
+          
+          await ctx.reply(
+            `✅ **Service Name Updated**\n\nNew name: **${messageText}**\n\n🔙 Back to service management.`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔙 Back to Service', callback_data: `editservice_${serviceId}` }]
+                ]
+              }
+            }
+          );
+          delete global.serviceEditState[userId];
+          return;
+        } else if (field === 'description') {
+          // Update service description
+          const serviceRef = firestore.collection('services').doc(serviceId);
+          await serviceRef.update({
+            description: messageText,
+            updatedAt: new Date()
+          });
+          clearAdminDataCache();
+          
+          await ctx.reply(
+            `✅ **Service Description Updated**\n\nNew description: ${messageText}\n\n🔙 Back to service management.`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔙 Back to Service', callback_data: `editservice_${serviceId}` }]
+                ]
+              }
+            }
+          );
+          delete global.serviceEditState[userId];
+          return;
+        } else if (field === 'logo') {
+          // Update service logo
+          const serviceRef = firestore.collection('services').doc(serviceId);
+          await serviceRef.update({
+            logo: messageText,
+            updatedAt: new Date()
+          });
+          clearAdminDataCache();
+          
+          await ctx.reply(
+            `✅ **Service Logo Updated**\n\nNew logo: ${messageText}\n\n🔙 Back to service management.`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔙 Back to Service', callback_data: `editservice_${serviceId}` }]
+                ]
+              }
+            }
+          );
+          delete global.serviceEditState[userId];
+          return;
+        }
       }
 
       // If none of the above, ignore the message
@@ -2901,44 +3170,22 @@ The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
         paymentId: paymentId
       });
 
-      // Notify user about pricing and ask for payment
-      const userMessage = request.language === 'am'
-        ? `💰 **የብጁ እቅድ ዋጋ ተዘጋጅቷል**
+      // Set admin state to expect pricing input
+      if (!global.adminStates) global.adminStates = {};
+      global.adminStates[ctx.from.id] = {
+        state: 'awaiting_custom_pricing',
+        paymentId: paymentId,
+        requestId: requestId,
+        userId: request.userId,
+        timestamp: Date.now()
+      };
 
-📋 **ጥያቄዎ:** ${request.customPlanDetails}
-
-⏰ **ቀጣዩ ደረጃ:**
-አስተዳዳሪ ዋጋ እና የክፍያ ዝርዝሮች ይላካል። እባክዎ ቆይተው ይጠብቁ።
-
-📞 **መልስ ጊዜ:** 24 ሰዓት ውስጥ`
-        : `💰 **Custom Plan Pricing Set**
-
-📋 **Your Request:** ${request.customPlanDetails}
-
-⏰ **Next Step:**
-Admin will send pricing and payment details. Please wait.
-
-📞 **Response Time:** Within 24 hours`;
-
-      // Try to send message to user, handle if they blocked the bot
-      try {
-        await bot.telegram.sendMessage(request.userId, userMessage, { parse_mode: 'Markdown' });
-      } catch (sendError) {
-        if (sendError.response?.error_code === 403) {
-          console.log(`⚠️ User ${request.userId} has blocked the bot. Pricing set but notification not sent.`);
-          // Notify admin that user blocked the bot
-          await ctx.reply(`⚠️ Pricing set successfully, but user has blocked the bot.\n\n💡 You'll need to contact them through another channel to send the pricing.`);
-        } else {
-          throw sendError; // Re-throw if it's a different error
-        }
-      }
-
-      await ctx.answerCbQuery('✅ Pricing set! Now send the amount to the user.');
+      await ctx.answerCbQuery('✅ Now send the price (e.g., "ETB 1500" or just "1500")');
       
-      // Update the admin notification with payment ID
+      // Update the admin notification
       try {
         await ctx.editMessageText(
-          ctx.callbackQuery.message.text + `\n\n✅ **PRICING SET** by ${ctx.from.first_name}\n\n💳 **Payment ID:** \`${paymentId}\`\n\n📝 **Next:** Send amount to user via /admin`,
+          ctx.callbackQuery.message.text + `\n\n✅ **PRICING SETUP** by ${ctx.from.first_name}\n\n💳 **Payment ID:** \`${paymentId}\`\n\n📝 **Next:** Send price (e.g., "ETB 1500" or just "1500")`,
           { parse_mode: 'Markdown' }
         );
       } catch (editError) {
@@ -5163,28 +5410,36 @@ ${subscriptionData.rejectedAt ? `• **Rejected:** ${subscriptionData.rejectedAt
             break;
 
           case 'plans':
-            // Parse plans from message
+            // Import price parsing utility
+            const { parsePrice, formatPrice } = await import('../utils/priceFormat.js');
+            
+            // Parse plans from message - accept formatted prices with commas
             const planLines = messageText.split('\n').filter(line => line.trim());
             const plans = [];
             
             for (const line of planLines) {
-              const match = line.match(/(\d+)\s*(?:month|months?|m):\s*(\d+)/i);
+              // Updated regex to capture price with or without commas, and handle "ETB" prefix
+              // Matches: "1 Month: 350", "1 Month: 1,000", "1 Month: ETB 1,000", etc.
+              const match = line.match(/(\d+)\s*(?:month|months?|m):\s*(?:etb\s+)?([\d,]+)/i);
               if (match) {
                 const duration = parseInt(match[1]);
-                const price = parseInt(match[2]);
-                const billingCycle = duration === 1 ? 'Monthly' : `${duration} Months`;
+                const priceText = match[2];
+                const price = parsePrice(priceText);
                 
-                plans.push({
-                  duration,
-                  price,
-                  billingCycle
-                });
+                if (price !== null && price > 0) {
+                  const billingCycle = duration === 1 ? 'Monthly' : `${duration} Months`;
+                  plans.push({
+                    duration,
+                    price,
+                    billingCycle
+                  });
+                }
               }
             }
 
             if (plans.length === 0) {
               await ctx.reply(
-                "❌ **Invalid Plan Format**\n\nPlease use the format:\n1 Month: 350\n3 Months: 1000\n\nTry again:",
+                "❌ **Invalid Plan Format**\n\nPlease use the format:\n1 Month: 350\n3 Months: 1,000\n6 Months: 1,900\n\n💡 You can use commas in prices (e.g., 1,000) or without (e.g., 1000)\n\nTry again:",
                 {
                   parse_mode: 'Markdown',
                   reply_markup: {
@@ -5201,7 +5456,7 @@ ${subscriptionData.rejectedAt ? `• **Rejected:** ${subscriptionData.rejectedAt
             state.serviceData.approvalRequiredFlag = true;
             state.step = 'confirm';
 
-            // Show confirmation
+            // Show confirmation with formatted prices
             const confirmMessage = `✅ **Service Details Confirmation** ✅
 
 📋 **Service Information:**
@@ -5211,7 +5466,7 @@ ${subscriptionData.rejectedAt ? `• **Rejected:** ${subscriptionData.rejectedAt
 • **Logo URL:** ${state.serviceData.logoUrl || 'Not set'}
 
 💰 **Plans:**
-${plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).join('\n')}
+${plans.map(plan => `• ${plan.billingCycle}: ETB ${formatPrice(plan.price)}`).join('\n')}
 
 📊 **Total Plans:** ${plans.length}
 
@@ -5358,6 +5613,9 @@ Is this information correct?`;
       // Clean up state
       delete global.serviceCreationState[userId];
 
+      // Import price formatting utility
+      const { formatPrice } = await import('../utils/priceFormat.js');
+      
       const successMessage = `✅ **Service Added Successfully!** ✅
 
 🎉 **Service Details:**
@@ -5367,7 +5625,7 @@ Is this information correct?`;
 • **Status:** Active
 
 📊 **Available Plans:**
-${serviceData.plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).join('\n')}
+${serviceData.plans.map(plan => `• ${plan.billingCycle}: ETB ${formatPrice(plan.price)}`).join('\n')}
 
 🔄 **Next Steps:**
 • The service is now available for users
@@ -5692,6 +5950,9 @@ You can search by:
         return;
       }
       
+      // Import price formatting utility
+      const { formatPrice } = await import('../utils/priceFormat.js');
+      
       const editMessage = `✏️ **Edit Service: ${serviceData.name}**
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -5704,7 +5965,7 @@ You can search by:
 • **Plans:** ${serviceData.plans?.length || 0} plans
 
 💰 **Current Plans:**
-${serviceData.plans?.map((plan, index) => `${index + 1}. ${plan.billingCycle}: ETB ${plan.price}`).join('\n') || 'No plans configured'}
+${serviceData.plans?.map((plan, index) => `${index + 1}. ${plan.billingCycle}: ETB ${formatPrice(plan.price)}`).join('\n') || 'No plans configured'}
 
 🎯 **What would you like to edit?**`;
 
@@ -5995,8 +6256,11 @@ Please send the new description for this service:`;
         currentValue: serviceData.plans || []
       };
 
+      // Import price formatting utility
+      const { formatPrice } = await import('../utils/priceFormat.js');
+      
       const currentPlans = serviceData.plans?.map(plan => 
-        `${plan.duration} ${plan.duration === 1 ? 'Month' : 'Months'}: ETB ${plan.price}`
+        `${plan.duration} ${plan.duration === 1 ? 'Month' : 'Months'}: ETB ${formatPrice(plan.price)}`
       ).join('\n') || 'No plans configured';
 
       const message = `💰 **Edit Service Plans**
@@ -6006,9 +6270,11 @@ ${currentPlans}
 
 Please send the new plans in the format:
 1 Month: 350
-3 Months: 1000
-6 Months: 1900
-12 Months: 3600`;
+3 Months: 1,000
+6 Months: 1,900
+12 Months: 3,600
+
+💡 You can use commas in prices (e.g., 1,000) or without (e.g., 1000)`;
 
       await ctx.editMessageText(message, {
         parse_mode: 'Markdown',

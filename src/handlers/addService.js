@@ -221,28 +221,36 @@ export default function addServiceHandler(bot) {
             break;
 
           case 'plans':
-            // Parse plans from message
+            // Import price parsing utility
+            const { parsePrice, formatPrice } = await import('../utils/priceFormat.js');
+            
+            // Parse plans from message - accept formatted prices with commas
             const planLines = messageText.split('\n').filter(line => line.trim());
             const plans = [];
             
             for (const line of planLines) {
-              const match = line.match(/(\d+)\s*(?:month|months?|m):\s*(\d+)/i);
+              // Updated regex to capture price with or without commas, and handle "ETB" prefix
+              // Matches: "1 Month: 350", "1 Month: 1,000", "1 Month: ETB 1,000", etc.
+              const match = line.match(/(\d+)\s*(?:month|months?|m):\s*(?:etb\s+)?([\d,]+)/i);
               if (match) {
                 const duration = parseInt(match[1]);
-                const price = parseInt(match[2]);
-                const billingCycle = duration === 1 ? 'Monthly' : `${duration} Months`;
+                const priceText = match[2];
+                const price = parsePrice(priceText);
                 
-                plans.push({
-                  duration,
-                  price,
-                  billingCycle
-                });
+                if (price !== null && price > 0) {
+                  const billingCycle = duration === 1 ? 'Monthly' : `${duration} Months`;
+                  plans.push({
+                    duration,
+                    price,
+                    billingCycle
+                  });
+                }
               }
             }
 
             if (plans.length === 0) {
               await ctx.reply(
-                "❌ **Invalid Plan Format**\n\nPlease use the format:\n1 Month: 350\n3 Months: 1000\n\nTry again:",
+                "❌ **Invalid Plan Format**\n\nPlease use the format:\n1 Month: 350\n3 Months: 1,000\n6 Months: 1,900\n\n💡 You can use commas in prices (e.g., 1,000) or without (e.g., 1000)\n\nTry again:",
                 {
                   parse_mode: 'Markdown',
                   reply_markup: {
@@ -259,7 +267,7 @@ export default function addServiceHandler(bot) {
             state.serviceData.approvalRequiredFlag = true;
             state.step = 'confirm';
 
-            // Show confirmation
+            // Show confirmation with formatted prices
             const confirmMessage = `✅ **Service Details Confirmation** ✅
 
 📋 **Service Information:**
@@ -269,7 +277,7 @@ export default function addServiceHandler(bot) {
 • **Logo URL:** ${state.serviceData.logoUrl || 'Not set'}
 
 💰 **Plans:**
-${plans.map(plan => `• ${plan.billingCycle}: ETB ${plan.price}`).join('\n')}
+${plans.map(plan => `• ${plan.billingCycle}: ETB ${formatPrice(plan.price)}`).join('\n')}
 
 📊 **Total Plans:** ${plans.length}
 
