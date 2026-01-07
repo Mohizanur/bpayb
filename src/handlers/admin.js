@@ -2396,6 +2396,7 @@ Send a message to all active users of the bot.
 
       console.log('🔍 Admin text handler called for user:', ctx.from.id);
       console.log('🔍 Message text:', ctx.message.text);
+      console.log('🔍 Admin state snapshot:', global.adminStates?.[ctx.from.id]);
 
       // 1. Check if admin is searching for users
       if (ctx.session?.awaitingUserSearch) {

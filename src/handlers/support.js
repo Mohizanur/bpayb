@@ -46,13 +46,14 @@ export default function supportHandler(bot) {
         return;
       }
 
-      // Skip if user is in service creation, editing, custom plan flow, OR admin search
+      // Skip if user is in service creation, editing, custom plan flow, admin search, or admin custom settlement
       const userId = ctx.from?.id;
       console.log('🔍 Checking states for user:', userId);
       console.log('🔍 serviceCreationState:', global.serviceCreationState?.[userId]);
       console.log('🔍 serviceEditState:', global.serviceEditState?.[userId]);
       console.log('🔍 userStates:', global.userStates?.[userId]);
       console.log('🔍 session awaitingUserSearch:', ctx.session?.awaitingUserSearch);
+      console.log('🔍 adminStates:', global.adminStates?.[userId]);
       
       // Check if user is in user details collection flow (subscribe handler) - ZERO DB read!
       const isInUserDetailsFlow = global.userDetailsState && global.userDetailsState[userId]?.state === 'awaiting_user_details';
@@ -61,6 +62,7 @@ export default function supportHandler(bot) {
         (global.serviceCreationState && global.serviceCreationState[userId]) ||
         (global.serviceEditState && global.serviceEditState[userId]) ||
         (global.userStates && global.userStates[userId]?.state === 'awaiting_custom_plan_details') ||
+        (global.adminStates && global.adminStates[userId]?.state === 'awaiting_custom_settlement') ||
         (ctx.session?.awaitingUserSearch === true) || // Skip if admin is searching users
         isInUserDetailsFlow // Skip if user is providing subscription details
       )) {
