@@ -2220,17 +2220,30 @@ Send a message to all active users of the bot.
       
       const paymentId = adminState.paymentId;
       const requestId = adminState.requestId;
-      const userId = adminState.userId;
+      
+      console.log('🔍 Processing custom pricing input:', { paymentId, requestId, adminState });
       
       // Get the payment and request
       const payment = await optimizedDatabase.getPendingPayment(paymentId);
       const request = await optimizedDatabase.getCustomPlanRequest(requestId);
       
       if (!payment || !request) {
+        console.error('❌ Payment or request not found');
         await ctx.reply('❌ Payment or request not found. Please try again.');
         delete global.adminStates[ctx.from.id];
         return;
       }
+      
+      // Use request.userId if adminState.userId is missing (backward compatibility)
+      const userId = adminState.userId || request.userId;
+      if (!userId) {
+        console.error('❌ No userId found in adminState or request');
+        await ctx.reply('❌ User ID not found. Please try setting the price again.');
+        delete global.adminStates[ctx.from.id];
+        return;
+      }
+      
+      console.log('🔍 Using userId:', userId);
       
       // Update payment with price (status: 'pending' - waiting for user to click Pay Now)
       await optimizedDatabase.updatePendingPayment(paymentId, {
@@ -2272,6 +2285,7 @@ Send a message to all active users of the bot.
 💳 **Click "Pay Now" below to start the payment process.**`;
       
       try {
+        console.log('🔍 Sending message to user:', userId);
         await bot.telegram.sendMessage(userId, userMessage, {
           parse_mode: 'Markdown',
           reply_markup: {
@@ -2365,7 +2379,14 @@ Send a message to all active users of the bot.
 
       // 3. Check if admin is setting custom plan price
       const adminState = global.adminStates?.[userId];
+      console.log('🔍 Checking admin state for custom pricing:', {
+        userId,
+        adminState,
+        state: adminState?.state,
+        hasAdminStates: !!global.adminStates
+      });
       if (adminState?.state === 'awaiting_custom_pricing') {
+        console.log('✅ Admin state found, calling handleCustomPricingInput');
         await handleCustomPricingInput(ctx, adminState);
         return;
       }
@@ -3067,8 +3088,10 @@ The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
         state: 'awaiting_custom_pricing',
         paymentId: paymentId,
         requestId: requestId,
+        userId: request.userId, // Add userId for the user who requested the plan
         timestamp: Date.now()
       };
+      console.log('✅ Admin state set for custom pricing:', global.adminStates[ctx.from.id]);
 
       await ctx.answerCbQuery('✅ Now send the price (e.g., "ETB 1500")');
       
