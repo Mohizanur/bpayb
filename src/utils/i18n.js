@@ -39,55 +39,26 @@ export async function getUserLang(ctx) {
   try {
     const userId = String(ctx.from.id);
     
-    // ULTRA-CACHE: Check cache first (instant response)
+    // ULTRA-CACHE: Check cache first (instant response, NO DB READ!)
     const cachedLang = getCachedUserLanguage(userId);
     if (cachedLang) {
       recordCacheHit('language');
       return cachedLang; // Instant return, no DB hit!
     }
     
-    recordCacheMiss('language');
-
-    // If Firebase is not connected, use fallback immediately
-    if (!isFirebaseConnected) {
-      const lang = ctx.from?.language_code === "am" ? "am" : "en";
-      cacheUserLanguage(userId, lang);
-      return lang;
-    }
-
-    // DEDUPLICATION: If multiple simultaneous requests for same user, wait for first one
-    const lang = await deduplicateRequest(`getUserLang_${userId}`, async () => {
-      // Try Firestore
-      const userDoc = await firestore
-        .collection("users")
-        .doc(userId)
-        .get();
-      
-      if (userDoc.exists && userDoc.data().language) {
-        const savedLang = userDoc.data().language;
-        // Cache for future use (7 days)
-        cacheUserLanguage(userId, savedLang);
-        return savedLang;
-      }
-      
-      // If no saved language, use Telegram language_code as default
-      const defaultLang = ctx.from?.language_code === "am" ? "am" : "en";
-      // Cache the default too
-      cacheUserLanguage(userId, defaultLang);
-      return defaultLang;
-    });
-    
-    return lang;
+    // If not in cache, use Telegram's language_code as default (NO DB READ!)
+    // This saves quota - we never read from DB for language
+    const defaultLang = ctx.from?.language_code === "am" ? "am" : "en";
+    cacheUserLanguage(userId, defaultLang); // Cache it for next time
+    return defaultLang;
   } catch (error) {
-    // Only log error once, not repeatedly
-    if (error.code === 16) {
-      console.log(`Firebase auth error - using fallback language for user ${ctx.from.id}`);
-    } else {
-      console.error("Error getting user language:", error.message);
-    }
-    // Fallback to Telegram language_code or 'en'
+    console.error("Error getting user language:", error.message);
+    // Fallback to Telegram language_code or 'en' (NO DB READ!)
     const lang = ctx.from?.language_code === "am" ? "am" : "en";
-    cacheUserLanguage(userId, lang); // Cache fallback too
+    const userId = String(ctx.from?.id);
+    if (userId) {
+      cacheUserLanguage(userId, lang); // Cache fallback too
+    }
     return lang;
   }
 }
@@ -96,7 +67,7 @@ export async function setUserLang(ctx, lang) {
   try {
     const userId = String(ctx.from.id);
     
-    // ULTRA-CACHE: Update cache immediately (instant for next request)
+    // ULTRA-CACHE: Update cache immediately (NO DB WRITE - saves quota!)
     cacheUserLanguage(userId, lang);
     
     // Also invalidate optimizedDatabase cache to ensure consistency
@@ -108,24 +79,9 @@ export async function setUserLang(ctx, lang) {
       console.log('Could not invalidate smartCache:', error.message);
     }
     
-    if (!isFirebaseConnected) {
-      console.log(`Mock: Setting user ${userId} language to ${lang}`);
-      return;
-    }
-
-    // Update database in background (don't wait)
-    firestore.collection("users").doc(userId).set({
-      telegramUserID: ctx.from.id,
-      language: lang,
-      firstName: ctx.from.first_name,
-      lastName: ctx.from.last_name,
-      username: ctx.from.username,
-      lastActivity: new Date()
-    }, { merge: true }).catch(err => {
-      console.error("Error setting user language:", err.message);
-    });
-    
-    console.log(`✅ User ${userId} language set to ${lang} (cached + background save)`);
+    // NO DATABASE WRITE - Language is stored in cache only to save quota!
+    // Language preference is not critical data that needs persistence
+    console.log(`✅ User ${userId} language set to ${lang} (cached only - no DB write)`);
   } catch (error) {
     console.error("Error setting user language:", error.message);
   }

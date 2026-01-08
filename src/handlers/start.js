@@ -6,11 +6,12 @@ import { t } from "../utils/translations.js";
 import { getAllAdmins } from "../middleware/smartVerification.js";
 import optimizedDatabase from "../utils/optimizedDatabase.js";
 
-// Helper function to get user language from database - OPTIMIZED with smart caching
+// Helper function to get user language - CACHE ONLY (no DB read to save quota!)
 const getUserLanguage = async (ctx) => {
   try {
-    const userData = await optimizedDatabase.getUser(String(ctx.from.id));
-    return userData?.language || (ctx.from?.language_code === 'am' ? 'am' : 'en');
+    // Use i18n's getUserLang which uses cache only (no DB reads)
+    const { getUserLang } = await import('../utils/i18n.js');
+    return await getUserLang(ctx);
   } catch (error) {
     console.error('Error getting user language:', error);
     return ctx.from?.language_code === 'am' ? 'am' : 'en';
