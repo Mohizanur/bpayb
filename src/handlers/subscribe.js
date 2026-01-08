@@ -656,7 +656,7 @@ function setupSubscribeHandler(bot) {
 ${t('payment_accounts_instruction', lang)}:
 ${lang === 'am' ? paymentMethodsListAm : paymentMethodsListEn}
 
-${paymentMethods.length > 0 ? (lang === 'am' ? paymentMethods[0].instructionsAm : paymentMethods[0].instructions) : t('payment_proof_instruction', lang)}
+${t('payment_proof_instruction', lang)}
 
 ${t('service_start_after_approval', lang)}`
             : `💳 *${t('payment_instructions_title', lang)}*
@@ -667,7 +667,7 @@ ${t('service_start_after_approval', lang)}`
 ${t('payment_accounts_instruction', lang)}:
 ${lang === 'am' ? paymentMethodsListAm : paymentMethodsListEn}
 
-${paymentMethods.length > 0 ? (lang === 'am' ? paymentMethods[0].instructionsAm : paymentMethods[0].instructions) : t('payment_proof_instruction', lang)}
+${t('payment_proof_instruction', lang)}
 
 ${t('service_start_after_approval', lang)}`;
         } else {
@@ -685,7 +685,7 @@ ${t('total_amount', lang)}: *${price.toLocaleString()} ${lang === 'am' ? t('birr
 ${t('payment_accounts_instruction', lang)}:
 ${lang === 'am' ? paymentMethodsListAm : paymentMethodsListEn}
 
-${paymentMethods.length > 0 ? (lang === 'am' ? paymentMethods[0].instructionsAm : paymentMethods[0].instructions) : t('payment_proof_instruction', lang)}
+${t('payment_proof_instruction', lang)}
 
 ${t('service_start_after_approval', lang)}`;
         }
