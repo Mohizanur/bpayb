@@ -374,69 +374,16 @@ const setupPhoneVerification = (bot) => {
         /* Ignore if not a callback query */
       }
 
-      // Prepare welcome message matching /start command
-      const welcomeTitle =
-        lang === "am" ? "🎉 እንኳን ወደ BirrPay ደህና መጡ!" : "🎉 Welcome to BirrPay!";
-
-      const welcomeSubtitle =
-        lang === "am"
-          ? "🌟 **የኢትዮጵያ #1 የሳብስክሪፕሽን ፕላትፎርም**"
-          : "🌟 **Ethiopia's #1 Subscription Platform**";
-
-      const successMessage =
-        lang === "am"
-          ? `${welcomeTitle}\n\n${welcomeSubtitle}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n✅ **ስልክ ቁጥርዎ ተረጋግጧል!**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${formattedPhone} በተሳካ ሁኔታ ተረጋግጧል። አሁን የBirrPay አገልግሎቶችን መጠቀም ይችላሉ።\n\n✨ **ምን ማድረግ ይችላሉ:**\n• Netflix, Amazon Prime, Spotify እና ሌሎችንም ያግኙ\n• በብር በቀላሉ ይክፈሉ\n• ሁሉንም ሳብስክሪፕሽኖችዎን በአንድ ቦታ ያስተዳድሩ\n• 24/7 የደንበኞች ድጋፍ ያግኙ\n\n🔒 **100% ደህንነቱ የተጠበቀ** | 🇪🇹 **የአካባቢ ድጋፍ** | ⚡ **ፈጣን እና ቀላል**`
-          : `${welcomeTitle}\n\n${welcomeSubtitle}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n✅ **Phone Number Verified!**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${formattedPhone} has been successfully verified. You can now use all BirrPay services.\n\n✨ **What You Can Do:**\n• Access Netflix, Amazon Prime, Spotify, and more\n• Pay easily using Ethiopian Birr\n• Manage all subscriptions from one place\n• Get 24/7 customer support\n\n🔒 **100% Secure** | 🇪🇹 **Local Support** | ⚡ **Fast & Easy**`;
-
-      // Menu buttons matching /start command
-      const menuButtons = [
-        [
-          {
-            text: t("lets_get_started", lang),
-            callback_data: "view_services",
-          },
-        ],
-        [
-          {
-            text: t("my_subscriptions", lang),
-            callback_data: "my_subscriptions",
-          },
-        ],
-        [
-          {
-            text: t("help", lang),
-            callback_data: "help",
-          },
-          {
-            text: t("support", lang),
-            callback_data: "support",
-          },
-        ],
-        [
-          {
-            text: t("language", lang),
-            callback_data: "language_settings",
-          },
-        ],
-      ];
-
-      // Send the welcome message with main menu
+      // Prepare success message - tell user to use /start command (NO BUTTONS)
+      const successMessage = lang === 'am'
+        ? `🎉 **እንኳን ደስ አለዎት!**\n\n📱 የስልክ ቁጥርዎ በተሳካ ሁኔታ ተረጋግጧል: \`${formattedPhone}\`\n\n✅ አሁን የBirrPay አገልግሎቶችን መጠቀም ይችላሉ።\n\n🏠 ዋና ገጽን ለመመልከት **/start** ይጫኑ።`
+        : `🎉 **Welcome!**\n\n📱 Your phone number has been successfully verified: \`${formattedPhone}\`\n\n✅ You can now use BirrPay services.\n\n🏠 Press **/start** to go to the main menu.`;
+      
+      // Send the success message without buttons - user should use /start
       await ctx.reply(successMessage, {
-        reply_markup: {
-          inline_keyboard: menuButtons,
-        },
-        parse_mode: "Markdown",
+        parse_mode: 'Markdown',
+        reply_markup: { remove_keyboard: true }
       });
-
-      // Remove the keyboard
-      await ctx.reply(
-        lang === "am"
-          ? "✅ የስልክ ቁጥርዎ ተረጋግጧል! አሁን አገልግሎቶችን መጠቀም ይችላሉ።"
-          : "✅ Your phone number has been verified! You can now use our services.",
-        {
-          reply_markup: { remove_keyboard: true },
-        }
-      );
     } catch (error) {
       console.error("Error in contact handler:", error);
       await ctx.reply(
