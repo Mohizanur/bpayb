@@ -46,6 +46,18 @@ function setupSubscribeHandler(bot) {
           ctx.session?.awaitingPaymentMethodInstructions ||
           global.editingStates?.get(userId)) {
         process.stderr.write(`⏭️ [SUBSCRIBE HANDLER] Admin editing payment method, skipping\n`);
+        console.log('⏭️ [SUBSCRIBE HANDLER] Admin editing payment method, skipping');
+        console.log('🔍 Session state:', JSON.stringify(ctx.session));
+        console.log('🔍 Editing states:', global.editingStates?.get(userId));
+        // Try to directly call admin handler function if available
+        if (global.handleAdminTextMessage) {
+          console.log('🔍 Calling admin handler directly...');
+          try {
+            await global.handleAdminTextMessage(ctx);
+          } catch (error) {
+            console.error('❌ Error calling admin handler directly:', error);
+          }
+        }
         return next(); // Let admin handler process
       }
       

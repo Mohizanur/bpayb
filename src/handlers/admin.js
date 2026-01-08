@@ -148,6 +148,7 @@ const getUserDisplayInfo = (user) => {
 
 export default function adminHandler(bot) {
   console.log('🚀 ADMIN HANDLER INITIALIZING...');
+  console.log('🔍 ADMIN HANDLER - About to register text handler middleware');
 
   // Unified function to get subscription statistics - OPTIMIZED with smart caching
   async function getSubscriptionStats() {
@@ -2370,6 +2371,11 @@ Send a message to all active users of the bot.
 
   // UNIFIED TEXT HANDLER - handles all admin text messages
   const handleAdminTextMessage = async (ctx) => {
+    console.log('🔍🔍🔍 [ADMIN TEXT HANDLER] ENTRY - User:', ctx.from?.id, 'Text:', ctx.message?.text);
+    
+    // Export function globally so subscribe handler can call it directly if needed
+    global.handleAdminTextMessage = handleAdminTextMessage;
+    
     // Skip if message was already handled by subscribe handler
     if (ctx.userDetailsHandled) {
       console.log('🔍 ADMIN TEXT HANDLER - Message already handled by subscribe, skipping');
@@ -2598,18 +2604,62 @@ Send a message to all active users of the bot.
       }
 
       // 5. Check if admin is editing payment method fields
+      // Check both global.editingStates and ctx.session for payment method editing
       const editingState = global.editingStates?.get(userId?.toString());
-      if (editingState) {
-        const { methodId, field } = editingState;
+      const sessionAccount = ctx.session?.awaitingPaymentMethodAccount;
+      const sessionAccountName = ctx.session?.awaitingPaymentMethodAccountName;
+      const sessionName = ctx.session?.awaitingPaymentMethodName;
+      const sessionInstructions = ctx.session?.awaitingPaymentMethodInstructions;
+      
+      console.log('🔍 Checking payment method edit states:', {
+        userId,
+        editingState,
+        sessionAccount,
+        sessionAccountName,
+        sessionName,
+        sessionInstructions,
+        fullSession: ctx.session
+      });
+      
+      if (editingState || sessionAccount || sessionAccountName || sessionName || sessionInstructions) {
+        console.log('✅ Payment method edit state detected! Processing...');
         const messageText = ctx.message.text.trim();
         
         if (messageText.toLowerCase() === 'cancel') {
-          global.editingStates.delete(userId.toString());
-          ctx.session.awaitingPaymentMethodAccount = null;
-          ctx.session.awaitingPaymentMethodAccountName = null;
-          ctx.session.awaitingPaymentMethodName = null;
-          ctx.session.awaitingPaymentMethodInstructions = null;
+          if (global.editingStates) global.editingStates.delete(userId.toString());
+          if (ctx.session) {
+            ctx.session.awaitingPaymentMethodAccount = null;
+            ctx.session.awaitingPaymentMethodAccountName = null;
+            ctx.session.awaitingPaymentMethodName = null;
+            ctx.session.awaitingPaymentMethodInstructions = null;
+          }
           await ctx.reply('❌ Edit cancelled.');
+          return;
+        }
+        
+        // Determine methodId and field from whichever state is set
+        let methodId, field;
+        if (editingState) {
+          methodId = editingState.methodId;
+          field = editingState.field;
+        } else if (sessionAccount) {
+          console.log('🔍 Processing account edit, methodId:', sessionAccount.methodId);
+          methodId = sessionAccount.methodId;
+          field = 'account';
+        } else if (sessionAccountName) {
+          methodId = sessionAccountName.methodId;
+          field = 'accountName';
+        } else if (sessionName) {
+          methodId = sessionName.methodId;
+          field = 'name';
+        } else if (sessionInstructions) {
+          methodId = sessionInstructions.methodId;
+          field = 'instructions';
+        }
+        
+        if (!methodId) {
+          console.error('❌ Payment method edit state found but no methodId');
+          await ctx.reply('❌ Error: Could not determine payment method to edit.');
           return;
         }
         
@@ -2620,7 +2670,13 @@ Send a message to all active users of the bot.
         
         if (methodIndex === -1) {
           await ctx.reply('❌ Payment method not found');
-          global.editingStates.delete(userId.toString());
+          if (global.editingStates) global.editingStates.delete(userId.toString());
+          if (ctx.session) {
+            ctx.session.awaitingPaymentMethodAccount = null;
+            ctx.session.awaitingPaymentMethodAccountName = null;
+            ctx.session.awaitingPaymentMethodName = null;
+            ctx.session.awaitingPaymentMethodInstructions = null;
+          }
           return;
         }
         
@@ -2651,11 +2707,13 @@ Send a message to all active users of the bot.
         global.paymentMethodsCacheTime = null;
         
         // Clear editing state
-        global.editingStates.delete(userId.toString());
-        ctx.session.awaitingPaymentMethodAccount = null;
-        ctx.session.awaitingPaymentMethodAccountName = null;
-        ctx.session.awaitingPaymentMethodName = null;
-        ctx.session.awaitingPaymentMethodInstructions = null;
+        if (global.editingStates) global.editingStates.delete(userId.toString());
+        if (ctx.session) {
+          ctx.session.awaitingPaymentMethodAccount = null;
+          ctx.session.awaitingPaymentMethodAccountName = null;
+          ctx.session.awaitingPaymentMethodName = null;
+          ctx.session.awaitingPaymentMethodInstructions = null;
+        }
         
         const fieldName = field === 'account' ? 'Account Number' : 
                          field === 'accountName' ? 'Account Name' :
@@ -2708,9 +2766,27 @@ New ${fieldName.toLowerCase()}: ${messageText}
   };
 
   // Register unified text handler with debug logging
-  console.log('🔧 REGISTERING ADMIN TEXT HANDLER');
-  bot.on('text', handleAdminTextMessage);
-  console.log('✅ ADMIN TEXT HANDLER REGISTERED');
+  // Use bot.use() to ensure it runs after subscribe handler middleware
+  console.log('🔧 REGISTERING ADMIN TEXT HANDLER AS MIDDLEWARE');
+  bot.use(async (ctx, next) => {
+    // Only process text messages
+    if (!ctx.message || !ctx.message.text) {
+      return next();
+    }
+    console.log('🔍🔍🔍 [ADMIN MIDDLEWARE] Called for user:', ctx.from?.id, 'Text:', ctx.message?.text);
+    console.log('🔍 [ADMIN MIDDLEWARE] Session:', ctx.session);
+    console.log('🔍 [ADMIN MIDDLEWARE] Editing states:', global.editingStates?.get(String(ctx.from?.id)));
+    
+    // Call the admin text handler
+    try {
+      await handleAdminTextMessage(ctx);
+    } catch (error) {
+      console.error('❌ Error in admin text handler:', error);
+    }
+    // Always call next() to continue the chain
+    return next();
+  });
+  console.log('✅ ADMIN TEXT HANDLER REGISTERED AS MIDDLEWARE');
   bot.on('photo', handleBroadcastMessage);
   bot.on('video', handleBroadcastMessage);
   bot.on('document', handleBroadcastMessage);
@@ -6888,4 +6964,6 @@ To cancel, click the Cancel button below.`;
   });
 
   console.log('✅ ADMIN HANDLER FULLY INITIALIZED');
+  console.log('🔍 ADMIN HANDLER - Text handler middleware should be registered above');
+  console.log('🔍 ADMIN HANDLER - If you see this, admin handler completed initialization');
 }
