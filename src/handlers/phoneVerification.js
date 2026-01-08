@@ -217,11 +217,30 @@ export const setupPhoneVerificationHandlers = (bot) => {
   // Phone verification callback
   bot.action('verify_phone', handleVerifyPhone);
   
-  // Contact sharing handler
-  bot.on('contact', handleContactSharing);
+  // Contact sharing handler - MUST BE FIRST to intercept contact messages
+  bot.on('contact', async (ctx, next) => {
+    await handleContactSharing(ctx);
+    // Don't call next() - stop propagation so no other handlers process this
+  });
   
-  // Manual phone input handler
-  bot.on('text', handleManualPhoneInput);
+  // Manual phone input handler - MUST BE FIRST to intercept text during verification
+  bot.on('text', async (ctx, next) => {
+    const userId = String(ctx.from?.id);
+    if (!userId) return next();
+    
+    // Check if user is in verification flow
+    const { getCachedUserData } = await import('../utils/ultraCache.js');
+    const userData = await getCachedUserData(userId) || {};
+    
+    if (userData.awaitingPhone && !userData.phoneVerified) {
+      await handleManualPhoneInput(ctx);
+      // Don't call next() - stop propagation so no other handlers process this
+      return;
+    }
+    
+    // Not in verification flow, continue to other handlers
+    return next();
+  });
   
   console.log('✅ Smart phone verification handlers registered');
 };
