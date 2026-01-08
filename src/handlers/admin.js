@@ -2597,6 +2597,88 @@ Send a message to all active users of the bot.
         }
       }
 
+      // 5. Check if admin is editing payment method fields
+      const editingState = global.editingStates?.get(userId?.toString());
+      if (editingState) {
+        const { methodId, field } = editingState;
+        const messageText = ctx.message.text.trim();
+        
+        if (messageText.toLowerCase() === 'cancel') {
+          global.editingStates.delete(userId.toString());
+          ctx.session.awaitingPaymentMethodAccount = null;
+          ctx.session.awaitingPaymentMethodAccountName = null;
+          ctx.session.awaitingPaymentMethodName = null;
+          ctx.session.awaitingPaymentMethodInstructions = null;
+          await ctx.reply('❌ Edit cancelled.');
+          return;
+        }
+        
+        // Get payment methods
+        const { getCachedPaymentMethods } = await import('../utils/ultraCache.js');
+        const paymentMethods = await getCachedPaymentMethods();
+        const methodIndex = paymentMethods.findIndex(m => m.id === methodId);
+        
+        if (methodIndex === -1) {
+          await ctx.reply('❌ Payment method not found');
+          global.editingStates.delete(userId.toString());
+          return;
+        }
+        
+        // Update the field
+        if (field === 'account') {
+          paymentMethods[methodIndex].account = messageText;
+        } else if (field === 'accountName') {
+          paymentMethods[methodIndex].accountName = messageText;
+        } else if (field === 'name') {
+          paymentMethods[methodIndex].name = messageText;
+        } else if (field === 'instructions') {
+          paymentMethods[methodIndex].instructions = messageText;
+        } else if (field === 'instructionsAm') {
+          paymentMethods[methodIndex].instructionsAm = messageText;
+        } else if (field === 'icon') {
+          paymentMethods[methodIndex].icon = messageText;
+        }
+        
+        // Save to Firestore
+        await firestore.collection('config').doc('paymentMethods').set({
+          methods: paymentMethods,
+          updatedAt: new Date(),
+          updatedBy: userId.toString()
+        });
+        
+        // Clear cache
+        global.paymentMethodsCache = null;
+        global.paymentMethodsCacheTime = null;
+        
+        // Clear editing state
+        global.editingStates.delete(userId.toString());
+        ctx.session.awaitingPaymentMethodAccount = null;
+        ctx.session.awaitingPaymentMethodAccountName = null;
+        ctx.session.awaitingPaymentMethodName = null;
+        ctx.session.awaitingPaymentMethodInstructions = null;
+        
+        const fieldName = field === 'account' ? 'Account Number' : 
+                         field === 'accountName' ? 'Account Name' :
+                         field === 'name' ? 'Name' :
+                         field === 'instructions' ? 'Instructions (EN)' :
+                         field === 'instructionsAm' ? 'Instructions (AM)' :
+                         field === 'icon' ? 'Icon' : field;
+        
+        await ctx.reply(`✅ **${fieldName} Updated Successfully!**
+
+New ${fieldName.toLowerCase()}: ${messageText}
+
+🔙 Back to payment method management.`, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔙 Back to Payment Method', callback_data: `edit_payment_method_${methodId}` }]
+            ]
+          }
+        });
+        return;
+      }
+
       // If none of the above, ignore the message
       console.log('🔍 No matching admin state, ignoring message');
       
@@ -3833,37 +3915,32 @@ Icon: 📱
     }
   });
 
-  // Handle admin_payments action - Payment Methods Management
-  bot.action('admin_payments', async (ctx) => {
-    if (!(await isAuthorizedAdmin(ctx))) {
-      await ctx.answerCbQuery("❌ Access denied.");
-      return;
-    }
+  // Shared function for payment methods management
+  const showPaymentMethods = async (ctx) => {
+    // Answer callback immediately to prevent timeout
+    await ctx.answerCbQuery();
 
-    try {
-      // Answer callback immediately to prevent timeout
-      await ctx.answerCbQuery();
-
+    // ULTRA-CACHE: Get payment methods from cache (no DB read!)
+    let paymentMethods = global.paymentMethodsCache || [];
+    
+    // Check if cache is expired (1 hour)
+    const cacheExpired = !global.paymentMethodsCacheTime || 
+      (Date.now() - global.paymentMethodsCacheTime) > 3600000; // 1 hour
+    
+    if (!global.paymentMethodsCache || cacheExpired) {
       // ULTRA-CACHE: Get payment methods from cache (no DB read!)
-      let paymentMethods = global.paymentMethodsCache || [];
+      const { getCachedPaymentMethods } = await import('../utils/ultraCache.js');
+      paymentMethods = await getCachedPaymentMethods();
       
-      // Check if cache is expired (1 hour)
-      const cacheExpired = !global.paymentMethodsCacheTime || 
-        (Date.now() - global.paymentMethodsCacheTime) > 3600000; // 1 hour
-      
-      if (!global.paymentMethodsCache || cacheExpired) {
-        // ULTRA-CACHE: Get payment methods from cache (no DB read!)
-        const { getCachedPaymentMethods } = await import('../utils/ultraCache.js');
-        paymentMethods = await getCachedPaymentMethods();
-        
-        if (paymentMethods.length === 0) {
-          // Create default payment methods if none exist
-          paymentMethods = [
-            {
-              id: 'telebirr',
-              name: 'TeleBirr',
+      if (paymentMethods.length === 0) {
+        // Create default payment methods if none exist
+        paymentMethods = [
+          {
+            id: 'telebirr',
+            name: 'TeleBirr',
             nameAm: 'ቴሌብር',
             account: '0911234567',
+            accountName: 'John Doe',
             instructions: 'Send payment to TeleBirr account and upload screenshot',
             instructionsAm: 'ወደ ቴሌብር መለያ ክፍያ በመላክ ስክሪንሾት ይላኩ',
             active: true,
@@ -3874,6 +3951,7 @@ Icon: 📱
             name: 'Commercial Bank of Ethiopia',
             nameAm: 'የኢትዮጵያ ንግድ ባንክ',
             account: '1000123456789',
+            accountName: 'John Doe',
             instructions: 'Transfer to CBE account and upload receipt',
             instructionsAm: 'ወደ CBE መለያ በማስተላለፍ ደረሰኝ ይላኩ',
             active: true,
@@ -3884,6 +3962,7 @@ Icon: 📱
             name: 'Awash Bank',
             nameAm: 'አዋሽ ባንክ',
             account: '01234567890',
+            accountName: 'John Doe',
             instructions: 'Transfer to Awash Bank account and upload receipt',
             instructionsAm: 'ወደ አዋሽ ባንክ መለያ በማስተላለፍ ደረሰኝ ይላኩ',
             active: true,
@@ -3901,22 +3980,25 @@ Icon: 📱
           updatedAt: new Date(),
           updatedBy: ctx.from.id.toString()
         });
-        }
       }
+    }
 
-      const activeCount = paymentMethods.filter(method => method.active).length;
-      const inactiveCount = paymentMethods.filter(method => !method.active).length;
+    const activeCount = paymentMethods.filter(method => method.active).length;
+    const inactiveCount = paymentMethods.filter(method => !method.active).length;
 
-      let methodsList = '';
-      paymentMethods.forEach((method, index) => {
-        const status = method.active ? '✅' : '❌';
-        const icon = method.icon || '💳';
-        methodsList += `${index + 1}. ${status} ${icon} **${method.name}**\n`;
-        methodsList += `   📱 Account: \`${method.account}\`\n`;
-        methodsList += `   ${method.active ? '🟢 Active' : '🔴 Inactive'}\n\n`;
-      });
+    let methodsList = '';
+    paymentMethods.forEach((method, index) => {
+      const status = method.active ? '✅' : '❌';
+      const icon = method.icon || '💳';
+      methodsList += `${index + 1}. ${status} ${icon} **${method.name}**\n`;
+      methodsList += `   📱 Account: \`${method.account}\`\n`;
+      if (method.accountName) {
+        methodsList += `   👤 Account Name: ${method.accountName}\n`;
+      }
+      methodsList += `   ${method.active ? '🟢 Active' : '🔴 Inactive'}\n\n`;
+    });
 
-      const message = `💳 **Payment Methods Management** 💳
+    const message = `💳 **Payment Methods Management** 💳
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -3939,20 +4021,128 @@ ${methodsList}
 
 💡 **Note:** Only active payment methods are shown to users during subscription and renewal.`;
 
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '➕ Add Payment Method', callback_data: 'add_payment_method' }],
+          [{ text: '✏️ Edit Payment Methods', callback_data: 'edit_payment_methods' }],
+          [{ text: '🔄 Toggle Method Status', callback_data: 'toggle_payment_methods' }],
+          [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+        ]
+      }
+    });
+  };
+
+  // Handle admin_payment_methods action - Payment Methods Management
+  bot.action('admin_payment_methods', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+    try {
+      await showPaymentMethods(ctx);
+    } catch (error) {
+      console.error('Error loading payment methods:', error);
+      await ctx.answerCbQuery('❌ Error loading payment methods');
+    }
+  });
+
+  // Handle admin_payments action - Payment Methods Management
+  bot.action('admin_payments', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+    try {
+      await showPaymentMethods(ctx);
+    } catch (error) {
+      console.error('Error loading payment methods:', error);
+      await ctx.answerCbQuery('❌ Error loading payment methods');
+    }
+  });
+
+  // Handle admin_revenue action - Revenue Management
+  bot.action('admin_revenue', async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    try {
+      await ctx.answerCbQuery();
+      
+      const { formatPrice, formatPriceWithCurrency } = await import('../utils/priceFormat.js');
+      const { optimizedDatabase } = await import('../utils/optimizedDatabase.js');
+      
+      // Get completed payments
+      const payments = await optimizedDatabase.smartQuery('payments', { status: 'completed' }, {});
+      
+      // Calculate revenue statistics
+      let totalRevenue = 0;
+      let todayRevenue = 0;
+      let thisMonthRevenue = 0;
+      let thisYearRevenue = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const yearStart = new Date(today.getFullYear(), 0, 1);
+      
+      payments.forEach(payment => {
+        const amount = parseFloat(payment.amount) || 0;
+        totalRevenue += amount;
+        
+        const paymentDate = payment.createdAt?.toDate ? payment.createdAt.toDate() : new Date(payment.createdAt || payment.timestamp);
+        
+        if (paymentDate >= today) {
+          todayRevenue += amount;
+        }
+        if (paymentDate >= monthStart) {
+          thisMonthRevenue += amount;
+        }
+        if (paymentDate >= yearStart) {
+          thisYearRevenue += amount;
+        }
+      });
+      
+      // Get subscription stats
+      const activeSubscriptions = await optimizedDatabase.smartQuery('subscriptions', { status: 'active' }, {});
+      const pendingSubscriptions = await optimizedDatabase.smartQuery('subscriptions', { status: 'pending' }, {});
+      
+      const message = `💰 **Revenue Management** 💰
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 **Revenue Statistics:**
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 💵 **Total Revenue:** ${formatPriceWithCurrency(totalRevenue)}
+┃ 📅 **Today:** ${formatPriceWithCurrency(todayRevenue)}
+┃ 📆 **This Month:** ${formatPriceWithCurrency(thisMonthRevenue)}
+┃ 📅 **This Year:** ${formatPriceWithCurrency(thisYearRevenue)}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+📈 **Subscription Overview:**
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ ✅ **Active Subscriptions:** ${activeSubscriptions.length}
+┃ ⏳ **Pending Subscriptions:** ${pendingSubscriptions.length}
+┃ 💳 **Total Payments:** ${payments.length}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+💡 **Note:** Revenue includes all completed payments from normal and custom plans.`;
+
       await ctx.editMessageText(message, {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '➕ Add Payment Method', callback_data: 'add_payment_method' }],
-            [{ text: '✏️ Edit Payment Methods', callback_data: 'edit_payment_methods' }],
-            [{ text: '🔄 Toggle Method Status', callback_data: 'toggle_payment_methods' }],
+            [{ text: '🔄 Refresh Revenue', callback_data: 'admin_revenue' }],
             [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
           ]
         }
       });
     } catch (error) {
-      console.error('Error loading payment methods:', error);
-      await ctx.answerCbQuery('❌ Error loading payment methods');
+      console.error('Error loading revenue:', error);
+      await ctx.answerCbQuery('❌ Error loading revenue statistics');
+      await ctx.reply('❌ Error loading revenue statistics: ' + error.message);
     }
   });
 
@@ -4186,7 +4376,8 @@ Select a payment method to edit:
 
 Current Details:
 • Name: ${method.name}
-• Account: ${method.account || 'Not set'}
+• Account Number: ${method.account || 'Not set'}
+• Account Name: ${method.accountName || 'Not set'}
 • Instructions: ${method.instructions || 'Not set'}
 • Active: ${method.active ? '✅ Yes' : '❌ No'}
 
@@ -4197,7 +4388,8 @@ What would you like to edit?`;
         reply_markup: {
           inline_keyboard: [
             [{ text: '📝 Edit Name', callback_data: `edit_name_${methodId}` }],
-            [{ text: '🏦 Edit Account', callback_data: `edit_account_${methodId}` }],
+            [{ text: '🏦 Edit Account Number', callback_data: `edit_account_${methodId}` }],
+            [{ text: '👤 Edit Account Name', callback_data: `edit_account_name_${methodId}` }],
             [{ text: '📋 Edit Instructions', callback_data: `edit_instructions_${methodId}` }],
             [{ text: '🔄 Toggle Status', callback_data: `toggle_payment_method_${methodId}` }],
             [{ text: '🔙 Back to Payment Methods', callback_data: 'admin_payment_methods' }]
@@ -4286,12 +4478,15 @@ Current Details:
         return;
       }
 
-      const message = `✏️ **Edit Payment Method** ✏️
+      let message = `✏️ **Edit Payment Method** ✏️
 
 **Current Details:**
 ${method.icon || '💳'} **${method.name}**
-📱 **Account:** \`${method.account}\`
-🔤 **Instructions (EN):** ${method.instructions}
+📱 **Account Number:** \`${method.account}\``;
+      if (method.accountName) {
+        message += `\n👤 **Account Name:** ${method.accountName}`;
+      }
+      message += `\n🔤 **Instructions (EN):** ${method.instructions}
 🔤 **Instructions (AM):** ${method.instructionsAm || 'Not set'}
 📊 **Status:** ${method.active ? '🟢 Active' : '🔴 Inactive'}
 
@@ -4302,6 +4497,7 @@ ${method.icon || '💳'} **${method.name}**
         reply_markup: {
           inline_keyboard: [
             [{ text: '📱 Edit Account Number', callback_data: `edit_account_${methodId}` }],
+            [{ text: '👤 Edit Account Name', callback_data: `edit_account_name_${methodId}` }],
             [{ text: '🔤 Edit Instructions (EN)', callback_data: `edit_instructions_${methodId}` }],
             [{ text: '🔤 Edit Instructions (AM)', callback_data: `edit_instructions_am_${methodId}` }],
             [{ text: '🎨 Edit Icon', callback_data: `edit_icon_${methodId}` }],
@@ -4338,6 +4534,7 @@ To add a new payment method, please send the details in this format:
 Name: Bank Name or Service
 NameAm: የባንክ ስም (Amharic name)
 Account: Account number or phone
+AccountName: Account holder name (optional)
 Instructions: Payment instructions in English
 InstructionsAm: Payment instructions in Amharic
 Icon: 🏦 (emoji icon)
@@ -4349,6 +4546,7 @@ Icon: 🏦 (emoji icon)
 Name: Dashen Bank
 NameAm: ዳሽን ባንክ
 Account: 1234567890123
+AccountName: John Doe
 Instructions: Transfer to Dashen Bank account and upload receipt
 InstructionsAm: ወደ ዳሽን ባንክ መለያ በማስተላለፍ ደረሰኝ ይላኩ
 Icon: 🏦
@@ -4417,6 +4615,7 @@ Icon: 🏦 (emoji icon)
         name: paymentData.name,
         nameAm: paymentData.nameam || paymentData.name,
         account: paymentData.account,
+        accountName: paymentData.accountname || paymentData.accountname || '',
         instructions: paymentData.instructions,
         instructionsAm: paymentData.instructionsam || paymentData.instructions,
         icon: paymentData.icon || '💳',
@@ -4443,13 +4642,17 @@ Icon: 🏦 (emoji icon)
         updatedBy: ctx.from.id.toString()
       });
 
-      await ctx.reply(`✅ **Payment Method Added Successfully!**
+      let successMessage = `✅ **Payment Method Added Successfully!**
 
 ${newMethod.icon} **${newMethod.name}**
-📱 Account: \`${newMethod.account}\`
-🟢 Status: Active
+📱 Account: \`${newMethod.account}\``;
+      if (newMethod.accountName) {
+        successMessage += `\n👤 Account Name: ${newMethod.accountName}`;
+      }
+      successMessage += `\n🟢 Status: Active
 
-The new payment method is now available to users during subscription and renewal.`, { parse_mode: 'Markdown' });
+The new payment method is now available to users during subscription and renewal.`;
+      await ctx.reply(successMessage, { parse_mode: 'Markdown' });
 
     } catch (error) {
       console.error("Error adding payment method:", error);
@@ -4601,6 +4804,50 @@ Type \`cancel\` to cancel the operation.`, {
       await ctx.answerCbQuery();
     } catch (error) {
       console.error('Error starting account edit:', error);
+      await ctx.answerCbQuery('❌ Error starting edit');
+    }
+  });
+
+  // Handle edit account name
+  bot.action(/^edit_account_name_(.+)$/, async (ctx) => {
+    if (!(await isAuthorizedAdmin(ctx))) {
+      await ctx.answerCbQuery("❌ Access denied.");
+      return;
+    }
+
+    await ctx.answerCbQuery();
+
+    try {
+      const methodId = ctx.match[1];
+      
+      await ctx.editMessageText(`✏️ **Edit Account Name**
+
+Please send the new account name (account holder name) for this payment method.
+
+Type \`cancel\` to cancel the operation.`, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Cancel', callback_data: `edit_payment_method_${methodId}` }]
+          ]
+        }
+      });
+      
+      // Set state to await new account name
+      ctx.session = ctx.session || {};
+      ctx.session.awaitingPaymentMethodAccountName = { methodId };
+      console.log('🔍 Set awaitingPaymentMethodAccountName for user:', ctx.from.id);
+
+      // Store the edit context in global editingStates
+      global.editingStates = global.editingStates || new Map();
+      global.editingStates.set(ctx.from.id.toString(), {
+        methodId: methodId,
+        field: 'accountName'
+      });
+
+      await ctx.answerCbQuery();
+    } catch (error) {
+      console.error('Error starting account name edit:', error);
       await ctx.answerCbQuery('❌ Error starting edit');
     }
   });
