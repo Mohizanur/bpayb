@@ -331,16 +331,29 @@ async function startApp() {
       // 🚀 PHONE VERIFICATION CONTACT HANDLER - MUST BE BEFORE OTHER HANDLERS
       // Register contact handler as middleware to ensure it runs FIRST
       bot.use(async (ctx, next) => {
+        // Log ALL messages to see what's happening
+        if (ctx.message) {
+          console.log('📱 [MIDDLEWARE] Message received:', ctx.message.message_id, 'Type:', ctx.message.contact ? 'CONTACT' : ctx.message.text ? 'TEXT' : 'OTHER');
+        }
+        
         // Only process contact messages
         if (!ctx.message || !ctx.message.contact) {
           return next();
         }
         
-        console.log('📱 [MIDDLEWARE] Contact message detected, routing to phone verification handler');
-        const { handleContactSharing } = await import('./handlers/phoneVerification.js');
-        await handleContactSharing(ctx);
+        console.log('📱 [MIDDLEWARE] ✅ CONTACT MESSAGE DETECTED! User:', ctx.from.id, 'Phone:', ctx.message.contact.phone_number);
+        console.log('📱 [MIDDLEWARE] Routing to phone verification handler...');
+        
+        try {
+          const { handleContactSharing } = await import('./handlers/phoneVerification.js');
+          await handleContactSharing(ctx);
+          console.log('📱 [MIDDLEWARE] ✅ Contact handler completed successfully, stopping propagation');
+        } catch (error) {
+          console.error('📱 [MIDDLEWARE] ❌ Error in contact handler:', error);
+          throw error; // Re-throw to prevent other handlers from running
+        }
+        
         // Don't call next() - stop propagation so no other handlers process this
-        console.log('📱 [MIDDLEWARE] Contact handler completed, stopping propagation');
         return; // Explicitly return to stop propagation
       });
       console.log("✅ Phone verification contact middleware registered");

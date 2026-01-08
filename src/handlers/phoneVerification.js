@@ -67,13 +67,17 @@ export const handleVerifyPhone = async (ctx) => {
 // Handle contact sharing for phone verification
 export const handleContactSharing = async (ctx) => {
   try {
+    console.log('📱 [PHONE VERIFICATION HANDLER] Starting contact sharing handler');
     const userId = String(ctx.from.id);
+    console.log('📱 [PHONE VERIFICATION HANDLER] User ID:', userId);
     
     // ULTRA-CACHE: Get language from cache (no DB read!)
     const { getUserLang } = await import('../utils/i18n.js');
     const lang = await getUserLang(ctx);
+    console.log('📱 [PHONE VERIFICATION HANDLER] Language:', lang);
     
     const phoneNumber = ctx.message.contact.phone_number;
+    console.log('📱 [PHONE VERIFICATION HANDLER] Phone number:', phoneNumber);
     
     // Ensure phone number has + prefix
     const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : '+' + phoneNumber;
