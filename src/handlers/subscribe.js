@@ -628,37 +628,19 @@ function setupSubscribeHandler(bot) {
 
       const plan = !isCustom ? service.plans?.find(p => p.duration === durationValue) : null;
       
-      // Get payment methods
-        let paymentMethods = [];
-        try {
-          paymentMethods = await optimizedDatabase.getPaymentMethods();
-          paymentMethods = paymentMethods.filter(method => method.active);
-        } catch (error) {
-          console.error('Error fetching payment methods:', error);
-        }
+      // Get payment methods (hardcoded to save quota - no DB read!)
+        const { getPaymentMethods } = await import('../config/paymentMethods.js');
+        const paymentMethods = getPaymentMethods();
 
-        if (paymentMethods.length === 0) {
-          paymentMethods = [
-            {
-              id: 'telebirr',
-              name: 'TeleBirr',
-              nameAm: 'ቴሌብር',
-              account: '0912345678',
-              instructions: 'Send payment to TeleBirr account and upload screenshot',
-              instructionsAm: 'ወደ ቴሌብር መለያ ክፍያ በመላክ ስክሪንሾት ይላኩ',
-              icon: '📱'
-            }
-          ];
-        }
-
-        // Build payment methods list
+        // Build payment methods list with account names
         let paymentMethodsListEn = '';
         let paymentMethodsListAm = '';
         
         paymentMethods.forEach(method => {
           const icon = method.icon || '💳';
-          paymentMethodsListEn += `${icon} *${method.name}*: ${method.account}\n`;
-          paymentMethodsListAm += `${icon} *${method.nameAm || method.name}*: ${method.account}\n`;
+          const accountNameText = method.accountName ? ` (${method.accountName})` : '';
+          paymentMethodsListEn += `${icon} *${method.name}*\n   Account: ${method.account}${accountNameText}\n`;
+          paymentMethodsListAm += `${icon} *${method.nameAm || method.name}*\n   መለያ: ${method.account}${accountNameText}\n`;
         });
 
         // Build payment message - handle custom plans differently
@@ -673,7 +655,9 @@ function setupSubscribeHandler(bot) {
 
 ${t('payment_accounts_instruction', lang)}:
 ${lang === 'am' ? paymentMethodsListAm : paymentMethodsListEn}
-${paymentMethods.length > 0 ? (lang === 'am' ? (paymentMethods[0].instructionsAm || t('payment_proof_instruction', lang)) : (paymentMethods[0].instructions || t('payment_proof_instruction', lang))) : t('payment_proof_instruction', lang)}
+
+${paymentMethods.length > 0 ? (lang === 'am' ? paymentMethods[0].instructionsAm : paymentMethods[0].instructions) : t('payment_proof_instruction', lang)}
+
 ${t('service_start_after_approval', lang)}`
             : `💳 *${t('payment_instructions_title', lang)}*
 
@@ -682,7 +666,9 @@ ${t('service_start_after_approval', lang)}`
 
 ${t('payment_accounts_instruction', lang)}:
 ${lang === 'am' ? paymentMethodsListAm : paymentMethodsListEn}
-${paymentMethods.length > 0 ? (lang === 'am' ? (paymentMethods[0].instructionsAm || t('payment_proof_instruction', lang)) : (paymentMethods[0].instructions || t('payment_proof_instruction', lang))) : t('payment_proof_instruction', lang)}
+
+${paymentMethods.length > 0 ? (lang === 'am' ? paymentMethods[0].instructionsAm : paymentMethods[0].instructions) : t('payment_proof_instruction', lang)}
+
 ${t('service_start_after_approval', lang)}`;
         } else {
           // Regular plan message
@@ -698,7 +684,9 @@ ${t('total_amount', lang)}: *${price.toLocaleString()} ${lang === 'am' ? t('birr
 
 ${t('payment_accounts_instruction', lang)}:
 ${lang === 'am' ? paymentMethodsListAm : paymentMethodsListEn}
-${paymentMethods.length > 0 ? (lang === 'am' ? (paymentMethods[0].instructionsAm || t('payment_proof_instruction', lang)) : (paymentMethods[0].instructions || t('payment_proof_instruction', lang))) : t('payment_proof_instruction', lang)}
+
+${paymentMethods.length > 0 ? (lang === 'am' ? paymentMethods[0].instructionsAm : paymentMethods[0].instructions) : t('payment_proof_instruction', lang)}
+
 ${t('service_start_after_approval', lang)}`;
         }
 
