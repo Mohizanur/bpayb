@@ -170,30 +170,12 @@ export function setupStartHandler(bot) {
       const cachedUser = getCachedUserData(userId);
       const now = Date.now();
       
-      // Get user language
-      const { getUserLang } = await import('../utils/i18n.js');
-      const lang = await getUserLang(ctx);
-      
-      // Check if user just verified their phone (within last 5 minutes)
-      const justVerified = cachedUser?.phoneVerified && 
-                          cachedUser?.verifiedAt && 
-                          (now - new Date(cachedUser.verifiedAt).getTime()) < (5 * 60 * 1000);
-      
-      // If user just verified, show simple message without buttons
-      if (justVerified) {
-        const simpleMessage = lang === 'am'
-          ? `✅ **የስልክ ቁጥርዎ ተረጋግጧል!**\n\n🎉 እንኳን ደስ አለዎት! አሁን የBirrPay አገልግሎቶችን መጠቀም ይችላሉ።\n\n🏠 ዋና ገጽን ለመመልከት **/start** ይጫኑ።`
-          : `✅ **Your phone number has been verified!**\n\n🎉 Welcome! You can now use BirrPay services.\n\n🏠 Press **/start** to go to the main menu.`;
-        
-        await ctx.reply(simpleMessage, { parse_mode: 'Markdown' });
-        return;
-      }
-      
       // Only update if: (1) not cached, OR (2) cached but >12 hours old
       const shouldUpdate = !cachedUser || !cachedUser.lastActiveAt || 
                           (now - new Date(cachedUser.lastActiveAt).getTime()) > (12 * 60 * 60 * 1000);
       
       if (shouldUpdate) {
+        const lang = ctx.from?.language_code === 'am' ? 'am' : 'en';
         const updateData = {
           telegramId: ctx.from.id,
           firstName: ctx.from.first_name || '',
@@ -209,8 +191,8 @@ export function setupStartHandler(bot) {
           .catch(console.error);
       }
       
-      // Show main menu for regular users
-      await showMainMenu(ctx, false);
+      // Show "Let's Get Started" content for all users with optimized speed
+      await showMainMenu(ctx, true);
 
     } catch (error) {
       console.error("Error in start handler:", error);

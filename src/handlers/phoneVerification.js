@@ -133,8 +133,10 @@ export const handleContactSharing = async (ctx) => {
       : `🎉 **Welcome!**\n\n📱 Your phone number has been successfully verified: \`${formattedPhone}\`\n\n✅ You can now use BirrPay services.\n\n🏠 Press **/start** to go to the main menu.`;
     
     // Send the success message without buttons - user should use /start
+    // Make sure to remove any keyboard that might be showing
     await ctx.reply(successMessage, {
-      parse_mode: 'Markdown'
+      parse_mode: 'Markdown',
+      reply_markup: { remove_keyboard: true }
     });
     
   } catch (error) {
@@ -197,8 +199,10 @@ export const handleManualPhoneInput = async (ctx) => {
         : `🎉 **Welcome!**\n\n📱 Your phone number has been successfully verified: \`${formattedPhone}\`\n\n✅ You can now use BirrPay services.\n\n🏠 Press **/start** to go to the main menu.`;
       
       // Send the success message without buttons - user should use /start
+      // Make sure to remove any keyboard that might be showing
       await ctx.reply(successMessage, {
-        parse_mode: 'Markdown'
+        parse_mode: 'Markdown',
+        reply_markup: { remove_keyboard: true }
       });
     }
   } catch (error) {
