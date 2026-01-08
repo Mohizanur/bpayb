@@ -99,6 +99,15 @@ export async function setUserLang(ctx, lang) {
     // ULTRA-CACHE: Update cache immediately (instant for next request)
     cacheUserLanguage(userId, lang);
     
+    // Also invalidate optimizedDatabase cache to ensure consistency
+    try {
+      const { invalidateUser } = await import('./smartCache.js');
+      invalidateUser(userId);
+    } catch (error) {
+      // Ignore if smartCache is not available
+      console.log('Could not invalidate smartCache:', error.message);
+    }
+    
     if (!isFirebaseConnected) {
       console.log(`Mock: Setting user ${userId} language to ${lang}`);
       return;

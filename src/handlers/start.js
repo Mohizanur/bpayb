@@ -2160,10 +2160,10 @@ Netflix • Spotify • Amazon Prime • YouTube Premium • Disney+ • HBO Max
       
       const languageMessage = currentLang === 'am'
         ? `🌐 **ቋንቋ ቀይር**
-
+        
 እባክዎ የሚፈልጉትን ቋንቋ ይምረጡ:`
         : `🌐 **Change Language**
-
+        
 Please select your preferred language:`;
 
       await ctx.editMessageText(languageMessage, {
@@ -2182,6 +2182,71 @@ Please select your preferred language:`;
     } catch (error) {
       console.error("Error in change_language action:", error);
       await ctx.answerCbQuery("Sorry, something went wrong.");
+    }
+  });
+
+  // Language selection handlers - handle both callback formats
+  bot.action("set_lang_en", async (ctx) => {
+    try {
+      const { setUserLang } = await import('../utils/i18n.js');
+      await setUserLang(ctx, 'en');
+      
+      const responseMsg = "🇺🇸 Language switched to English";
+      await ctx.answerCbQuery(responseMsg);
+      
+      // Show updated menu with new language
+      await showMainMenu(ctx);
+    } catch (error) {
+      console.error("Error setting language to English:", error);
+      await ctx.answerCbQuery("Error changing language");
+    }
+  });
+
+  bot.action("set_lang_am", async (ctx) => {
+    try {
+      const { setUserLang } = await import('../utils/i18n.js');
+      await setUserLang(ctx, 'am');
+      
+      const responseMsg = "🇪🇹 ቋንቋ ወደ አማርኛ ተቀይሯል";
+      await ctx.answerCbQuery(responseMsg);
+      
+      // Show updated menu with new language
+      await showMainMenu(ctx);
+    } catch (error) {
+      console.error("Error setting language to Amharic:", error);
+      await ctx.answerCbQuery("Error changing language");
+    }
+  });
+
+  bot.action("lang_en", async (ctx) => {
+    try {
+      const { setUserLang } = await import('../utils/i18n.js');
+      await setUserLang(ctx, 'en');
+      
+      const responseMsg = "🇺🇸 Language switched to English";
+      await ctx.answerCbQuery(responseMsg);
+      
+      // Show updated menu with new language
+      await showMainMenu(ctx);
+    } catch (error) {
+      console.error("Error setting language to English:", error);
+      await ctx.answerCbQuery("Error changing language");
+    }
+  });
+
+  bot.action("lang_am", async (ctx) => {
+    try {
+      const { setUserLang } = await import('../utils/i18n.js');
+      await setUserLang(ctx, 'am');
+      
+      const responseMsg = "🇪🇹 ቋንቋ ወደ አማርኛ ተቀይሯል";
+      await ctx.answerCbQuery(responseMsg);
+      
+      // Show updated menu with new language
+      await showMainMenu(ctx);
+    } catch (error) {
+      console.error("Error setting language to Amharic:", error);
+      await ctx.answerCbQuery("Error changing language");
     }
   });
 
