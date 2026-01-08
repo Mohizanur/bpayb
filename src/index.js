@@ -328,6 +328,23 @@ async function startApp() {
       bot.use(smartPhoneVerificationMiddleware);
       console.log("✅ Smart phone verification middleware registered");
       
+      // 🚀 PHONE VERIFICATION CONTACT HANDLER - MUST BE BEFORE OTHER HANDLERS
+      // Register contact handler as middleware to ensure it runs FIRST
+      bot.use(async (ctx, next) => {
+        // Only process contact messages
+        if (!ctx.message || !ctx.message.contact) {
+          return next();
+        }
+        
+        console.log('📱 [MIDDLEWARE] Contact message detected, routing to phone verification handler');
+        const { handleContactSharing } = await import('./handlers/phoneVerification.js');
+        await handleContactSharing(ctx);
+        // Don't call next() - stop propagation so no other handlers process this
+        console.log('📱 [MIDDLEWARE] Contact handler completed, stopping propagation');
+        return; // Explicitly return to stop propagation
+      });
+      console.log("✅ Phone verification contact middleware registered");
+      
       try {
         // Register admin handler first so /admin works and inline buttons are available
         adminHandler(bot);

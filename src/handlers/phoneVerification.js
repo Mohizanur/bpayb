@@ -134,10 +134,12 @@ export const handleContactSharing = async (ctx) => {
     
     // Send the success message without buttons - user should use /start
     // Make sure to remove any keyboard that might be showing
+    console.log('📱 [PHONE VERIFICATION] Sending simple verification message (NO BUTTONS)');
     await ctx.reply(successMessage, {
       parse_mode: 'Markdown',
       reply_markup: { remove_keyboard: true }
     });
+    console.log('📱 [PHONE VERIFICATION] Verification message sent successfully');
     
   } catch (error) {
     console.error('Error handling contact:', error);
@@ -217,11 +219,8 @@ export const setupPhoneVerificationHandlers = (bot) => {
   // Phone verification callback
   bot.action('verify_phone', handleVerifyPhone);
   
-  // Contact sharing handler - MUST BE FIRST to intercept contact messages
-  bot.on('contact', async (ctx, next) => {
-    await handleContactSharing(ctx);
-    // Don't call next() - stop propagation so no other handlers process this
-  });
+  // Note: Contact handler is now registered as middleware in index.js
+  // to ensure it runs BEFORE all other handlers
   
   // Manual phone input handler - MUST BE FIRST to intercept text during verification
   bot.on('text', async (ctx, next) => {
