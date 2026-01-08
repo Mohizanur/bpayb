@@ -39,6 +39,16 @@ function setupSubscribeHandler(bot) {
         return next(); // Let admin handler process
       }
       
+      // Skip if admin is editing payment method (let admin handler process it)
+      if (ctx.session?.awaitingPaymentMethodAccount || 
+          ctx.session?.awaitingPaymentMethodAccountName || 
+          ctx.session?.awaitingPaymentMethodName || 
+          ctx.session?.awaitingPaymentMethodInstructions ||
+          global.editingStates?.get(userId)) {
+        process.stderr.write(`⏭️ [SUBSCRIBE HANDLER] Admin editing payment method, skipping\n`);
+        return next(); // Let admin handler process
+      }
+      
       // Check if user is in details collection flow
       if (!global.userDetailsState || !global.userDetailsState[userId] || global.userDetailsState[userId].state !== 'awaiting_user_details') {
         return next(); // Not in flow, let other handlers process

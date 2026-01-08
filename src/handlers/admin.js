@@ -4075,8 +4075,22 @@ ${methodsList}
       const { formatPrice, formatPriceWithCurrency } = await import('../utils/priceFormat.js');
       const { optimizedDatabase } = await import('../utils/optimizedDatabase.js');
       
-      // Get completed payments
-      const payments = await optimizedDatabase.smartQuery('payments', { status: 'completed' }, {});
+      console.log('🔍 Loading revenue data...');
+      
+      // Get completed payments - try both collections
+      let payments = [];
+      try {
+        payments = await optimizedDatabase.smartQuery('payments', { status: 'completed' }, {});
+        console.log(`📊 Found ${payments.length} completed payments`);
+      } catch (queryError) {
+        console.error('Error querying payments:', queryError);
+        // Fallback: try direct Firestore query
+        const paymentsSnapshot = await firestore.collection('payments')
+          .where('status', '==', 'completed')
+          .get();
+        payments = paymentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log(`📊 Found ${payments.length} completed payments (fallback)`);
+      }
       
       // Calculate revenue statistics
       let totalRevenue = 0;
@@ -4090,9 +4104,21 @@ ${methodsList}
       
       payments.forEach(payment => {
         const amount = parseFloat(payment.amount) || 0;
+        if (isNaN(amount) || amount <= 0) return;
+        
         totalRevenue += amount;
         
-        const paymentDate = payment.createdAt?.toDate ? payment.createdAt.toDate() : new Date(payment.createdAt || payment.timestamp);
+        // Handle different date formats
+        let paymentDate;
+        if (payment.createdAt?.toDate) {
+          paymentDate = payment.createdAt.toDate();
+        } else if (payment.createdAt) {
+          paymentDate = payment.createdAt instanceof Date ? payment.createdAt : new Date(payment.createdAt);
+        } else if (payment.timestamp) {
+          paymentDate = payment.timestamp instanceof Date ? payment.timestamp : new Date(payment.timestamp);
+        } else {
+          paymentDate = new Date(); // Default to now if no date
+        }
         
         if (paymentDate >= today) {
           todayRevenue += amount;
@@ -4106,8 +4132,19 @@ ${methodsList}
       });
       
       // Get subscription stats
-      const activeSubscriptions = await optimizedDatabase.smartQuery('subscriptions', { status: 'active' }, {});
-      const pendingSubscriptions = await optimizedDatabase.smartQuery('subscriptions', { status: 'pending' }, {});
+      let activeSubscriptions = [];
+      let pendingSubscriptions = [];
+      try {
+        activeSubscriptions = await optimizedDatabase.smartQuery('subscriptions', { status: 'active' }, {});
+        pendingSubscriptions = await optimizedDatabase.smartQuery('subscriptions', { status: 'pending' }, {});
+      } catch (subError) {
+        console.error('Error querying subscriptions:', subError);
+        // Fallback
+        const activeSnapshot = await firestore.collection('subscriptions').where('status', '==', 'active').get();
+        const pendingSnapshot = await firestore.collection('subscriptions').where('status', '==', 'pending').get();
+        activeSubscriptions = activeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        pendingSubscriptions = pendingSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      }
       
       const message = `💰 **Revenue Management** 💰
 
@@ -4130,19 +4167,37 @@ ${methodsList}
 
 💡 **Note:** Revenue includes all completed payments from normal and custom plans.`;
 
-      await ctx.editMessageText(message, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔄 Refresh Revenue', callback_data: 'admin_revenue' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
-          ]
-        }
-      });
+      try {
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔄 Refresh Revenue', callback_data: 'admin_revenue' }],
+              [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+            ]
+          }
+        });
+      } catch (editError) {
+        // If edit fails, send as new message
+        console.log('Could not edit message, sending new message instead');
+        await ctx.reply(message, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔄 Refresh Revenue', callback_data: 'admin_revenue' }],
+              [{ text: '🔙 Back to Admin', callback_data: 'back_to_admin' }]
+            ]
+          }
+        });
+      }
     } catch (error) {
       console.error('Error loading revenue:', error);
       await ctx.answerCbQuery('❌ Error loading revenue statistics');
-      await ctx.reply('❌ Error loading revenue statistics: ' + error.message);
+      try {
+        await ctx.reply('❌ Error loading revenue statistics: ' + error.message);
+      } catch (replyError) {
+        console.error('Error sending error message:', replyError);
+      }
     }
   });
 
