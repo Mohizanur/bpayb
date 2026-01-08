@@ -89,6 +89,9 @@ export const handleContactSharing = async (ctx) => {
       return;
     }
     
+    // Check if user exists first
+    const userDoc = await firestore.collection('users').doc(userId).get();
+    
     // Create user update data
     const updateData = {
       phoneNumber: formattedPhone,
@@ -124,20 +127,13 @@ export const handleContactSharing = async (ctx) => {
       /* Ignore if not a callback query */
     }
     
-    // Prepare success message
+    // Prepare success message - tell user to use /start command
     const successMessage = lang === 'am'
-      ? `🎉 **እንኳን ደስ አለዎት!**\n\n📱 የስልክ ቁጥርዎ በተሳካ ሁኔታ ተረጋግጧል: \`${formattedPhone}\`\n\n✅ አሁን የBirrPay አገልግሎቶችን መጠቀም ይችላሉ።\n\n🏠 ዋና ገጽን ለመመልከት ከታች ያለውን ቁልፍ ይጫኑ።`
-      : `🎉 **Welcome!**\n\n📱 Your phone number has been successfully verified: \`${formattedPhone}\`\n\n✅ You can now use BirrPay services.\n\n🏠 Click the button below to go to the main menu.`;
+      ? `🎉 **እንኳን ደስ አለዎት!**\n\n📱 የስልክ ቁጥርዎ በተሳካ ሁኔታ ተረጋግጧል: \`${formattedPhone}\`\n\n✅ አሁን የBirrPay አገልግሎቶችን መጠቀም ይችላሉ።\n\n🏠 ዋና ገጽን ለመመልከት **/start** ይጫኑ።`
+      : `🎉 **Welcome!**\n\n📱 Your phone number has been successfully verified: \`${formattedPhone}\`\n\n✅ You can now use BirrPay services.\n\n🏠 Press **/start** to go to the main menu.`;
     
-    // Import and use the main menu function
-    const { getMainMenuContent } = await import('../utils/menuContent.js');
-    const { keyboard } = getMainMenuContent(lang, true, false);
-    
-    // Send the success message with main menu
+    // Send the success message without buttons - user should use /start
     await ctx.reply(successMessage, {
-      reply_markup: { 
-        inline_keyboard: keyboard 
-      },
       parse_mode: 'Markdown'
     });
     
@@ -195,20 +191,13 @@ export const handleManualPhoneInput = async (ctx) => {
       // Invalidate cache to force refresh
       invalidateUserCache(userId);
       
-      // Prepare success message
+      // Prepare success message - tell user to use /start command
       const successMessage = lang === 'am'
-        ? `🎉 **እንኳን ደስ አለዎት!**\n\n📱 የስልክ ቁጥርዎ በተሳካ ሁኔታ ተረጋግጧል: \`${formattedPhone}\`\n\n✅ አሁን የBirrPay አገልግሎቶችን መጠቀም ይችላሉ።\n\n🏠 ዋና ገጽን ለመመልከት ከታች ያለውን ቁልፍ ይጫኑ።`
-        : `🎉 **Welcome!**\n\n📱 Your phone number has been successfully verified: \`${formattedPhone}\`\n\n✅ You can now use BirrPay services.\n\n🏠 Click the button below to go to the main menu.`;
+        ? `🎉 **እንኳን ደስ አለዎት!**\n\n📱 የስልክ ቁጥርዎ በተሳካ ሁኔታ ተረጋግጧል: \`${formattedPhone}\`\n\n✅ አሁን የBirrPay አገልግሎቶችን መጠቀም ይችላሉ።\n\n🏠 ዋና ገጽን ለመመልከት **/start** ይጫኑ።`
+        : `🎉 **Welcome!**\n\n📱 Your phone number has been successfully verified: \`${formattedPhone}\`\n\n✅ You can now use BirrPay services.\n\n🏠 Press **/start** to go to the main menu.`;
       
-      // Import and use the main menu function
-      const { getMainMenuContent } = await import('../utils/menuContent.js');
-      const { keyboard } = getMainMenuContent(lang, true, false);
-      
-      // Send the success message with main menu
+      // Send the success message without buttons - user should use /start
       await ctx.reply(successMessage, {
-        reply_markup: { 
-          inline_keyboard: keyboard 
-        },
         parse_mode: 'Markdown'
       });
     }
