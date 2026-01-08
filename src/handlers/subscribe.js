@@ -598,6 +598,7 @@ function setupSubscribeHandler(bot) {
       let service = null;
       let durationText = 'Custom Plan';
       let isCustom = isCustomPlan || false;
+      let durationValue = null; // Initialize outside the if block
       
       if (!isCustom) {
         // Get the service details
@@ -616,7 +617,7 @@ function setupSubscribeHandler(bot) {
 
         // Parse duration
         const durationType = duration.slice(-1);
-        const durationValue = parseInt(duration, 10);
+        durationValue = parseInt(duration, 10);
         const isConnectBased = durationType === 'c';
         
         if (isConnectBased) {
@@ -626,7 +627,7 @@ function setupSubscribeHandler(bot) {
         }
       }
 
-      const plan = !isCustom ? service.plans?.find(p => p.duration === durationValue) : null;
+      const plan = !isCustom && durationValue !== null ? service.plans?.find(p => p.duration === durationValue) : null;
       
       // Get payment methods (hardcoded to save quota - no DB read!)
         const { getPaymentMethods } = await import('../config/paymentMethods.js');
