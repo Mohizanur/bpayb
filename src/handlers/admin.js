@@ -2279,7 +2279,7 @@ Send a message to all active users of the bot.
       const amount = parsePrice(amountText);
 
       if (amount === null || amount <= 0) {
-        await ctx.reply('❌ Invalid amount. Please send a valid settled amount (e.g., "1500" or "ETB 1,500")');
+        await ctx.reply('❌ Invalid amount. Please send a valid settled amount (plain number, e.g., 1500 or 1,500 or ETB 1,500).');
         return;
       }
 
@@ -3168,12 +3168,12 @@ The user can now pay and upload proof.`, { parse_mode: 'Markdown' });
         timestamp: Date.now()
       };
 
-      await ctx.answerCbQuery('✅ Now send the settled amount (e.g., "1500")');
+      await ctx.answerCbQuery('✅ Now send the settled amount');
       await ctx.reply(
         `✅ Marking request as completed.\n\n` +
         `Request: ${request.customPlanDetails}\n` +
         `User: ${request.userFirstName || 'User'}\n\n` +
-        `Please send the settled amount (e.g., "1500" or "ETB 1,500").`
+        `Please send the settled amount (plain number, e.g., 1500 or 1,500 or ETB 1,500).`
       );
     } catch (error) {
       console.error('Error completing custom plan:', error);
