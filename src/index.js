@@ -328,12 +328,26 @@ async function startApp() {
       bot.use(smartPhoneVerificationMiddleware);
       console.log("✅ Smart phone verification middleware registered");
       
-      // 🚀 PHONE VERIFICATION CONTACT HANDLER - MUST BE BEFORE OTHER HANDLERS
-      // Register contact handler as middleware to ensure it runs FIRST
+      // 🚀 PHONE VERIFICATION CONTACT HANDLER - MUST BE FIRST BEFORE ALL HANDLERS
+      // Register contact handler as middleware to ensure it runs FIRST and stops propagation
       bot.use(async (ctx, next) => {
+        // AGGRESSIVE LOGGING - Log EVERYTHING to debug
+        console.log('📱 [MIDDLEWARE] ===== MIDDLEWARE RUNNING =====');
+        console.log('📱 [MIDDLEWARE] Update type:', ctx.updateType);
+        console.log('📱 [MIDDLEWARE] User ID:', ctx.from?.id);
+        
         // Log ALL messages to see what's happening
         if (ctx.message) {
           console.log('📱 [MIDDLEWARE] Message received:', ctx.message.message_id, 'Type:', ctx.message.contact ? 'CONTACT' : ctx.message.text ? 'TEXT' : 'OTHER');
+          if (ctx.message.contact) {
+            console.log('📱 [MIDDLEWARE] ⚠️⚠️⚠️ CONTACT DETECTED IN MIDDLEWARE! ⚠️⚠️⚠️');
+          }
+        }
+        
+        // Check if already processed (safety check)
+        if (ctx.contactProcessed) {
+          console.log('📱 [MIDDLEWARE] Contact already processed, skipping');
+          return; // Stop here
         }
         
         // Only process contact messages
@@ -341,25 +355,39 @@ async function startApp() {
           return next();
         }
         
-        console.log('📱 [MIDDLEWARE] ✅ CONTACT MESSAGE DETECTED! User:', ctx.from.id, 'Phone:', ctx.message.contact.phone_number);
+        console.log('📱 [MIDDLEWARE] ✅✅✅ CONTACT MESSAGE DETECTED! User:', ctx.from.id, 'Phone:', ctx.message.contact.phone_number);
         console.log('📱 [MIDDLEWARE] Routing to phone verification handler...');
         
         try {
           const { handleContactSharing } = await import('./handlers/phoneVerification.js');
           await handleContactSharing(ctx);
           console.log('📱 [MIDDLEWARE] ✅ Contact handler completed successfully, stopping propagation');
+          // Mark as processed
+          ctx.contactProcessed = true;
+          ctx.skipHandlers = true;
         } catch (error) {
           console.error('📱 [MIDDLEWARE] ❌ Error in contact handler:', error);
-          throw error; // Re-throw to prevent other handlers from running
+          // Mark even on error to prevent other handlers
+          ctx.contactProcessed = true;
+          ctx.skipHandlers = true;
+          // Don't re-throw - we already sent error message, just stop propagation
         }
         
         // Don't call next() - stop propagation so no other handlers process this
         return; // Explicitly return to stop propagation
       });
-      console.log("✅ Phone verification contact middleware registered");
+      console.log("✅ Phone verification contact middleware registered (FIRST PRIORITY)");
       
       try {
-        // Register admin handler first so /admin works and inline buttons are available
+        // Register subscribe handler FIRST - it needs to run before admin handler
+        setupSubscribeHandler(bot);
+        console.log("✅ Subscribe handler registered");
+      } catch (e) {
+        console.error("❌ Failed to register subscribe handler:", e.message);
+      }
+
+      try {
+        // Register admin handler second so /admin works and inline buttons are available
         adminHandler(bot);
         console.log("✅ Admin handler registered");
       } catch (e) {
