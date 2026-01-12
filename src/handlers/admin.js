@@ -2613,6 +2613,13 @@ Send a message to all active users of the bot.
         }
       }
 
+      // 4b. Check if admin is creating a new service
+      if (userId && global.serviceCreationState && global.serviceCreationState[userId]) {
+        console.log('✅ [ADMIN HANDLER] Admin is creating service, processing...');
+        await handleServiceCreationMessage(ctx, () => {});
+        return;
+      }
+
       // 5. Check if admin is editing payment method fields
       // Check both global.editingStates and ctx.session for payment method editing
       const editingState = global.editingStates?.get(userId?.toString());
