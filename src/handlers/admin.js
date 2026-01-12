@@ -2199,6 +2199,8 @@ Send a message to all active users of the bot.
     // Store broadcast state
     global.broadcastState = global.broadcastState || {};
     global.broadcastState[ctx.from.id] = { awaitingBroadcast: true };
+    console.log('✅ [BROADCAST] Broadcast state set for user:', ctx.from.id);
+    console.log('✅ [BROADCAST] Global broadcastState:', JSON.stringify(global.broadcastState));
 
     await ctx.answerCbQuery();
   });
@@ -2426,10 +2428,17 @@ Send a message to all active users of the bot.
 
       // 2. Check if admin is in broadcast state
       const userId = ctx.from?.id;
+      console.log('🔍 [ADMIN HANDLER] Checking broadcast state for user:', userId);
+      console.log('🔍 [ADMIN HANDLER] broadcastState:', global.broadcastState);
+      console.log('🔍 [ADMIN HANDLER] User broadcast state:', global.broadcastState?.[userId]);
+      
       if (userId && global.broadcastState && global.broadcastState[userId]?.awaitingBroadcast) {
+        console.log('✅ [ADMIN HANDLER] Admin is in broadcast mode, processing broadcast...');
         delete global.broadcastState[userId];
         await processBroadcast(ctx, ctx.message);
         return;
+      } else {
+        console.log('⚠️ [ADMIN HANDLER] Admin NOT in broadcast mode or state not found');
       }
 
       // 3. Check if admin is in any custom plan state
@@ -2774,6 +2783,11 @@ New ${fieldName.toLowerCase()}: ${messageText}
       return next();
     }
     console.log('🔍🔍🔍 [ADMIN MIDDLEWARE] Called for user:', ctx.from?.id, 'Text:', ctx.message?.text);
+    console.log('🔍 [ADMIN MIDDLEWARE] Broadcast state check:', {
+      hasBroadcastState: !!global.broadcastState,
+      userBroadcastState: global.broadcastState?.[ctx.from?.id],
+      awaitingBroadcast: global.broadcastState?.[ctx.from?.id]?.awaitingBroadcast
+    });
     console.log('🔍 [ADMIN MIDDLEWARE] Session:', ctx.session);
     console.log('🔍 [ADMIN MIDDLEWARE] Editing states:', global.editingStates?.get(String(ctx.from?.id)));
     
@@ -2782,6 +2796,7 @@ New ${fieldName.toLowerCase()}: ${messageText}
       await handleAdminTextMessage(ctx);
     } catch (error) {
       console.error('❌ Error in admin text handler:', error);
+      console.error('Error stack:', error.stack);
     }
     // Always call next() to continue the chain
     return next();
