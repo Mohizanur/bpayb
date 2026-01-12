@@ -2198,8 +2198,9 @@ Send a message to all active users of the bot.
 
     // Store broadcast state
     global.broadcastState = global.broadcastState || {};
-    global.broadcastState[ctx.from.id] = { awaitingBroadcast: true };
-    console.log('✅ [BROADCAST] Broadcast state set for user:', ctx.from.id);
+    const userId = String(ctx.from.id);
+    global.broadcastState[userId] = { awaitingBroadcast: true };
+    console.log('✅ [BROADCAST] Broadcast state set for user:', userId);
     console.log('✅ [BROADCAST] Global broadcastState:', JSON.stringify(global.broadcastState));
 
     await ctx.answerCbQuery();
@@ -2427,7 +2428,7 @@ Send a message to all active users of the bot.
       }
 
       // 2. Check if admin is in broadcast state
-      const userId = ctx.from?.id;
+      const userId = String(ctx.from?.id);
       console.log('🔍 [ADMIN HANDLER] Checking broadcast state for user:', userId);
       console.log('🔍 [ADMIN HANDLER] broadcastState:', global.broadcastState);
       console.log('🔍 [ADMIN HANDLER] User broadcast state:', global.broadcastState?.[userId]);
@@ -2760,7 +2761,7 @@ New ${fieldName.toLowerCase()}: ${messageText}
   // Handle broadcast messages for all media types
   const handleBroadcastMessage = async (ctx, next) => {
     try {
-      const userId = ctx.from?.id;
+      const userId = String(ctx.from?.id);
       if (userId && global.broadcastState && global.broadcastState[userId]?.awaitingBroadcast) {
         if (!(await isAuthorizedAdmin(ctx))) {
           delete global.broadcastState[userId];
