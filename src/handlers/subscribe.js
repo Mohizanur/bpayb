@@ -39,6 +39,13 @@ function setupSubscribeHandler(bot) {
         return next(); // Let admin handler process
       }
       
+      // CRITICAL: Skip if admin is in broadcast mode (let admin handler process broadcast)
+      if (global.broadcastState && global.broadcastState[userId]?.awaitingBroadcast) {
+        process.stderr.write(`⏭️ [SUBSCRIBE HANDLER] Admin in broadcast mode, skipping\n`);
+        console.log('⏭️ [SUBSCRIBE HANDLER] Admin in broadcast mode, skipping');
+        return next(); // Let admin handler process the broadcast
+      }
+      
       // Skip if admin is editing payment method (let admin handler process it)
       if (ctx.session?.awaitingPaymentMethodAccount || 
           ctx.session?.awaitingPaymentMethodAccountName || 
