@@ -2375,7 +2375,7 @@ Send a message to all active users of the bot.
   const handleAdminTextMessage = async (ctx) => {
     console.log('🔍🔍🔍 [ADMIN TEXT HANDLER] ENTRY - User:', ctx.from?.id, 'Text:', ctx.message?.text);
     
-    // Export function globally so subscribe handler can call it directly if needed
+    // Export function globally so subscribe handler can call it directly if needed (also exported below for immediate availability)
     global.handleAdminTextMessage = handleAdminTextMessage;
     
     // Skip if message was already handled by subscribe handler
@@ -2753,6 +2753,9 @@ New ${fieldName.toLowerCase()}: ${messageText}
       console.error('Error in admin text handler:', error);
     }
   };
+
+  // Export function globally immediately so subscribe handler can call it directly if needed
+  global.handleAdminTextMessage = handleAdminTextMessage;
 
   // Handle broadcast messages for all media types
   const handleBroadcastMessage = async (ctx, next) => {

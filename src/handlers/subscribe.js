@@ -43,6 +43,15 @@ function setupSubscribeHandler(bot) {
       if (global.broadcastState && global.broadcastState[userId]?.awaitingBroadcast) {
         process.stderr.write(`⏭️ [SUBSCRIBE HANDLER] Admin in broadcast mode, skipping\n`);
         console.log('⏭️ [SUBSCRIBE HANDLER] Admin in broadcast mode, skipping');
+        // Try to directly call admin handler function if available
+        if (global.handleAdminTextMessage) {
+          console.log('🔍 [SUBSCRIBE HANDLER] Calling admin handler directly for broadcast...');
+          try {
+            await global.handleAdminTextMessage(ctx);
+          } catch (error) {
+            console.error('❌ Error calling admin handler directly for broadcast:', error);
+          }
+        }
         return next(); // Let admin handler process the broadcast
       }
       
