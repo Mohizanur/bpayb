@@ -2614,7 +2614,8 @@ Send a message to all active users of the bot.
       }
 
       // 4b. Check if admin is creating a new service
-      if (userId && global.serviceCreationState && global.serviceCreationState[userId]) {
+      const serviceCreationUserId = String(userId);
+      if (userId && global.serviceCreationState && global.serviceCreationState[serviceCreationUserId]) {
         console.log('✅ [ADMIN HANDLER] Admin is creating service, processing...');
         await handleServiceCreationMessage(ctx, () => {});
         return;
@@ -5762,7 +5763,8 @@ ${subscriptionData.rejectedAt ? `• **Rejected:** ${subscriptionData.rejectedAt
         try {
       // Initialize service creation state
       global.serviceCreationState = global.serviceCreationState || {};
-      global.serviceCreationState[ctx.from.id] = {
+      const userId = String(ctx.from.id);
+      global.serviceCreationState[userId] = {
         step: 'service_name',
         serviceData: {}
       };
@@ -5789,7 +5791,7 @@ ${subscriptionData.rejectedAt ? `• **Rejected:** ${subscriptionData.rejectedAt
   // Handle service creation message flow
   const handleServiceCreationMessage = async (ctx, next) => {
     try {
-      const userId = ctx.from?.id;
+      const userId = String(ctx.from?.id);
       if (userId && global.serviceCreationState && global.serviceCreationState[userId]) {
         if (!(await isAuthorizedAdmin(ctx))) {
           delete global.serviceCreationState[userId];
@@ -5977,7 +5979,7 @@ Is this information correct?`;
     await ctx.answerCbQuery();
 
         try {
-      const userId = ctx.from.id;
+      const userId = String(ctx.from.id);
       const state = global.serviceCreationState[userId];
       
       if (state && state.step === 'logo_url') {
@@ -6016,7 +6018,7 @@ Is this information correct?`;
     await ctx.answerCbQuery();
 
         try {
-      const userId = ctx.from.id;
+      const userId = String(ctx.from.id);
       const state = global.serviceCreationState[userId];
       
       if (!state || !state.serviceData) {
@@ -6110,7 +6112,7 @@ ${serviceData.plans.map(plan => `• ${plan.billingCycle}: ETB ${formatPrice(pla
       await ctx.answerCbQuery('❌ Error saving service');
       
       // Clean up state on error
-      const userId = ctx.from.id;
+      const userId = String(ctx.from.id);
       delete global.serviceCreationState[userId];
     }
   });
@@ -6605,14 +6607,15 @@ Are you sure you want to delete this service?`;
       
       // Set up state for editing
       if (!global.serviceEditState) global.serviceEditState = {};
-      global.serviceEditState[ctx.from.id] = {
+      const editUserId = String(ctx.from.id);
+      global.serviceEditState[editUserId] = {
         serviceId,
         field: 'name',
         currentValue: serviceData.name
       };
       
-      console.log('🔍 Set serviceEditState for user:', ctx.from.id);
-      console.log('🔍 Edit state:', global.serviceEditState[ctx.from.id]);
+      console.log('🔍 Set serviceEditState for user:', editUserId);
+      console.log('🔍 Edit state:', global.serviceEditState[editUserId]);
 
       const message = `✏️ **Edit Service Name**
 
@@ -6660,7 +6663,8 @@ Please send the new name for this service:`;
       
       // Set up state for editing
       if (!global.serviceEditState) global.serviceEditState = {};
-      global.serviceEditState[ctx.from.id] = {
+      const editUserId = String(ctx.from.id);
+      global.serviceEditState[editUserId] = {
         serviceId,
         field: 'description',
         currentValue: serviceData.description || ''
@@ -6712,7 +6716,8 @@ Please send the new description for this service:`;
       
       // Set up state for editing
       if (!global.serviceEditState) global.serviceEditState = {};
-      global.serviceEditState[ctx.from.id] = {
+      const editUserId = String(ctx.from.id);
+      global.serviceEditState[editUserId] = {
         serviceId,
         field: 'plans',
         currentValue: serviceData.plans || []
@@ -6846,7 +6851,8 @@ ${newStatus === 'active' ? '✅ Service is now available for users' : '❌ Servi
 
       // Set edit state
       if (!global.serviceEditState) global.serviceEditState = {};
-      global.serviceEditState[ctx.from.id] = {
+      const editUserId = String(ctx.from.id);
+      global.serviceEditState[editUserId] = {
         serviceId,
         field: 'logo',
         currentValue: currentLogo

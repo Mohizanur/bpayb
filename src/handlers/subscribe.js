@@ -55,6 +55,22 @@ function setupSubscribeHandler(bot) {
         return next(); // Let admin handler process the broadcast
       }
       
+      // CRITICAL: Skip if admin is creating a service (let admin handler process it)
+      if (global.serviceCreationState && global.serviceCreationState[userId]) {
+        process.stderr.write(`⏭️ [SUBSCRIBE HANDLER] Admin creating service, skipping\n`);
+        console.log('⏭️ [SUBSCRIBE HANDLER] Admin creating service, skipping');
+        // Try to directly call admin handler function if available
+        if (global.handleAdminTextMessage) {
+          console.log('🔍 [SUBSCRIBE HANDLER] Calling admin handler directly for service creation...');
+          try {
+            await global.handleAdminTextMessage(ctx);
+          } catch (error) {
+            console.error('❌ Error calling admin handler directly for service creation:', error);
+          }
+        }
+        return next(); // Let admin handler process the service creation
+      }
+      
       // Skip if admin is editing payment method (let admin handler process it)
       if (ctx.session?.awaitingPaymentMethodAccount || 
           ctx.session?.awaitingPaymentMethodAccountName || 
